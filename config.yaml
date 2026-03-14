@@ -1,0 +1,72 @@
+presets:
+  kodak_gold_200:
+    mask_r: 210  # 片基红色通道参考值
+    mask_g: 150  # 片基绿色通道参考值
+    mask_b: 110  # 片基蓝色通道参考值
+    contrast: 1.1 # 对比度微调
+
+  fuji_c200:
+    mask_r: 190
+    mask_g: 160
+    mask_b: 130
+    contrast: 1.2
+
+  kodak_ultramax_400:
+    # 片基色罩参考值（基于典型扫描仪采样）
+    mask_r: 215  # 较深的橙红片基
+    mask_g: 145  # 绿色通道
+    mask_b: 95   # 蓝色通道（负片中蓝色通道最薄，所以数值最小）
+    # 图像增强参数
+    contrast: 1.15      # UltraMax 反差较大，适合稍高的对比度
+    saturation: 1.15    # 增加一点饱和度以体现其色彩鲜艳的特点
+    gamma: 0.45         # 针对负片转正后的明暗曲线修正
+
+  fujifilm_c400:
+    # 富士民用卷：色罩偏冷，肤色表现偏粉或青
+    mask_r: 185
+    mask_g: 155
+    mask_b: 140
+    gamma: 0.5
+    contrast: 1.15
+
+  # Kodak Vision3 50D (5203)：日光卷，颗粒极细，色罩相对较浅
+  vision3_50d_5203:
+    mask_r: 210
+    mask_g: 150
+    mask_b: 105
+    gamma: 0.55
+    contrast: 1.1
+
+  # Kodak Vision3 250D (5207)：最全能的电影卷，色彩平衡极佳
+  vision3_250d_5207:
+    mask_r: 215
+    mask_g: 140
+    mask_b: 90
+    gamma: 0.52
+    contrast: 1.1
+
+  # Kodak Vision3 200T (5213)：灯光卷，在日光下拍摄会严重偏蓝（需通过色罩抵消）
+  vision3_200t_5213:
+    mask_r: 220
+    mask_g: 160
+    mask_b: 80
+    gamma: 0.5
+    contrast: 1.2
+
+  # Kodak Vision3 500T (5219)：高感灯光卷，暗部细节丰富，色罩较厚
+  vision3_500t_5219:
+    mask_r: 230
+    mask_g: 155
+    mask_b: 85
+    gamma: 0.48
+    contrast: 1.25
+
+  # Agfa turia 100s
+  agfa_turia_100s_xx1:
+    # Agfa 的片基通常比 Kodak 浅，红色分量略低
+    mask_r: 195
+    mask_g: 140
+    mask_b: 105
+    # Agfa 胶片通常有不错的对比度，但暗部容易沉下去
+    gamma: 2.2
+    contrast: 1.2
