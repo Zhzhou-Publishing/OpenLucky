@@ -1,6 +1,6 @@
 ; --- Inno Setup 脚本 (修复版) ---
 #define MyAppName "OpenLucky"
-#define MyAppVersion "1.0"
+#define MyAppVersion "v1.0.0-pre"
 #define MyAppPublisher "Ares"
 #define MyAppExeName "openlucky.exe"
 
@@ -17,7 +17,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 OutputDir=.
-OutputBaseFilename=OpenLucky_System_Setup
+OutputBaseFilename=OpenLucky_{#MyAppVersion}_windows-x64_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
