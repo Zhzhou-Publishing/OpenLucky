@@ -1,4 +1,4 @@
-# Negative Film Processor
+# OpenLucky
 
 基于 OpenCV 的胶片负片转正处理工具，支持多种胶片预设去色罩。
 
