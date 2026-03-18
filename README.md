@@ -9,6 +9,7 @@
 - ⚙️ **可自定义配置** - 支持通过 YAML 配置文件创建和编辑自定义预设
 - 📊 **高精度处理** - 支持 16-bit TIFF 文件处理，保留更多细节
 - 🖼️ **图像增强** - 自动色阶、对比度、Gamma 修正
+- 📁 **批量处理** - 支持批量处理目录中的所有图片
 
 ## 安装
 
@@ -21,6 +22,21 @@
 
 ```powershell
 openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
+```
+
+### 批量处理负片
+
+批量处理目录中的所有图片：
+
+```powershell
+# 输出到 input/output 目录
+openlucky.exe filmbatch -i ./input
+
+# 指定输出目录
+openlucky.exe filmbatch -i ./input -o ./output
+
+# 使用自定义配置和预设
+openlucky.exe filmbatch -i ./input -o ./output -c config.yaml -p kodak_ultramax_400
 ```
 
 ### 转换 TIFF 到 JPEG
@@ -43,6 +59,19 @@ openlucky.exe tiff2jpeg -i input.tif -o output.jpg
 | `--output` | `-o` | ✅ | 输出文件保存路径 |
 | `--config` | `-c` | ✅ | 预设配置文件（YAML）路径 |
 | `--preset` | `-p` | ❌ | 使用的预设名称（默认：kodak_ultramax_400） |
+
+### openlucky.py filmbatch
+
+批量处理胶片负片
+
+| 参数 | 简写 | 必需 | 说明 |
+|------|------|------|------|
+| `--input` | `-i` | ✅ | 输入图片目录 |
+| `--output` | `-o` | ❌ | 输出图片目录（默认：输入目录下的 output 子目录） |
+| `--config` | `-c` | ❌ | 预设配置文件（YAML）路径（留空则自动查找） |
+| `--preset` | `-p` | ❌ | 使用的预设名称（默认：kodak_ultramax_400） |
+
+**支持的图片格式：** `.jpg`、`.jpeg`、`.png`、`.tif`、`.tiff`、`.bmp`
 
 ### openlucky.py tiff2jpeg
 
@@ -104,7 +133,11 @@ presets:
 使用自定义预设：
 
 ```powershell
+# 单张处理
 openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p my_custom_film
+
+# 批量处理
+openlucky.exe filmbatch -i ./input -o ./output -c config.yaml -p my_custom_film
 ```
 
 ## 技术原理
