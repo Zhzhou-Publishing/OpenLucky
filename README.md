@@ -12,24 +12,23 @@
 
 ## 安装
 
-```bash
-pip install -r requirements.txt
-```
+### Windows 安装程序
+下载安装包进行安装。
 
 ## 快速开始
 
 ### 处理负片
 
-```bash
-python cmd/openlucky.py film -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
+```powershell
+openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
 ```
 
 ### 转换 TIFF 到 JPEG
 
 如果需要先将 TIFF 文件转换为 JPEG：
 
-```bash
-python cmd/openlucky.py tiff2jpeg -i input.tif -o output.jpg
+```powershell
+openlucky.exe tiff2jpeg -i input.tif -o output.jpg
 ```
 
 ## 命令行参数
@@ -104,8 +103,8 @@ presets:
 
 使用自定义预设：
 
-```bash
-python cmd/openlucky.py film -i input.tif -o output.jpg -c config.yaml -p my_custom_film
+```powershell
+openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p my_custom_film
 ```
 
 ## 技术原理
