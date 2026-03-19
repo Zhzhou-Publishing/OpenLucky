@@ -40,6 +40,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 // Check if running in Electron environment
 let ipcRenderer = null
@@ -96,6 +99,12 @@ const selectDirectory = async () => {
       console.log('Files in directory:', result.files)
 
       isLoading.value = false
+
+      // Navigate to PhotoGallery page
+      router.push({
+        path: '/photo-gallery',
+        query: { path: result.path }
+      })
     })
 
     // Handle cancellation

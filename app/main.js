@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const fs = require('fs')
+const path = require('path')
 
 function createWindow () {
   // 创建浏览器窗口
@@ -44,6 +45,40 @@ function createWindow () {
     } catch (error) {
       console.error('Error selecting directory:', error)
       win.webContents.send('directory-error', error.message)
+    }
+  })
+
+  // Handle get-images request
+  ipcMain.on('get-images', async (event, directoryPath) => {
+    try {
+      // Supported image extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+
+      // Read files in the directory
+      const files = fs.readdirSync(directoryPath)
+
+      // Filter for image files only
+      const imageFiles = files.filter(file => {
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return imageExtensions.includes(ext) && fs.statSync(path.join(directoryPath, file)).isFile()
+      })
+
+      // Create image objects with URLs
+      const images = imageFiles.map(file => {
+        const fullPath = path.join(directoryPath, file)
+        return {
+          name: file,
+          path: fullPath,
+          url: `file://${fullPath}`
+        }
+      })
+
+      win.webContents.send('images-loaded', {
+        images: images
+      })
+    } catch (error) {
+      console.error('Error loading images:', error)
+      win.webContents.send('images-error', error.message)
     }
   })
 }
