@@ -1,5 +1,5 @@
 <template>
-  <div class="feature-card">
+  <div class="feature-card" @click="$emit('click')">
     <div class="icon">{{ icon }}</div>
     <h3>{{ title }}</h3>
     <p>{{ description }}</p>
@@ -21,6 +21,8 @@ defineProps({
     required: true
   }
 })
+
+defineEmits(['click'])
 </script>
 
 <style scoped>

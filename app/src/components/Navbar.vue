@@ -21,7 +21,6 @@
 <script setup>
 const routes = [
   { path: '/', name: 'Home' },
-  { path: '/photo-directory', name: 'Photos' },
   { path: '/about', name: 'About' }
 ]
 </script>

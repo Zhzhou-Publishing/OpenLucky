@@ -14,6 +14,7 @@
           :title="feature.title"
           :description="feature.description"
           :icon="feature.icon"
+          @click="handleFeatureClick(feature)"
         />
       </div>
     </main>
@@ -22,14 +23,18 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import FeatureCard from '../components/FeatureCard.vue'
+
+const router = useRouter()
 
 const features = ref([
   {
     id: 1,
     title: 'Film Processing',
     description: 'Process and manage your negative film batches efficiently',
-    icon: '🎞️'
+    icon: '🎞️',
+    route: '/photo-directory'
   },
   {
     id: 2,
@@ -50,6 +55,12 @@ const features = ref([
     icon: '📊'
   }
 ])
+
+const handleFeatureClick = (feature) => {
+  if (feature.route) {
+    router.push(feature.route)
+  }
+}
 </script>
 
 <style scoped>
