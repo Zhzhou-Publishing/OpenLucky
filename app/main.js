@@ -49,6 +49,14 @@ function createWindow () {
     }
   })
 
+  // Handle set window resizable
+  ipcMain.on('set-window-resizable', (_, resizable) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      win.setResizable(resizable)
+    }
+  })
+
   // Handle get-images request
   ipcMain.on('get-images', async (event, directoryPath) => {
     try {

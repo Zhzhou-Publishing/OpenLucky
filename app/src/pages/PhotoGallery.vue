@@ -35,14 +35,18 @@
     </div>
 
     <!-- Bottom Menu Bar -->
-    <div class="bottom-menu">
+    <div v-if="!isLoading && images.length > 0" class="bottom-menu">
       <div class="menu-item">
         <label class="menu-label">Preset:</label>
-        <select v-model="selectedPreset" class="preset-select">
+        <select v-model="selectedPreset" class="preset-select" :disabled="isLoading || isApplyingPreset">
           <option v-for="preset in presets" :key="preset.value" :value="preset.value">
             {{ preset.label }}
           </option>
         </select>
+        <button @click="applyPreset" class="apply-button" :disabled="isLoading || isApplyingPreset">
+          {{ applyButtonText }}
+          <span v-if="hasUnappliedChanges" class="red-dot"></span>
+        </button>
       </div>
     </div>
 
@@ -58,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -68,6 +72,12 @@ const images = ref([])
 const isLoading = ref(true)
 const selectedImage = ref(null)
 const selectedPreset = ref('lucky_c200_2025')
+const hasUnappliedChanges = ref(true)
+const isApplyingPreset = ref(false)
+
+const applyButtonText = computed(() => {
+  return isApplyingPreset.value ? 'Applying...' : 'Apply'
+})
 
 const presets = [
   { value: 'lucky_c200_2025', label: 'Lucky C200 (2025)' },
@@ -99,6 +109,27 @@ const openImage = (image) => {
 const closeModal = () => {
   selectedImage.value = null
 }
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+const applyPreset = async () => {
+  try {
+    isApplyingPreset.value = true
+    hasUnappliedChanges.value = false
+    // Simulate async operation
+    await sleep(3000)
+    // TODO: Implement actual preset application logic
+    console.log('Applied preset:', selectedPreset.value)
+  } catch (error) {
+    console.error('Error applying preset:', error)
+  } finally {
+    isApplyingPreset.value = false
+  }
+}
+
+watch(selectedPreset, () => {
+  hasUnappliedChanges.value = true
+})
 
 const loadImages = async () => {
   try {
@@ -138,6 +169,19 @@ const loadImages = async () => {
 
 onMounted(() => {
   loadImages()
+  // Make window resizable when entering photo gallery
+  if (window.require) {
+    const ipcRenderer = window.require('electron').ipcRenderer
+    ipcRenderer.send('set-window-resizable', true)
+  }
+})
+
+onUnmounted(() => {
+  // Make window non-resizable when leaving photo gallery
+  if (window.require) {
+    const ipcRenderer = window.require('electron').ipcRenderer
+    ipcRenderer.send('set-window-resizable', false)
+  }
 })
 </script>
 
@@ -371,6 +415,18 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   z-index: 100;
+  animation: slideUp 1s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .menu-item {
@@ -405,5 +461,45 @@ onMounted(() => {
   outline: none;
   border-color: #42b883;
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
+}
+
+.preset-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.apply-button {
+  padding: 8px 16px;
+  background: #42b883;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+  position: relative;
+  margin-left: 10px;
+  min-width: 120px;
+}
+
+.apply-button:hover:not(:disabled) {
+  background: #35a372;
+}
+
+.apply-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.red-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  background: #ff4444;
+  border-radius: 50%;
+  border: 2px solid white;
 }
 </style>
