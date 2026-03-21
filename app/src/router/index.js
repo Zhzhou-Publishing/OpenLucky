@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Home from '../pages/Home.vue'
 import About from '../pages/About.vue'
 import PhotoDirectory from '../pages/PhotoDirectory.vue'
 import PhotoGallery from '../pages/PhotoGallery.vue'
@@ -7,8 +6,8 @@ import PhotoGallery from '../pages/PhotoGallery.vue'
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home
+    name: 'PhotoDirectory',
+    component: PhotoDirectory
   },
   {
     path: '/photo-directory',
