@@ -21,12 +21,7 @@
     </div>
 
     <div v-else class="gallery-grid">
-      <div
-        v-for="(image, index) in images"
-        :key="index"
-        class="image-item"
-        @contextmenu.prevent="openImage(image)"
-      >
+      <div v-for="(image, index) in images" :key="index" class="image-item" @contextmenu.prevent="openImage(image)">
         <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
         <div class="image-info">
           <p class="image-name">{{ image.name }}</p>
@@ -74,6 +69,8 @@ const selectedImage = ref(null)
 const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
+const previewingDirectory = ref('')
+const workingDirectory = ref('')
 
 const applyButtonText = computed(() => {
   return isApplyingPreset.value ? 'Applying...' : 'Apply'
@@ -110,19 +107,67 @@ const closeModal = () => {
   selectedImage.value = null
 }
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
 const applyPreset = async () => {
   try {
     isApplyingPreset.value = true
     hasUnappliedChanges.value = false
-    // Simulate async operation
-    await sleep(3000)
-    // TODO: Implement actual preset application logic
-    console.log('Applied preset:', selectedPreset.value)
+
+    // Check if running in Electron
+    if (window.require) {
+      const ipcRenderer = window.require('electron').ipcRenderer
+
+      // Remove existing listeners to avoid duplicates
+      ipcRenderer.removeAllListeners('preset-apply-started')
+      ipcRenderer.removeAllListeners('preset-apply-progress')
+      ipcRenderer.removeAllListeners('preset-apply-success')
+      ipcRenderer.removeAllListeners('preset-apply-error')
+
+      // Listen for apply started
+      ipcRenderer.once('preset-apply-started', (_, result) => {
+        console.log('Preset apply started:', result.message)
+      })
+
+      // Listen for progress updates
+      ipcRenderer.on('preset-apply-progress', (_, result) => {
+        console.log('Progress:', result.data)
+      })
+
+      // Listen for success
+      ipcRenderer.once('preset-apply-success', async (_, result) => {
+        console.log('Preset applied successfully:', result.message)
+        isApplyingPreset.value = false
+
+        // Wait a moment for the output directory to be created
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // Update previewingDirectory to output subdirectory and refresh
+        const path = window.require('path')
+        const outputPath = path.join(directoryPath.value, 'output')
+        previewingDirectory.value = outputPath
+        loadImages()
+      })
+
+      // Listen for errors
+      ipcRenderer.once('preset-apply-error', (_, result) => {
+        console.error('Error applying preset:', result.message)
+        if (result.error) {
+          console.error('Error details:', result.error)
+        }
+        isApplyingPreset.value = false
+      })
+
+      // Send request to main process
+      ipcRenderer.send('apply-preset', {
+        directoryPath: workingDirectory.value,
+        preset: selectedPreset.value
+      })
+    } else {
+      // Fallback for non-Electron environment
+      console.warn('Not running in Electron, cannot apply preset')
+      isApplyingPreset.value = false
+    }
   } catch (error) {
     console.error('Error applying preset:', error)
-  } finally {
     isApplyingPreset.value = false
   }
 }
@@ -134,8 +179,7 @@ watch(selectedPreset, () => {
 const loadImages = async () => {
   try {
     isLoading.value = true
-
-    if (!directoryPath.value) {
+    if (!previewingDirectory.value) {
       router.push('/photo-directory')
       return
     }
@@ -145,7 +189,7 @@ const loadImages = async () => {
       const ipcRenderer = window.require('electron').ipcRenderer
 
       // Request images from main process
-      ipcRenderer.send('get-images', directoryPath.value)
+      ipcRenderer.send('get-images', previewingDirectory.value)
 
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
@@ -168,6 +212,8 @@ const loadImages = async () => {
 }
 
 onMounted(() => {
+  previewingDirectory.value = directoryPath.value
+  workingDirectory.value = directoryPath.value
   loadImages()
   // Make window resizable when entering photo gallery
   if (window.require) {
@@ -279,8 +325,13 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-state {
@@ -364,8 +415,13 @@ onUnmounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
@@ -423,6 +479,7 @@ onUnmounted(() => {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;

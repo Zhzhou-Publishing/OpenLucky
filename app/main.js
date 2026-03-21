@@ -2,8 +2,9 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
+const { spawn } = require('child_process')
 
-function createWindow () {
+function createWindow() {
   // 创建浏览器窗口
   const win = new BrowserWindow({
     width: 800,
@@ -79,12 +80,15 @@ function createWindow () {
         fs.mkdirSync(tempDir, { recursive: true })
       }
 
+      // Add timestamp to bypass caching
+      const timestamp = Date.now()
+
       // Create image objects with URLs
       const images = await Promise.all(imageFiles.map(async (file) => {
         const fullPath = path.join(directoryPath, file)
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
 
-        let imageUrl = `file://${fullPath}`
+        let imageUrl = `file://${fullPath}?t=${timestamp}`
 
         // Generate thumbnail for tif/tiff files
         if (tiffFormats.includes(ext)) {
@@ -94,7 +98,7 @@ function createWindow () {
               .resize(300, 200, { fit: 'cover' })
               .jpeg({ quality: 80 })
               .toFile(thumbnailPath)
-            imageUrl = `file://${thumbnailPath}`
+            imageUrl = `file://${thumbnailPath}?t=${timestamp}`
           } catch (err) {
             console.error('Error generating thumbnail for', file, err)
           }
@@ -113,6 +117,51 @@ function createWindow () {
     } catch (error) {
       console.error('Error loading images:', error)
       win.webContents.send('images-error', error.message)
+    }
+  })
+
+  // Handle apply-preset request
+  ipcMain.on('apply-preset', async (event, { directoryPath, preset }) => {
+    try {
+      // Construct the command
+      const command = 'openlucky'
+      const args = ['filmbatch', '--input', directoryPath, '--preset', preset]
+
+      event.sender.send('preset-apply-started', { message: 'Processing started' })
+
+      // Spawn the process
+      const process = spawn(command, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+        // Send progress updates to renderer
+        event.sender.send('preset-apply-progress', { data: data.toString() })
+      })
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          event.sender.send('preset-apply-success', { message: 'Preset applied successfully' })
+        } else {
+          event.sender.send('preset-apply-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('preset-apply-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error applying preset:', error)
+      event.sender.send('preset-apply-error', { message: 'Error applying preset', error: error.message })
     }
   })
 }
