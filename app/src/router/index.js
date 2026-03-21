@@ -6,7 +6,7 @@ import PhotoGallery from '../pages/PhotoGallery.vue'
 const routes = [
   {
     path: '/',
-    name: 'PhotoDirectory',
+    name: 'Home',
     component: PhotoDirectory
   },
   {
