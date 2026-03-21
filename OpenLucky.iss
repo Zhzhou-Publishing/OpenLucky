@@ -27,6 +27,14 @@ WizardStyle=modern
 Source: "bin\*.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 ; 5. 释放 config.yaml 到用户主目录下的 .openlucky (读取当前登录用户的 Profile)
 Source: "config.yaml"; DestDir: "{%USERPROFILE}\.openlucky"; Flags: ignoreversion
+; 6. 释放 Electron 桌面应用的所有文件
+Source: "app\dist-electron\win-unpacked\*"; DestDir: "{app}\electron"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+; 创建桌面快捷方式
+Name: "{userdesktop}\OpenLucky"; Filename: "{app}\electron\OpenLucky.exe"; IconFilename: "{app}\electron\OpenLucky.exe"
+; 创建开始菜单快捷方式
+Name: "{group}\OpenLucky"; Filename: "{app}\electron\OpenLucky.exe"; IconFilename: "{app}\electron\OpenLucky.exe"
 
 [Registry]
 ; 4. 系统级 PATH 变量
