@@ -51,7 +51,7 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build-resources/OpenLuckyIcon.ico"
     },
     "nsis": {
       "oneClick": false,
