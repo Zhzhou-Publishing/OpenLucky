@@ -1,18 +1,21 @@
 <template>
-  <div class="number-input">
-    <input
-      ref="inputRef"
-      v-model="inputValue"
-      type="number"
-      :min="min"
-      :max="max"
-      @input="onInput"
-      @blur="onBlur"
-      class="number-field"
-    />
-    <div class="buttons">
-      <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max">▲</button>
-      <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min">▼</button>
+  <div class="number-input-wrapper">
+    <label v-if="label" class="number-label">{{ label }}</label>
+    <div class="number-input">
+      <input
+        ref="inputRef"
+        v-model="inputValue"
+        type="number"
+        :min="min"
+        :max="max"
+        @input="onInput"
+        @blur="onBlur"
+        class="number-field"
+      />
+      <div class="buttons">
+        <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max">▲</button>
+        <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min">▼</button>
+      </div>
     </div>
   </div>
 </template>
@@ -21,6 +24,10 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
+  label: {
+    type: String,
+    default: ''
+  },
   modelValue: {
     type: Number,
     default: 0
@@ -107,10 +114,6 @@ function handleKeydown(event) {
   if (event.altKey) modifiers.push('alt')
   if (event.metaKey) modifiers.push('meta')
 
-  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-    return
-  }
-
   modifiers.push(key)
   const shortcut = modifiers.join('+')
 
@@ -119,18 +122,28 @@ function handleKeydown(event) {
   const largeStepIncreaseKey = props.largeStepIncreaseKey.toLowerCase()
   const largeStepDecreaseKey = props.largeStepDecreaseKey.toLowerCase()
 
-  if (shortcut === increaseKey) {
+  // Check if this is one of our configured shortcuts
+  const isOurShortcut = shortcut === increaseKey ||
+                     shortcut === decreaseKey ||
+                     shortcut === largeStepIncreaseKey ||
+                     shortcut === largeStepDecreaseKey
+
+  // If it's not our shortcut and the target is an input/textarea, don't process
+  if (!isOurShortcut && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA')) {
+    return
+  }
+
+  if (isOurShortcut) {
     event.preventDefault()
-    increment(1)
-  } else if (shortcut === decreaseKey) {
-    event.preventDefault()
-    decrement(1)
-  } else if (shortcut === largeStepIncreaseKey) {
-    event.preventDefault()
-    increment(props.largeStepValue)
-  } else if (shortcut === largeStepDecreaseKey) {
-    event.preventDefault()
-    decrement(props.largeStepValue)
+    if (shortcut === increaseKey) {
+      increment(1)
+    } else if (shortcut === decreaseKey) {
+      decrement(1)
+    } else if (shortcut === largeStepIncreaseKey) {
+      increment(props.largeStepValue)
+    } else if (shortcut === largeStepDecreaseKey) {
+      decrement(props.largeStepValue)
+    }
   }
 }
 
@@ -144,6 +157,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.number-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.number-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
 .number-input {
   display: flex;
   align-items: stretch;

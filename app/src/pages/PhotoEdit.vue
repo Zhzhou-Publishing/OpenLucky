@@ -23,10 +23,20 @@
         <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
       </div>
 
+      <!-- Operation Area -->
+      <div class="operation-area">
+        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="q" decrease-key="a" />
+        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="w" decrease-key="s" />
+        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="e" decrease-key="d" />
+        <NumberInput label="Gamma" v-model="input4" :max="255" :min="0" increase-key="r" decrease-key="f" />
+        <NumberInput label="Contrast" v-model="input5" :max="255" :min="0" increase-key="t" decrease-key="g" />
+      </div>
+
       <!-- Thumbnail Navigation -->
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
-          <div v-for="(image, index) in images" :key="index" class="thumbnail-item" :class="{ active: index === currentIndex }" @click="selectImage(index)">
+          <div v-for="(image, index) in images" :key="index" class="thumbnail-item"
+            :class="{ active: index === currentIndex }" @click="selectImage(index)">
             <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
           </div>
         </div>
@@ -41,6 +51,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import NumberInput from '../components/NumberInput.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -49,6 +60,12 @@ const images = ref([])
 const isLoading = ref(true)
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
+const input1 = ref(0)
+const input2 = ref(0)
+const input3 = ref(0)
+const input4 = ref(0)
+const input5 = ref(0)
+const input6 = ref(0)
 
 const previewingDirectory = computed(() => route.query.previewingDirectory || '')
 const workingDirectory = computed(() => route.query.workingDirectory || '')
@@ -86,6 +103,16 @@ const goBack = () => {
 
 const selectImage = (index) => {
   currentIndex.value = index
+}
+
+const apply = () => {
+  console.log('Apply changes to current image')
+  // TODO: Implement apply logic
+}
+
+const applyAll = () => {
+  console.log('Apply changes to all images')
+  // TODO: Implement applyAll logic
 }
 
 const loadFullResImage = async () => {
@@ -141,11 +168,27 @@ const previousImage = () => {
 }
 
 function handleKeydown(event) {
-  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+  // Check if this is one of our navigation shortcuts
+  const isNavigationShortcut = event.key === 'ArrowRight' ||
+                            event.key === 'ArrowLeft' ||
+                            event.key === '[' ||
+                            event.key === ']' ||
+                            event.key === 'Enter'
+
+  // If it's not a navigation shortcut and the target is an input/textarea, don't process
+  if (!isNavigationShortcut && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA')) {
     return
   }
 
   switch (event.key) {
+    case 'Enter':
+      event.preventDefault()
+      if (event.ctrlKey) {
+        applyAll()
+      } else {
+        apply()
+      }
+      break
     case 'ArrowRight':
     case ']':
       event.preventDefault()
@@ -356,6 +399,16 @@ onUnmounted(() => {
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.operation-area {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
 .thumbnails-container {
