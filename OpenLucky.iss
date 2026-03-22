@@ -1,6 +1,6 @@
 ; --- Inno Setup 脚本 (修复版) ---
 #define MyAppName "OpenLucky"
-#define MyAppVersion "v1.1.0-pre2"
+#define MyAppVersion "v1.2.0-rc1"
 #define MyAppPublisher "Ares"
 #define MyAppExeName "openlucky.exe"
 
