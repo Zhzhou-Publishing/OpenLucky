@@ -277,6 +277,26 @@ function createWindow() {
     }
   })
 
+  // Handle read-preset-json request
+  ipcMain.on('read-preset-json', async (event, directoryPath) => {
+    try {
+      const presetsFile = path.join(directoryPath, '.preset.json')
+      let presets = {}
+      if (fs.existsSync(presetsFile)) {
+        try {
+          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
+          presets = JSON.parse(presetsContent)
+        } catch (err) {
+          console.error('Error reading .preset.json:', err)
+        }
+      }
+      event.sender.send('preset-json-loaded', { presets })
+    } catch (error) {
+      console.error('Error reading preset json:', error)
+      event.sender.send('preset-json-error', { error: error.message })
+    }
+  })
+
   // Handle apply-preset request
   ipcMain.on('apply-preset', async (event, { directoryPath, preset }) => {
     try {

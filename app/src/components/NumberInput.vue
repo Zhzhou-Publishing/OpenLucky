@@ -102,8 +102,10 @@ watch(inputValue, (newValue) => {
 function onInput(event) {
   let value = event.target.value
   if (value !== '' && value !== null && value !== undefined) {
-    value = Math.max(props.min, Math.min(props.max, parseInt(value)))
-    inputValue.value = value
+    const numValue = parseFloat(value)
+    if (!isNaN(numValue)) {
+      inputValue.value = Math.max(props.min, Math.min(props.max, numValue))
+    }
   }
 }
 
@@ -111,19 +113,22 @@ function onBlur() {
   if (inputValue.value === '' || inputValue.value === null || inputValue.value === undefined) {
     inputValue.value = props.min
   } else {
-    inputValue.value = Math.max(props.min, Math.min(props.max, parseInt(inputValue.value)))
+    const numValue = parseFloat(inputValue.value)
+    if (!isNaN(numValue)) {
+      inputValue.value = Math.max(props.min, Math.min(props.max, numValue))
+    }
   }
 }
 
 function increment(step) {
   const newValue = Math.min(props.max, inputValue.value + step)
-  inputValue.value = newValue
+  inputValue.value = parseFloat(newValue.toFixed(10))
   inputRef.value?.focus()
 }
 
 function decrement(step) {
   const newValue = Math.max(props.min, inputValue.value - step)
-  inputValue.value = newValue
+  inputValue.value = parseFloat(newValue.toFixed(10))
   inputRef.value?.focus()
 }
 
@@ -208,14 +213,8 @@ onUnmounted(() => {
   outline: none;
   font-size: 14px;
   text-align: center;
-  -moz-appearance: textfield;
 }
 
-.number-field::-webkit-outer-spin-button,
-.number-field::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
 
 .buttons {
   display: flex;

@@ -28,8 +28,10 @@
         <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="q" decrease-key="a" />
         <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="w" decrease-key="s" />
         <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="e" decrease-key="d" />
-        <NumberInput label="Gamma" v-model="input4" :max="255" :min="0" increase-key="r" decrease-key="f" />
-        <NumberInput label="Contrast" v-model="input5" :max="255" :min="0" increase-key="t" decrease-key="g" />
+        <NumberInput label="Gamma" v-model="input4" :max="3" :min="0.1" increase-key="r" decrease-key="f"
+          :large-step-value="0.1" large-step-increase-key="R" large-step-decrease-key="F" />
+        <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="t" decrease-key="g"
+          :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G" />
       </div>
 
       <!-- Thumbnail Navigation -->
@@ -65,6 +67,7 @@ const input2 = ref(0)
 const input3 = ref(0)
 const input4 = ref(0)
 const input5 = ref(0)
+const presetsData = ref({})
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const filename = computed(() => route.query.filename || '')
@@ -167,10 +170,10 @@ const previousImage = () => {
 function handleKeydown(event) {
   // Check if this is one of our navigation shortcuts
   const isNavigationShortcut = event.key === 'ArrowRight' ||
-                            event.key === 'ArrowLeft' ||
-                            event.key === '[' ||
-                            event.key === ']' ||
-                            event.key === 'Enter'
+    event.key === 'ArrowLeft' ||
+    event.key === '[' ||
+    event.key === ']' ||
+    event.key === 'Enter'
 
   // If it's not a navigation shortcut and the target is an input/textarea, don't process
   if (!isNavigationShortcut && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA')) {
@@ -238,18 +241,66 @@ const loadImages = async () => {
   }
 }
 
+const loadPresets = async () => {
+  try {
+    if (!workingDirectory.value || !window.require) {
+      return
+    }
+
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    ipcRenderer.send('read-preset-json', workingDirectory.value)
+
+    ipcRenderer.once('preset-json-loaded', (_, result) => {
+      presetsData.value = result.presets
+      loadPresetForCurrentImage()
+    })
+
+    ipcRenderer.once('preset-json-error', (_, error) => {
+      console.error('Error loading preset json:', error)
+    })
+  } catch (error) {
+    console.error('Error loading preset json:', error)
+  }
+}
+
+const loadPresetForCurrentImage = () => {
+  if (!currentFileName.value || !presetsData.value) {
+    return
+  }
+
+  const preset = presetsData.value[currentFileName.value]
+  if (preset) {
+    input1.value = preset.mask_r || 0
+    input2.value = preset.mask_g || 0
+    input3.value = preset.mask_b || 0
+    input4.value = preset.gamma || 0
+    input5.value = preset.contrast || 0
+  } else {
+    // Reset to default if no preset found
+    input1.value = 0
+    input2.value = 0
+    input3.value = 0
+    input4.value = 0
+    input5.value = 0
+  }
+}
+
 watch(currentIndex, () => {
   loadFullResImage()
+  loadPresetForCurrentImage()
 })
 
 watch(images, () => {
   if (images.value.length > 0) {
     loadFullResImage()
+    loadPresetForCurrentImage()
   }
 })
 
 onMounted(() => {
   loadImages()
+  loadPresets()
   window.addEventListener('keydown', handleKeydown)
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
