@@ -213,6 +213,15 @@ onUnmounted(() => {
   outline: none;
   font-size: 14px;
   text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.number-field::-webkit-inner-spin-button,
+.number-field::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 
