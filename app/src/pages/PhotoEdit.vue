@@ -34,12 +34,18 @@
           :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G" />
       </div>
 
+      <!-- Processing Overlay -->
+      <div v-if="isProcessing" class="processing-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+      </div>
+
       <!-- Thumbnail Navigation -->
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
           <div v-for="(image, index) in images" :key="index" class="thumbnail-item"
             :class="{ active: index === currentIndex }" @click="selectImage(index)">
-            <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
+            <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
           </div>
         </div>
       </div>
@@ -60,6 +66,7 @@ const route = useRoute()
 
 const images = ref([])
 const isLoading = ref(true)
+const isProcessing = ref(false)
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
 const input1 = ref(0)
@@ -68,6 +75,7 @@ const input3 = ref(0)
 const input4 = ref(0)
 const input5 = ref(0)
 const presetsData = ref({})
+const imageTimestamp = ref(Date.now())
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const filename = computed(() => route.query.filename || '')
@@ -105,14 +113,131 @@ const selectImage = (index) => {
   currentIndex.value = index
 }
 
+const getUrlWithTimestamp = (url) => {
+  return url + '?t=' + imageTimestamp.value
+}
+
 const apply = () => {
-  console.log('Apply changes to current image')
-  // TODO: Implement apply logic
+  if (!currentImage.value || !workingDirectory.value) {
+    console.error('No current image or working directory')
+    return
+  }
+
+  if (!window.require) {
+    console.error('Not running in Electron')
+    return
+  }
+
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
+    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
+
+    // Set processing state
+    isProcessing.value = true
+
+    // Remove existing listeners to avoid duplicates
+    ipcRenderer.removeAllListeners('filmparam-apply-started')
+    ipcRenderer.removeAllListeners('filmparam-apply-progress')
+    ipcRenderer.removeAllListeners('filmparam-apply-success')
+    ipcRenderer.removeAllListeners('filmparam-apply-error')
+
+    // Send request to main process
+    ipcRenderer.send('apply-filmparam', {
+      directoryPath: workingDirectory.value,
+      filename: currentImage.value.name,
+      params: params
+    })
+
+    // Handle response
+    ipcRenderer.once('filmparam-apply-started', (_, result) => {
+      console.log(result.message)
+    })
+
+    ipcRenderer.once('filmparam-apply-progress', (_, result) => {
+      console.log(result.data)
+    })
+
+    ipcRenderer.once('filmparam-apply-success', (_, result) => {
+      console.log(result.message, result.outputPath)
+      // Reset processing state
+      isProcessing.value = false
+      // Reload images to show updated output
+      loadImages()
+    })
+
+    ipcRenderer.once('filmparam-apply-error', (_, error) => {
+      console.error('Error applying film parameters:', error)
+      // Reset processing state
+      isProcessing.value = false
+    })
+  } catch (error) {
+    console.error('Error applying film parameters:', error)
+    // Reset processing state
+    isProcessing.value = false
+  }
 }
 
 const applyAll = () => {
-  console.log('Apply changes to all images')
-  // TODO: Implement applyAll logic
+  if (!workingDirectory.value) {
+    console.error('No working directory')
+    return
+  }
+
+  if (!window.require) {
+    console.error('Not running in Electron')
+    return
+  }
+
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
+    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
+
+    // Set processing state
+    isProcessing.value = true
+
+    // Remove existing listeners to avoid duplicates
+    ipcRenderer.removeAllListeners('filmparambatch-apply-started')
+    ipcRenderer.removeAllListeners('filmparambatch-apply-progress')
+    ipcRenderer.removeAllListeners('filmparambatch-apply-success')
+    ipcRenderer.removeAllListeners('filmparambatch-apply-error')
+
+    // Send request to main process
+    ipcRenderer.send('apply-filmparambatch', {
+      directoryPath: workingDirectory.value,
+      params: params
+    })
+
+    // Handle response
+    ipcRenderer.once('filmparambatch-apply-started', (_, result) => {
+      console.log(result.message)
+    })
+
+    ipcRenderer.once('filmparambatch-apply-progress', (_, result) => {
+      console.log(result.data)
+    })
+
+    ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
+      console.log(result.message)
+      // Reset processing state
+      isProcessing.value = false
+      // Reload images to show updated output
+      loadImages()
+    })
+
+    ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
+      console.error('Error applying film parameters to all images:', error)
+      // Reset processing state
+      isProcessing.value = false
+    })
+  } catch (error) {
+    console.error('Error applying film parameters to all images:', error)
+    // Reset processing state
+    isProcessing.value = false
+  }
 }
 
 const loadFullResImage = async () => {
@@ -135,19 +260,19 @@ const loadFullResImage = async () => {
       })
 
       ipcRenderer.once('full-res-image-loaded', (_, result) => {
-        fullResImageUrl.value = result.url
+        fullResImageUrl.value = result.url + '?t=' + Date.now()
       })
 
       ipcRenderer.once('full-res-image-error', (_, error) => {
         console.error('Error loading full resolution image:', error)
-        fullResImageUrl.value = currentImage.value.url
+        fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
       })
     } catch (error) {
       console.error('Error loading full resolution image:', error)
       fullResImageUrl.value = currentImage.value.url
     }
   } else {
-    fullResImageUrl.value = currentImage.value.url
+    fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
   }
 }
 
@@ -206,6 +331,7 @@ const loadImages = async () => {
   try {
     isLoading.value = true
     fullResImageUrl.value = ''
+    imageTimestamp.value = Date.now()
     if (!workingDirectory.value) {
       goBack()
       return
@@ -507,5 +633,25 @@ onUnmounted(() => {
   background: white;
   border-top: 1px solid #e0e0e0;
   flex-shrink: 0;
+}
+
+.processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  color: white;
+}
+
+.processing-overlay p {
+  margin-top: 20px;
+  font-size: 18px;
 }
 </style>

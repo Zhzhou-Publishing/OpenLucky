@@ -342,6 +342,108 @@ function createWindow() {
       event.sender.send('preset-apply-error', { message: 'Error applying preset', error: error.message })
     }
   })
+
+  // Handle apply-filmparam request
+  ipcMain.on('apply-filmparam', async (event, { directoryPath, filename, params }) => {
+    try {
+      // Construct input path
+      const inputPath = path.join(directoryPath, filename)
+
+      // Construct output path (put in output subdirectory)
+      const outputDir = path.join(directoryPath, 'output')
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true })
+      }
+      const outputPath = path.join(outputDir, filename)
+
+      // Construct the command
+      const command = 'openlucky'
+      const args = ['filmparam', '--input', inputPath, '--output', outputPath, '--param', params]
+
+      event.sender.send('filmparam-apply-started', { message: 'Processing started' })
+
+      // Spawn the process
+      const process = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+        // Send progress updates to renderer
+        event.sender.send('filmparam-apply-progress', { data: data.toString() })
+      })
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          event.sender.send('filmparam-apply-success', { message: 'Film processing completed successfully', outputPath })
+        } else {
+          event.sender.send('filmparam-apply-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('filmparam-apply-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error applying filmparam:', error)
+      event.sender.send('filmparam-apply-error', { message: 'Error applying film parameters', error: error.message })
+    }
+  })
+
+  // Handle apply-filmparambatch request
+  ipcMain.on('apply-filmparambatch', async (event, { directoryPath, params }) => {
+    try {
+      // Construct the command
+      const command = 'openlucky'
+      const args = ['filmparambatch', '--input', directoryPath, '--param', params]
+
+      event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
+
+      // Spawn the process
+      const process = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+        // Send progress updates to renderer
+        event.sender.send('filmparambatch-apply-progress', { data: data.toString() })
+      })
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          event.sender.send('filmparambatch-apply-success', { message: 'Batch processing completed successfully' })
+        } else {
+          event.sender.send('filmparambatch-apply-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('filmparambatch-apply-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error applying filmparambatch:', error)
+      event.sender.send('filmparambatch-apply-error', { message: 'Error applying batch film parameters', error: error.message })
+    }
+  })
 }
 
 // 当 Electron 完成初始化时被调用
