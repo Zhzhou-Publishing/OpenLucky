@@ -15,8 +15,8 @@
         class="number-field"
       />
       <div class="buttons">
-        <button @click="increment(1)" class="up-btn" :disabled="disabled || inputValue >= max" :title="upBtnTooltip">▲</button>
-        <button @click="decrement(1)" class="down-btn" :disabled="disabled || inputValue <= min" :title="downBtnTooltip">▼</button>
+        <button @click="increment(props.stepValue)" class="up-btn" :disabled="disabled || inputValue >= max" :title="upBtnTooltip">▲</button>
+        <button @click="decrement(props.stepValue)" class="down-btn" :disabled="disabled || inputValue <= min" :title="downBtnTooltip">▼</button>
       </div>
     </div>
   </div>
@@ -83,7 +83,7 @@ const upBtnTooltip = computed(() => {
     tips.push(`Shortcut Key: ${props.increaseKey}`)
   }
   if (props.largeStepIncreaseKey) {
-    tips.push(`Shortcut Key of A Large Step(+${props.largeStepValue}): ${props.largeStepIncreaseKey}`)
+    tips.push(`Shortcut Key of A Large Step (+${props.largeStepValue}): ${props.largeStepIncreaseKey}`)
   }
   return tips.join('\n')
 })
@@ -91,10 +91,10 @@ const upBtnTooltip = computed(() => {
 const downBtnTooltip = computed(() => {
   const tips = []
   if (props.decreaseKey) {
-    tips.push(`${props.decreaseKey}`)
+    tips.push(`Shortcut Key: ${props.decreaseKey}`)
   }
   if (props.largeStepDecreaseKey) {
-    tips.push(`(-${props.largeStepValue}): ${props.largeStepDecreaseKey}`)
+    tips.push(`Shortcut Key of A Large Step (-${props.largeStepValue}): ${props.largeStepDecreaseKey}`)
   }
   return tips.join('\n')
 })

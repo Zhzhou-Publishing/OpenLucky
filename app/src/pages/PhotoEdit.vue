@@ -32,11 +32,11 @@
         <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
           :disabled="isApplying" />
         <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
-          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Shift + R"
-          large-step-decrease-key="Shift + F" :disabled="isApplying" />
+          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
+          large-step-decrease-key="Alt + Shift + F" :disabled="isApplying" />
         <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
-          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Shift + T"
-          large-step-decrease-key="Shift + G" :disabled="isApplying" />
+          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
+          large-step-decrease-key="Alt + Shift + G" :disabled="isApplying" />
         <button @click="apply" class="apply-button" title="Enter" :disabled="isApplying">Apply</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isApplying">Apply
           All</button>
