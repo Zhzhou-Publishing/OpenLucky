@@ -70,7 +70,6 @@ const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
 const isLoadingPresets = ref(true)
-const previewingDirectory = ref('')
 const workingDirectory = ref('')
 
 const applyButtonText = computed(() => {
@@ -82,8 +81,8 @@ const presets = ref([])
 const directoryPath = computed(() => route.query.path || '')
 
 const title = computed(() => {
-  if (directoryPath.value) {
-    const parts = directoryPath.value.split(/[/\\]/)
+  if (workingDirectory.value) {
+    const parts = workingDirectory.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Gallery'
   }
   return 'Photo Gallery'
@@ -101,7 +100,6 @@ const openPhotoEdit = (image) => {
   router.push({
     path: '/photo-edit',
     query: {
-      previewingDirectory: previewingDirectory.value,
       workingDirectory: workingDirectory.value,
       filename: image.name,
       appliedPresetKey: selectedPreset.value
@@ -143,13 +141,10 @@ const applyPreset = async () => {
         console.log('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
 
-        // Wait a moment for the output directory to be created
+        // Wait a moment for the .preset.json to be updated
         await new Promise(resolve => setTimeout(resolve, 1000))
 
-        // Update previewingDirectory to output subdirectory and refresh
-        const path = window.require('path')
-        const outputPath = path.join(directoryPath.value, 'output')
-        previewingDirectory.value = outputPath
+        // Refresh images to show from .preset.json output_dir
         loadImages()
       })
 
@@ -185,7 +180,7 @@ watch(selectedPreset, () => {
 const loadImages = async () => {
   try {
     isLoading.value = true
-    if (!previewingDirectory.value) {
+    if (!workingDirectory.value) {
       router.push('/photo-directory')
       return
     }
@@ -194,8 +189,8 @@ const loadImages = async () => {
     if (window.require) {
       const ipcRenderer = window.require('electron').ipcRenderer
 
-      // Request images from main process
-      ipcRenderer.send('get-images', previewingDirectory.value)
+      // Request images from main process, pass workingDirectory
+      ipcRenderer.send('get-images', workingDirectory.value)
 
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
@@ -245,7 +240,6 @@ const loadPresets = async () => {
 }
 
 onMounted(() => {
-  previewingDirectory.value = directoryPath.value
   workingDirectory.value = directoryPath.value
   // Run loadImages and loadPresets in parallel
   Promise.all([loadPresets(), loadImages()])

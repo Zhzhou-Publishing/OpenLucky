@@ -106,6 +106,18 @@ function createWindow() {
         return imageExtensions.includes(ext) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
+      // Read .preset.json from working directory
+      let presets = {}
+      const presetsFile = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetsFile)) {
+        try {
+          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
+          presets = JSON.parse(presetsContent)
+        } catch (err) {
+          console.error('Error reading .preset.json:', err)
+        }
+      }
+
       // Create temporary thumbnails directory
       const tempDir = path.join(app.getPath('temp'), 'photo-gallery-thumbnails')
       if (!fs.existsSync(tempDir)) {
@@ -117,7 +129,17 @@ function createWindow() {
 
       // Create image objects with URLs
       const images = await Promise.all(imageFiles.map(async (file) => {
-        const fullPath = path.join(directoryPath, file)
+        // Check if file has preset output_dir
+        let fullPath = path.join(directoryPath, file)
+
+        // If file exists in presets and has output_dir, use output path
+        if (presets[file] && presets[file].output_dir) {
+          const outputPath = presets[file].output_dir
+          if (fs.existsSync(outputPath)) {
+            fullPath = outputPath
+          }
+        }
+
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
 
         let imageUrl = `file://${fullPath}?t=${timestamp}`
@@ -207,7 +229,25 @@ function createWindow() {
   // Handle get-full-res-image request
   ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
     try {
-      const fullPath = path.join(directoryPath, filename)
+      // Read .preset.json from working directory to find output path
+      let fullPath = path.join(directoryPath, filename)
+      const presetsFile = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetsFile)) {
+        try {
+          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
+          const presets = JSON.parse(presetsContent)
+          // If file exists in presets and has output_dir, use output path
+          if (presets[filename] && presets[filename].output_dir) {
+            const outputPath = presets[filename].output_dir
+            if (fs.existsSync(outputPath)) {
+              fullPath = outputPath
+            }
+          }
+        } catch (err) {
+          console.error('Error reading .preset.json:', err)
+        }
+      }
+
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
       const tiffFormats = ['.tif', '.tiff']
 

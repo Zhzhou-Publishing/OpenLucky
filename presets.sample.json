@@ -1,12 +1,72 @@
 {
-    "pic0001.tif": {
-        "preset": "kodak_gold_200",
-        "preset_label": "Kodak Gold 200 (Kodak Alaris 35mm)",
-        "output_dir": "./output/pic0001.tif",
-        "mask_r": 210,
-        "mask_g": 150,
-        "mask_b": 110,
-        "contrast": 1.1,
-        "gamma": 2.2
+    "Untitled009.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled009.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled010.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled010.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled011.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled011.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled012.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled012.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled013.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled013.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled014.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "D:/test-negative-film/output/Untitled014.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
+    },
+    "Untitled017.tif": {
+        "preset": "fujifilm_c400",
+        "preset_label": "Fujifilm C400 (America)",
+        "output_dir": "./output/Untitled017.tif",
+        "mask_r": 185,
+        "mask_g": 155,
+        "mask_b": 140,
+        "gamma": 0.5,
+        "contrast": 1.15
     }
 }

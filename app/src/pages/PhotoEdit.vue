@@ -65,12 +65,9 @@ const input2 = ref(0)
 const input3 = ref(0)
 const input4 = ref(0)
 const input5 = ref(0)
-const input6 = ref(0)
 
-const previewingDirectory = computed(() => route.query.previewingDirectory || '')
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const filename = computed(() => route.query.filename || '')
-const appliedPresetKey = computed(() => route.query.appliedPresetKey || '')
 
 const currentFileName = computed(() => {
   if (images.value[currentIndex.value]) {
@@ -116,7 +113,7 @@ const applyAll = () => {
 }
 
 const loadFullResImage = async () => {
-  if (!currentImage.value || !previewingDirectory.value) {
+  if (!currentImage.value || !workingDirectory.value) {
     fullResImageUrl.value = ''
     return
   }
@@ -130,7 +127,7 @@ const loadFullResImage = async () => {
       ipcRenderer.removeAllListeners('full-res-image-error')
 
       ipcRenderer.send('get-full-res-image', {
-        directoryPath: previewingDirectory.value,
+        directoryPath: workingDirectory.value,
         filename: currentImage.value.name
       })
 
@@ -206,7 +203,7 @@ const loadImages = async () => {
   try {
     isLoading.value = true
     fullResImageUrl.value = ''
-    if (!previewingDirectory.value) {
+    if (!workingDirectory.value) {
       goBack()
       return
     }
@@ -214,7 +211,7 @@ const loadImages = async () => {
     if (window.require) {
       const ipcRenderer = window.require('electron').ipcRenderer
 
-      ipcRenderer.send('get-images', previewingDirectory.value)
+      ipcRenderer.send('get-images', workingDirectory.value, workingDirectory.value)
 
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
