@@ -1,11 +1,12 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 import yaml
 
-from lib.process_film import process_film
+from lib.process_film import process_film, process_film_with_params
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 
 
@@ -13,7 +14,7 @@ from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
 
-def save_preset_to_json(input_file, output_file, preset_config, preset_name):
+def save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label=None):
     """
     Save preset configuration to .preset.json file in the same directory as input_file
 
@@ -22,6 +23,7 @@ def save_preset_to_json(input_file, output_file, preset_config, preset_name):
         output_file: Path to the output file
         preset_config: The preset configuration dict
         preset_name: Name of the preset used
+        preset_label: Optional label for the preset (uses preset_config.get('label') if not provided)
     """
     preset_file = input_file.parent / '.preset.json'
 
@@ -35,7 +37,7 @@ def save_preset_to_json(input_file, output_file, preset_config, preset_name):
     # Create preset entry
     preset_entry = {
         'preset': preset_name,
-        'preset_label': preset_config.get('label', ''),
+        'preset_label': preset_label if preset_label is not None else preset_config.get('label', ''),
         'output_dir': str(output_file).replace('\\', '/'),
     }
 
@@ -104,6 +106,20 @@ def main():
     filmbatch_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
                                    help='Preset name to use (default: kodak_ultramax_400)')
 
+    # filmparam subcommand
+    filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
+    filmparam_parser.add_argument('--input', '-i', required=True, help='Input negative film file path (supports .tif, .tiff, .jpg)')
+    filmparam_parser.add_argument('--output', '-o', required=True, help='Output file save path')
+    filmparam_parser.add_argument('--param', '-r', required=True,
+                                   help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
+
+    # filmparambatch subcommand
+    filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
+    filmparambatch_parser.add_argument('--input', '-i', required=True, help='Input image directory')
+    filmparambatch_parser.add_argument('--output', '-o', required=False, help='Output image directory (default: output subdirectory in input directory)')
+    filmparambatch_parser.add_argument('--param', '-r', required=True,
+                                         help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
+
     # tiff2jpeg subcommand
     tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF to JPEG format conversion')
     tiff_parser.add_argument('--input', '-i', required=True, help='Input TIFF file path')
@@ -151,7 +167,7 @@ def main():
             preset_config = config['presets'].get(args.preset)
             if preset_config:
                 # Use forward slashes in path to avoid double backslashes in JSON
-                save_preset_to_json(input_file, output_file, preset_config, args.preset)
+                save_preset_to_json(input_file, output_file, preset_config, args.preset, preset_config.get('label'))
 
     elif args.command == 'filmbatch':
         input_dir = Path(args.input)
@@ -253,6 +269,165 @@ def main():
             with open(preset_file, 'w', encoding='utf-8') as f:
                 json.dump(existing_presets, f, indent=4, ensure_ascii=False)
             print(f"Saved {len(presets)} preset(s) to {preset_file}")
+
+    elif args.command == 'filmparam':
+        input_file = Path(args.input)
+        output_file = Path(args.output)
+
+        # Parse parameters
+        try:
+            params = args.param.split(',')
+            if len(params) != 5:
+                print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
+                sys.exit(1)
+            mask_r = float(params[0])
+            mask_g = float(params[1])
+            mask_b = float(params[2])
+            gamma = float(params[3])
+            contrast = float(params[4])
+        except ValueError as e:
+            print(f"Error: Failed to parse parameters: {e}")
+            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            sys.exit(1)
+
+        if not input_file.exists():
+            print(f"Error: Input file does not exist: {input_file}")
+            sys.exit(1)
+
+        # Process single file with custom parameters
+        process_film_with_params(
+            input_file,
+            output_file,
+            preset_mask_r=mask_r,
+            preset_mask_g=mask_g,
+            preset_mask_b=mask_b,
+            preset_gamma=gamma,
+            preset_contrast=contrast
+        )
+
+        # Save preset to .preset.json
+        preset_name = f"custom_preset_{int(time.time())}"
+        preset_label = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        preset_config = {
+            'mask_r': mask_r,
+            'mask_g': mask_g,
+            'mask_b': mask_b,
+            'gamma': gamma,
+            'contrast': contrast
+        }
+        save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label)
+
+    elif args.command == 'filmparambatch':
+        input_dir = Path(args.input)
+        output_dir = Path(args.output) if args.output else input_dir / 'output'
+
+        # Parse parameters
+        try:
+            params = args.param.split(',')
+            if len(params) != 5:
+                print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
+                sys.exit(1)
+            mask_r = float(params[0])
+            mask_g = float(params[1])
+            mask_b = float(params[2])
+            gamma = float(params[3])
+            contrast = float(params[4])
+        except ValueError as e:
+            print(f"Error: Failed to parse parameters: {e}")
+            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            sys.exit(1)
+
+        # Verify input directory
+        if not input_dir.exists():
+            print(f"Error: Input directory does not exist: {input_dir}")
+            sys.exit(1)
+        if not input_dir.is_dir():
+            print(f"Error: Input path is not a directory: {input_dir}")
+            sys.exit(1)
+
+        # Create output directory
+        output_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Output directory: {output_dir}")
+
+        # Search for images in input directory
+        image_files = []
+        for ext in IMAGE_EXTENSIONS:
+            image_files.extend(input_dir.glob(f'*{ext}'))
+            image_files.extend(input_dir.glob(f'*{ext.upper()}'))
+
+        if not image_files:
+            print(f"Warning: No supported image files found in {input_dir}")
+            print(f"Supported formats: {', '.join(IMAGE_EXTENSIONS)}")
+            sys.exit(0)
+
+        print(f"Found {len(image_files)} image files")
+
+        # Generate preset name and label once for all files
+        preset_name = f"custom_preset_{int(time.time())}"
+        preset_label = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        preset_config = {
+            'mask_r': mask_r,
+            'mask_g': mask_g,
+            'mask_b': mask_b,
+            'gamma': gamma,
+            'contrast': contrast
+        }
+
+        # Batch processing - collect presets first
+        success_count = 0
+        fail_count = 0
+        presets_by_dir = {}  # Group presets by input directory
+
+        for i, input_file in enumerate(image_files, 1):
+            print(f"[{i}/{len(image_files)}] Processing negative: {input_file.name}")
+            try:
+                output_file = output_dir / input_file.name
+                process_film_with_params(
+                    input_file,
+                    output_file,
+                    preset_mask_b=mask_b,
+                    preset_mask_g=mask_g,
+                    preset_mask_r=mask_r,
+                    preset_gamma=gamma,
+                    preset_contrast=contrast
+                )
+                success_count += 1
+
+                # Collect preset info for later batch write
+                dir_key = str(input_file.parent)
+                if dir_key not in presets_by_dir:
+                    presets_by_dir[dir_key] = {}
+                presets_by_dir[dir_key][input_file.name] = {
+                    'preset': preset_name,
+                    'preset_label': preset_label,
+                    'output_dir': str(output_file).replace('\\', '/'),
+                }
+                # Add all other preset parameters
+                for key, value in preset_config.items():
+                    presets_by_dir[dir_key][input_file.name][key] = value
+            except Exception as e:
+                print(f"Error processing {input_file.name}: {e}")
+                fail_count += 1
+
+        # Batch write all presets to .preset.json files
+        for dir_path, presets in presets_by_dir.items():
+            preset_file = Path(dir_path) / '.preset.json'
+
+            # Read existing preset file if it exists
+            existing_presets = {}
+            if preset_file.exists():
+                with open(preset_file, 'r', encoding='utf-8') as f:
+                    existing_presets = json.load(f)
+
+            # Merge with new presets
+            existing_presets.update(presets)
+
+            # Write back to file
+            with open(preset_file, 'w', encoding='utf-8') as f:
+                json.dump(existing_presets, f, indent=4, ensure_ascii=False)
+            print(f"Saved {len(presets)} preset(s) to {preset_file}")
+
+        print(f"\nBatch processing complete: {success_count} succeeded, {fail_count} failed")
 
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
