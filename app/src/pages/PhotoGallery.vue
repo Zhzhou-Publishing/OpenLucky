@@ -3,7 +3,7 @@
     <div class="header">
       <button @click="goBack" class="back-button">← Back</button>
       <h1 class="page-title">{{ title }}</h1>
-      <button @click="loadImages" class="refresh-button" :disabled="isLoading">
+      <button @click="handleRefresh" class="refresh-button" :disabled="isLoading">
         🔄 Refresh
       </button>
       <span class="count-badge">{{ images.length }} images</span>
@@ -59,6 +59,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { getCachedPresets, updateCachedPresets } from '../utils/presetCache'
 
 const router = useRouter()
 const route = useRoute()
@@ -212,25 +213,54 @@ const loadImages = async () => {
   }
 }
 
+const handleRefresh = async () => {
+  await Promise.all([loadPresets(), loadImages()])
+}
+
 const loadPresets = async () => {
   try {
     if (window.require) {
       const ipcRenderer = window.require('electron').ipcRenderer
 
+      // 先尝试使用缓存
+      const cachedPresets = getCachedPresets()
+      if (cachedPresets && cachedPresets.length > 0) {
+        // 使用缓存数据，不显示加载状态
+        presets.value = cachedPresets
+        isLoadingPresets.value = false
+        // Select first preset by default if available
+        if (!presets.value.find(p => p.value === selectedPreset.value)) {
+          selectedPreset.value = presets.value[0].value
+        }
+      }
+
+      // 在后台静默更新缓存
       ipcRenderer.send('get-presets')
 
       ipcRenderer.once('presets-loaded', (_, result) => {
-        presets.value = result.presets
-        isLoadingPresets.value = false
-        // Select first preset by default if available
-        if (presets.value.length > 0 && !presets.value.find(p => p.value === selectedPreset.value)) {
-          selectedPreset.value = presets.value[0].value
+        // 更新缓存
+        updateCachedPresets(result.presets)
+
+        // 如果结果与缓存不同，静默更新 presets
+        const currentPresets = JSON.stringify(presets.value)
+        const newPresets = JSON.stringify(result.presets)
+        if (currentPresets !== newPresets) {
+          presets.value = result.presets
+          // Select first preset by default if available
+          if (presets.value.length > 0 && !presets.value.find(p => p.value === selectedPreset.value)) {
+            selectedPreset.value = presets.value[0].value
+          }
         }
+
+        isLoadingPresets.value = false
       })
 
       ipcRenderer.once('presets-error', (_, error) => {
         console.error('Error loading presets:', error)
-        isLoadingPresets.value = false
+        // 如果有缓存，继续使用缓存
+        if (!cachedPresets) {
+          isLoadingPresets.value = false
+        }
       })
     }
   } catch (error) {
