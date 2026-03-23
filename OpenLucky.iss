@@ -21,6 +21,9 @@ OutputBaseFilename=OpenLucky_{#MyAppVersion}_windows-x64_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; 允许用户自定义安装目录
+DisableDirPage=no
+DisableProgramGroupPage=no
 
 [Files]
 ; 3. 释放 bin 目录下的所有 exe
