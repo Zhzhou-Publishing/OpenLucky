@@ -26,7 +26,6 @@ const parseTwemoji = () => {
 }
 
 onMounted(() => {
-  console.log('🎨 Emoji 资源来源: 本地 (dist/build-resources/emoji)')
 
   // 初始化 Twemoji
   parseTwemoji()
