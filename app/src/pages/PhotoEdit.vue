@@ -20,25 +20,28 @@
     <div v-else class="content">
       <!-- Large Image Display -->
       <div class="image-display">
-        <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
+        <div class="image-wrapper">
+          <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
+          <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">Applying...</div>
+        </div>
       </div>
 
       <!-- Operation Area -->
       <div class="operation-area">
         <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-          :disabled="isApplying" />
+          :disabled="isApplying && isCurrentImageAffected" />
         <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-          :disabled="isApplying" />
+          :disabled="isApplying && isCurrentImageAffected" />
         <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-          :disabled="isApplying" />
+          :disabled="isApplying && isCurrentImageAffected" />
         <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
           :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-          large-step-decrease-key="Alt + Shift + F" :disabled="isApplying" />
+          large-step-decrease-key="Alt + Shift + F" :disabled="isApplying && isCurrentImageAffected" />
         <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
           :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-          large-step-decrease-key="Alt + Shift + G" :disabled="isApplying" />
-        <button @click="apply" class="apply-button" title="Enter" :disabled="isApplying">Apply</button>
-        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isApplying">Apply
+          large-step-decrease-key="Alt + Shift + G" :disabled="isApplying && isCurrentImageAffected" />
+        <button @click="apply" class="apply-button" title="Enter" :disabled="isApplying && isCurrentImageAffected">Apply</button>
+        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isApplying || affectedImages.size > 0">Apply
           All</button>
       </div>
 
@@ -46,8 +49,11 @@
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
           <div v-for="(image, index) in images" :key="index" class="thumbnail-item"
-            :class="{ active: index === currentIndex }" @click="selectImage(index)">
+            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) }" @click="selectImage(index)">
             <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
+            <div v-if="affectedImages.has(image.name)" class="thumbnail-overlay">
+              <div class="thumbnail-spinner"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -69,6 +75,7 @@ const route = useRoute()
 const images = ref([])
 const isLoading = ref(true)
 const isApplying = ref(false)
+const affectedImages = ref(new Set())
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
 const input1 = ref(0)
@@ -96,6 +103,11 @@ const currentImage = computed(() => {
   return null
 })
 
+const isCurrentImageAffected = computed(() => {
+  if (!currentImage.value) return false
+  return affectedImages.value.has(currentImage.value.name)
+})
+
 const currentPageTitle = computed(() => {
   if (workingDirectory.value) {
     const parts = workingDirectory.value.split(/[/\\]/)
@@ -110,6 +122,8 @@ const goBack = () => {
     query: { path: workingDirectory.value }
   })
 }
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const selectImage = (index) => {
   currentIndex.value = index
@@ -138,6 +152,7 @@ const apply = () => {
 
     // Set applying state to disable controls
     isApplying.value = true
+    affectedImages.value.add(currentImage.value.name)
 
     // Remove existing listeners to avoid duplicates
     ipcRenderer.removeAllListeners('filmparam-apply-started')
@@ -161,24 +176,29 @@ const apply = () => {
       console.log(result.data)
     })
 
-    ipcRenderer.once('filmparam-apply-success', (_, result) => {
+    ipcRenderer.once('filmparam-apply-success', async (_, result) => {
       console.log(result.message, result.outputPath)
       // Update image timestamps to refresh display without reloading page
       imageTimestamp.value = Date.now()
       loadFullResImage()
       // Reload presets and then enable controls
       loadPresets(true)
+      // Wait 3 seconds before removing from affectedImages
+      await sleep(3000)
+      affectedImages.value.delete(currentImage.value.name)
     })
 
     ipcRenderer.once('filmparam-apply-error', (_, error) => {
       console.error('Error applying film parameters:', error)
       // Reset applying state to re-enable controls immediately on error
       isApplying.value = false
+      affectedImages.value.delete(currentImage.value.name)
     })
   } catch (error) {
     console.error('Error applying film parameters:', error)
     // Reset applying state to re-enable controls immediately on error
     isApplying.value = false
+    affectedImages.value.delete(currentImage.value.name)
   }
 }
 
@@ -201,6 +221,7 @@ const applyAll = () => {
 
     // Set applying state to disable controls
     isApplying.value = true
+    images.value.forEach(img => affectedImages.value.add(img.name))
 
     // Remove existing listeners to avoid duplicates
     ipcRenderer.removeAllListeners('filmparambatch-apply-started')
@@ -230,17 +251,20 @@ const applyAll = () => {
       loadFullResImage()
       // Reload presets and then enable controls
       loadPresets(true)
+      affectedImages.value.clear()
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
       console.error('Error applying film parameters to all images:', error)
       // Reset applying state to re-enable controls immediately on error
       isApplying.value = false
+      affectedImages.value.clear()
     })
   } catch (error) {
     console.error('Error applying film parameters to all images:', error)
     // Reset applying state to re-enable controls immediately on error
     isApplying.value = false
+    affectedImages.value.clear()
   }
 }
 
@@ -583,12 +607,44 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+  max-height: 50vh;
+}
+
 .main-image {
   width: 100%;
   max-height: 50vh;
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.applying-badge {
+  position: absolute;
+  bottom: 5%;
+  right: 5%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 10;
+  animation: fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .operation-area {
@@ -657,6 +713,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   border: 2px solid transparent;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .thumbnail-item:hover {
@@ -666,6 +723,32 @@ onUnmounted(() => {
 .thumbnail-item.active {
   border-color: #42b883;
   box-shadow: 0 0 0 2px rgba(66, 184, 131, 0.3);
+}
+
+.thumbnail-item.affected {
+  opacity: 0.7;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.thumbnail-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 .thumbnail {
