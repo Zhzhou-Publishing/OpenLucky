@@ -4,7 +4,7 @@
     <div class="content">
       <section class="info-section">
         <h2>Version Information</h2>
-        <p>OpenLucky Desktop v{{ version }}</p>
+        <p>OpenLucky Desktop {{ version }}</p>
       </section>
 
       <section class="info-section">
@@ -29,7 +29,7 @@
 <script setup>
 import { ref } from 'vue'
 
-const version = ref('1.0.0')
+const version = ref(__APP_VERSION__)
 const technologies = ref([
   'Electron',
   'Vue 3',
