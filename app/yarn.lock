@@ -158,6 +158,11 @@
     minimist "^1.2.8"
     postject "^1.0.0-alpha.6"
 
+"@fontsource/noto-sans-sc@^5.2.9":
+  version "5.2.9"
+  resolved "https://registry.npmjs.org/@fontsource/noto-sans-sc/-/noto-sans-sc-5.2.9.tgz"
+  integrity sha512-bTUIWGBgJDpwi5qAr+x0/lcgv80IHTB9vl6s2f6EymZEa7qYV99yNRBZuKFT+SYDKVunZrjCEhWtpxqmbXWl5Q==
+
 "@img/colour@^1.0.0":
   version "1.1.0"
   resolved "https://registry.npmjs.org/@img/colour/-/colour-1.1.0.tgz"

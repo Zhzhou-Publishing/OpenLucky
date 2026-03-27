@@ -85,6 +85,7 @@ const input4 = ref(0)
 const input5 = ref(0)
 const presetsData = ref({})
 const imageTimestamp = ref(Date.now())
+const previousImageDimensions = ref({ width: 6000, height: 4000 })
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const filename = computed(() => route.query.filename || '')
@@ -122,8 +123,6 @@ const goBack = () => {
     query: { path: workingDirectory.value }
   })
 }
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const selectImage = (index) => {
   currentIndex.value = index
@@ -183,8 +182,6 @@ const apply = () => {
       loadFullResImage()
       // Reload presets and then enable controls
       loadPresets(true)
-      // Wait 3 seconds before removing from affectedImages
-      await sleep(3000)
       affectedImages.value.delete(currentImage.value.name)
     })
 
@@ -453,6 +450,19 @@ const loadPresetForCurrentImage = () => {
 }
 
 watch(currentIndex, () => {
+  // Get current image dimensions before switching
+  const img = new Image()
+  img.onload = () => {
+    previousImageDimensions.value = { width: img.naturalWidth, height: img.naturalHeight }
+  }
+  img.src = fullResImageUrl.value
+
+  // Set placeholder image before loading new one
+  const width = previousImageDimensions.value.width
+  const height = previousImageDimensions.value.height
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="white"/></svg>`
+  fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
+
   loadFullResImage()
   loadPresetForCurrentImage()
 })

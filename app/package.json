@@ -23,6 +23,7 @@
     "vite": "^8.0.1"
   },
   "dependencies": {
+    "@fontsource/noto-sans-sc": "^5.2.9",
     "@twemoji/api": "^17.0.2",
     "@twemoji/svg": "^15.0.0",
     "sharp": "^0.34.5",
