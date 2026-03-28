@@ -20,12 +20,18 @@ def process_film_bytestream_with_params(
     if is_raw:
         # Process RAW format: use rawpy engine
         with rawpy.imread(io.BytesIO(input_bytes)) as raw:
+            # Determine demosaic algorithm based on camera format
+            # Since we don't have filename info in byte stream mode, we need to detect format
+            # For simplicity, default to AAHD unless Fuji RAF is detected via metadata
+            # Note: Accurate Fuji RAF detection from byte stream would require additional metadata parsing
+            # Using AAHD as default for byte stream processing
+            demosaic_algorithm = rawpy.DemosaicAlgorithm.AAHD
+
             # postprocess returns uint16 array in RGB order
             img = (
                 raw.postprocess(
-                    # 1. Specify AAHD algorithm (ID 12)
-                    # Suitable for cameras without low-pass filter, sharper grain texture
-                    demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD,
+                    # Demosaic algorithm (default AAHD for byte stream processing)
+                    demosaic_algorithm=demosaic_algorithm,
                     # 2. Crucial: Disable LibRaw's built-in noise reduction
                     # AAHD may produce minor artifacts, LibRaw might use FBDD to remove them by default,
                     # but FBDD damages film grain texture. To preserve authentic RAW, it must be turned off.

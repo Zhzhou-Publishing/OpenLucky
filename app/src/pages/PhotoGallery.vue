@@ -17,7 +17,7 @@
     <div v-else-if="images.length === 0" class="empty-state">
       <p class="empty-icon">📷</p>
       <h2>No Images Found</h2>
-      <p>No image files (jpg, jpeg, png, gif, webp, tiff) were found in the selected directory.</p>
+      <p>No image files (jpg, jpeg, png, gif, webp, tiff, arw, cr2, cr3, nef, dng, orf, raf) were found in the selected directory.</p>
     </div>
 
     <div v-else class="gallery-grid">
@@ -186,6 +186,12 @@ const loadImages = async () => {
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
         isLoading.value = false
+
+        // Check for RAW files that are still converting
+        const convertingRawFiles = result.images.filter(img => img.isRaw && !img.converted)
+        if (convertingRawFiles.length > 0) {
+          startRawConversionMonitoring()
+        }
       })
 
       ipcRenderer.once('images-error', (_, error) => {
@@ -200,6 +206,40 @@ const loadImages = async () => {
   } catch (error) {
     console.error('Error loading images:', error)
     isLoading.value = false
+  }
+}
+
+let rawConversionMonitorInterval = null
+
+const startRawConversionMonitoring = () => {
+  if (rawConversionMonitorInterval) {
+    clearInterval(rawConversionMonitorInterval)
+  }
+
+  rawConversionMonitorInterval = setInterval(() => {
+    if (!window.require) return
+
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    ipcRenderer.send('get-images', workingDirectory.value)
+
+    ipcRenderer.once('images-loaded', (_, result) => {
+      const hasUnconvertedRaw = result.images.some(img => img.isRaw && !img.converted)
+      images.value = result.images
+
+      // Stop monitoring if all RAW files are converted
+      if (!hasUnconvertedRaw && rawConversionMonitorInterval) {
+        clearInterval(rawConversionMonitorInterval)
+        rawConversionMonitorInterval = null
+      }
+    })
+  }, 2000) // Check every 2 seconds
+}
+
+const stopRawConversionMonitoring = () => {
+  if (rawConversionMonitorInterval) {
+    clearInterval(rawConversionMonitorInterval)
+    rawConversionMonitorInterval = null
   }
 }
 
@@ -231,6 +271,8 @@ onUnmounted(() => {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
   }
+  // Stop RAW conversion monitoring
+  stopRawConversionMonitoring()
 })
 </script>
 

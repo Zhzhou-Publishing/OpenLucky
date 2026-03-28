@@ -25,11 +25,20 @@ def raw_to_tiff(input_path, output_path):
 
         # 1. Read RAW file using rawpy
         with rawpy.imread(str(input_path)) as raw:
+            # Determine demosaic algorithm based on camera format
+            # Fuji .RAF files use DHT, other formats use AAHD
+            if input_path.suffix.lower() == ".raf":
+                # Use DHT algorithm for Fuji RAF files
+                demosaic_algorithm = rawpy.DemosaicAlgorithm.DHT
+            else:
+                # Use AAHD algorithm (ID 12) for other formats
+                # Suitable for cameras without low-pass filter, sharper grain texture
+                demosaic_algorithm = rawpy.DemosaicAlgorithm.AAHD
+
             # 2. Postprocess with specified parameters
             img = raw.postprocess(
-                # 1. Specify AAHD algorithm (ID 12)
-                # Suitable for cameras without low-pass filter, sharper grain texture
-                demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD,
+                # Demosaic algorithm (DHT for Fuji RAF, AAHD for others)
+                demosaic_algorithm=demosaic_algorithm,
                 # 2. Crucial: Disable LibRaw's built-in noise reduction
                 # AAHD may produce minor artifacts, LibRaw might use FBDD to remove them by default,
                 # but FBDD damages film grain texture. To preserve authentic RAW, it must be turned off.
