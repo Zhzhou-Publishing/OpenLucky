@@ -19,19 +19,34 @@ def raw_to_tiff(input_path, output_path):
         output_path = Path(output_path)
 
         # Check if output_path has valid TIFF extension
-        valid_tiff_extensions = {'.tif', '.tiff'}
+        valid_tiff_extensions = {".tif", ".tiff"}
         if output_path.suffix.lower() not in valid_tiff_extensions:
-            output_path = output_path.with_suffix('.tif')
+            output_path = output_path.with_suffix(".tif")
 
         # 1. Read RAW file using rawpy
         with rawpy.imread(str(input_path)) as raw:
             # 2. Postprocess with specified parameters
-            # user_qual 10, gamma 1.1, no_auto_bright=True, output_bps 16
             img = raw.postprocess(
-                user_qual=10,
+                # 1. Specify AAHD algorithm (ID 12)
+                # Suitable for cameras without low-pass filter, sharper grain texture
+                demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD,
+                # 2. Crucial: Disable LibRaw's built-in noise reduction
+                # AAHD may produce minor artifacts, LibRaw might use FBDD to remove them by default,
+                # but FBDD damages film grain texture. To preserve authentic RAW, it must be turned off.
+                fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
+                # 3. Gamma: Must remain (1, 1) linear.
                 gamma=(1, 1),
+                # 4. Brightness: Must be True. Disable automatic brightness stretching.
                 no_auto_bright=True,
-                output_bps=16
+                # 5. Bit depth: Must be 16. For dynamic range after negative inversion.
+                output_bps=16,
+                # 6. White balance:
+                # For photographing negatives, it's recommended to enable camera WB
+                # (calibrated against the backlight panel during shooting),
+                # so the resulting TIFF channel ratios are roughly correct, facilitating subsequent inversion.
+                use_camera_wb=True,
+                # 7. Brightness gain: Keep at 1.0.
+                bright=1.0,
             )
 
         # 3. Convert to BGR for OpenCV encoding (rawpy outputs RGB)
@@ -41,19 +56,20 @@ def raw_to_tiff(input_path, output_path):
         success, encoded_img = cv2.imencode(".tif", img_bgr)
 
         if not success:
-            print(f"❌ Failed to encode TIFF: {output_path}")
+            print(f"Failed to encode TIFF: {output_path}")
             return False
 
         # 5. Write to file
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'wb') as f:
+        with open(output_path, "wb") as f:
             f.write(encoded_img.tobytes())
 
-        print(f"✅ RAW to TIFF conversion successful: {output_path}")
+        print(f"RAW to TIFF conversion successful: {output_path}")
         return True
 
     except Exception as e:
-        print(f"❌ Error converting RAW to TIFF: {e}")
+        print(f"Error converting RAW to TIFF: {e}")
         import traceback
+
         traceback.print_exc()
         return False

@@ -14,73 +14,89 @@ def process_film_bytestream_with_params(
     is_raw=False,
 ):
     """
-    处理字节流图片，支持 RAW 格式开关
+    Process byte stream image, supports RAW format toggle
     """
-    # 1. 显式解码图片
+    # 1. Explicitly decode image
     if is_raw:
-        # 处理 RAW 格式：使用 rawpy 引擎
+        # Process RAW format: use rawpy engine
         with rawpy.imread(io.BytesIO(input_bytes)) as raw:
-            # postprocess 得到的是 RGB 顺序的 uint16 数组
+            # postprocess returns uint16 array in RGB order
             img = (
                 raw.postprocess(
-                    user_qual=10,
-                    gamma=(1, 1),  # 保持线性
-                    no_auto_bright=True,  # 禁止自动亮度
-                    output_bps=16,  # 16位精度
+                    # 1. Specify AAHD algorithm (ID 12)
+                    # Suitable for cameras without low-pass filter, sharper grain texture
+                    demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD,
+                    # 2. Crucial: Disable LibRaw's built-in noise reduction
+                    # AAHD may produce minor artifacts, LibRaw might use FBDD to remove them by default,
+                    # but FBDD damages film grain texture. To preserve authentic RAW, it must be turned off.
+                    fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
+                    # 3. Gamma: Must remain (1, 1) linear.
+                    gamma=(1, 1),
+                    # 4. Brightness: Must be True. Disable automatic brightness stretching.
+                    no_auto_bright=True,
+                    # 5. Bit depth: Must be 16. For dynamic range after negative inversion.
+                    output_bps=16,
+                    # 6. White balance:
+                    # For photographing negatives, it's recommended to enable camera WB
+                    # (calibrated against the backlight panel during shooting),
+                    # so the resulting TIFF channel ratios are roughly correct, facilitating subsequent inversion.
+                    use_camera_wb=True,
+                    # 7. Brightness gain: Keep at 1.0.
+                    bright=1.0,
                 ).astype(np.float32)
                 / 65535.0
             )
         is_16bit_target = True
     else:
-        # 处理普通格式：使用 OpenCV 引擎
+        # Process regular formats: use OpenCV engine
         nparr = np.frombuffer(input_bytes, np.uint8)
         img_raw = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         if img_raw is None:
             return None
 
-        # 统一转为 RGB (OpenCV 默认是 BGR)
+        # Convert to RGB (OpenCV default is BGR)
         img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2RGB).astype(np.float32)
 
         max_val = 65535.0 if img_raw.dtype == np.uint16 else 255.0
         img /= max_val
         is_16bit_target = img_raw.dtype == np.uint16
 
-    # 2. 去色罩 (在 0-1 空间操作)
-    # 此时 img 确定是 RGB 顺序
+    # 2. Remove color mask (operate in 0-1 space)
+    # At this point, img is confirmed to be in RGB order
     img[:, :, 0] /= preset_mask_r / 255.0  # Red
     img[:, :, 1] /= preset_mask_g / 255.0  # Green
     img[:, :, 2] /= preset_mask_b / 255.0  # Blue
     img = np.clip(img, 0, 1.0)
 
-    # 3. 颜色反转 (在 0-1 空间即为 1.0 - img)
+    # 3. Color inversion (in 0-1 space, it's 1.0 - img)
     img = 1.0 - img
 
-    # 4. Gamma 修正
-    # 对于线性 RAW，建议输入 0.45 左右；对于已带 Gamma 的图片，建议 1.0 左右微调
+    # 4. Gamma correction
+    # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
     if preset_gamma != 1.0:
-        # 在 0-1 空间进行幂运算，精度最高
+        # Perform power operation in 0-1 space for maximum precision
         img = np.power(img, preset_gamma)
 
-    # 5. 自动色阶与对比度微调
+    # 5. Auto levels and contrast fine-tuning
     for i in range(3):
         low = np.percentile(img[:, :, i], 0.5)
         high = np.percentile(img[:, :, i], 99.5)
-        # 线性拉伸并应用对比度
+        # Linear stretch and apply contrast
         img[:, :, i] = np.clip(
             (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * preset_contrast, 0, 1.0
         )
 
-    # 6. 编码回字节流
-    # 记得转回 BGR 供 OpenCV 编码输出
+    # 6. Encode back to byte stream
+    # Remember to convert back to BGR for OpenCV encoding
     img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     if is_16bit_target:
-        # 输出 16bit TIFF 保留细节
+        # Output 16bit TIFF to preserve details
         success, encoded_img = cv2.imencode(
             ".tif", (img_bgr * 65535.0).astype(np.uint16)
         )
     else:
-        # 输出 8bit PNG
+        # Output 8bit PNG
         success, encoded_img = cv2.imencode(".png", (img_bgr * 255.0).astype(np.uint8))
 
     return encoded_img.tobytes() if success else None
@@ -95,7 +111,7 @@ def process_film_with_params(
     preset_gamma=1.0,
     preset_contrast=1.0,
 ):
-    # 1. 读取输入文件为字节流
+    # 1. Read input file as byte stream
     try:
         with open(input_path, "rb") as f:
             input_bytes = f.read()
@@ -103,11 +119,11 @@ def process_film_with_params(
         print(f"Error: Cannot read input file '{input_path}': {e}")
         return
 
-    # 支持 raw 格式开关，判断文件扩展名
+    # Support raw format toggle, check file extension
     ext = input_path.suffix.lower()
     raw_extensions = [".arw", ".cr2", ".cr3", ".nef", ".dng", ".orf", ".raf"]
 
-    # 2. 调用字节流处理函数
+    # 2. Call byte stream processing function
     output_bytes = process_film_bytestream_with_params(
         input_bytes,
         preset_mask_r=preset_mask_r,
@@ -118,7 +134,7 @@ def process_film_with_params(
         is_raw=ext in raw_extensions,
     )
 
-    # 3. 将输出字节流写入文件
+    # 3. Write output byte stream to file
     if output_bytes is None:
         print(f"Error: Failed to process image from '{input_path}'")
         return
