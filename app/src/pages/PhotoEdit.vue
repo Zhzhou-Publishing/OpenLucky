@@ -301,7 +301,19 @@ const loadFullResImage = async () => {
 
       ipcRenderer.once('full-res-image-error', (_, error) => {
         console.error('Error loading full resolution image:', error)
-        fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+        // Check if this is a RAW file not yet converted
+        if (currentImage.value.isRaw && error.error === 'RAW file not yet converted') {
+          // Show placeholder for RAW file still converting
+          const width = previousImageDimensions.value.width
+          const height = previousImageDimensions.value.height
+          const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${width}" height="${height}" fill="#cccccc"/>
+            <text x="${width/2}" y="${height/2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
+          </svg>`
+          fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
+        } else {
+          fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+        }
       })
     } catch (error) {
       console.error('Error loading full resolution image:', error)

@@ -339,32 +339,53 @@ function createWindow() {
   // Handle get-full-res-image request
   ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
     try {
-      // Read .preset.json from working directory to find output path
+      const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
+      const tiffFormats = ['.tif', '.tiff']
+
       let fullPath = path.join(directoryPath, filename)
-      const presetsFile = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetsFile)) {
-        try {
-          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
-          const presets = JSON.parse(presetsContent)
-          // If file exists in presets and has output_dir, use output path
-          if (presets[filename] && presets[filename].output_dir) {
-            const outputPath = presets[filename].output_dir
-            if (fs.existsSync(outputPath)) {
-              fullPath = outputPath
+
+      // Check if file is RAW format, if so use converted TIFF from temp directory
+      if (rawExtensions.includes(ext)) {
+        const workingTempDir = path.join(app.getPath('temp'), 'openlucky_working_directory')
+        const baseName = path.basename(filename, ext)
+        const tiffFileName = `${baseName}.tif`
+        const outputTiffPath = path.join(workingTempDir, tiffFileName)
+
+        // Check if converted TIFF exists
+        if (fs.existsSync(outputTiffPath)) {
+          // Use converted TIFF file instead of original RAW file
+          fullPath = outputTiffPath
+        } else {
+          // TIFF not yet converted, send error to frontend
+          console.log('RAW file not yet converted:', filename)
+          event.sender.send('full-res-image-error', { error: 'RAW file not yet converted' })
+          return
+        }
+      } else {
+        // Read .preset.json from working directory to find output path for non-RAW files
+        const presetsFile = path.join(directoryPath, '.preset.json')
+        if (fs.existsSync(presetsFile)) {
+          try {
+            const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
+            const presets = JSON.parse(presetsContent)
+            // If file exists in presets and has output_dir, use output path
+            if (presets[filename] && presets[filename].output_dir) {
+              const outputPath = presets[filename].output_dir
+              if (fs.existsSync(outputPath)) {
+                fullPath = outputPath
+              }
             }
+          } catch (err) {
+            console.error('Error reading .preset.json:', err)
           }
-        } catch (err) {
-          console.error('Error reading .preset.json:', err)
         }
       }
-
-      const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
-      const tiffFormats = ['.tif', '.tiff']
 
       let imageUrl = `file://${fullPath}`
 
       // Convert tif/tiff files to jpg for browser compatibility
-      if (tiffFormats.includes(ext)) {
+      if (tiffFormats.includes(ext) || rawExtensions.includes(ext)) {
         try {
           const tempDir = path.join(app.getPath('temp'), 'photo-gallery-full-res')
           if (!fs.existsSync(tempDir)) {
