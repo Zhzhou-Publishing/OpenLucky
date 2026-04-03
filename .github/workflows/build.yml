@@ -59,13 +59,29 @@ jobs:
         shell: pwsh
 
       - name: Generate MD5 checksum
-        # 移除了无效的 working-directory，改在根目录搜索生成的 exe
         run: |
+          # 在根目录搜索生成的安装程序
           Get-ChildItem -Filter OpenLucky*.exe | ForEach-Object {
             $checksum = (Get-FileHash -Path $_.FullName -Algorithm MD5).Hash.ToLower()
             $checksumFile = "$($_.BaseName).checksum.txt"
             "$($_.Name):$checksum" | Out-File -FilePath $checksumFile -Encoding utf8
             Write-Host "Created $checksumFile for $($_.Name)"
+          }
+        shell: pwsh
+
+      - name: Prepare Release Body
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $version = "${{ steps.get_version.outputs.version }}"
+          $logPath = "changelog/CHANGELOG.zh_Hans.$version.md"
+          $tempPath = "release_body.md"
+          
+          if (Test-Path $logPath) {
+            Write-Host "Found changelog: $logPath"
+            Copy-Item -Path $logPath -Destination $tempPath
+          } else {
+            Write-Host "Changelog not found, using default message."
+            "作者没有填写发布正文" | Out-File -FilePath $tempPath -Encoding utf8
           }
         shell: pwsh
 
@@ -81,6 +97,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release_body.md
           files: |
             OpenLucky*.exe
             *.checksum.txt
