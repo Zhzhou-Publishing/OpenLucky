@@ -1,0 +1,89 @@
+name: Build OpenLucky
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build CLI
+        run: python -m PyInstaller --onefile --name openlucky --distpath bin cmd/openlucky.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install app dependencies
+        working-directory: ./app
+        run: npm install
+
+      - name: Build desktop app
+        working-directory: ./app
+        run: npm run build:win:portable
+
+      - name: Download Inno Setup
+        run: |
+          curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.3.3.exe
+          ./innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+      - name: Build installer
+        run: iscc OpenLucky.iss
+
+      - name: Get version
+        id: get_version
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/*") {
+            $version = "${{ github.ref }}" -replace "refs/tags/", ""
+          } else {
+            $version = "latest"
+          }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Generate MD5 checksum
+        working-directory: ./Output
+        run: |
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            $checksum = (Get-FileHash -Path $_.FullName -Algorithm MD5).Hash.ToLower()
+            $checksumFile = "$($_.BaseName).checksum.txt"
+            "$($_.Name):$checksum" | Out-File -FilePath $checksumFile
+            Write-Host "Created $checksumFile with MD5: $checksum"
+          }
+        shell: pwsh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openlucky-${{ steps.get_version.outputs.version }}
+          path: |
+            Output/*.exe
+            Output/*.checksum.txt
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Output/*.exe
+            Output/*.checksum.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
