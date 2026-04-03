@@ -8,6 +8,7 @@ import yaml
 
 from lib.process_film import process_film_with_params, process_film_bytestream_with_params
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
+from lib.raw_to_tiff import raw_to_tiff
 
 
 # 支持的图片扩展名
@@ -132,6 +133,11 @@ def main():
     filmparambatch_parser.add_argument('--output', '-o', required=False, help='Output image directory (default: output subdirectory in input directory)')
     filmparambatch_parser.add_argument('--param', '-r', required=True,
                                          help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
+
+    # raw2tiff subcommand
+    raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
+    raw2tiff_parser.add_argument('--input', '-i', required=True, help='Input RAW file path')
+    raw2tiff_parser.add_argument('--output', '-o', required=True, help='Output TIFF file path')
 
     # tiff2jpeg subcommand
     tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF to JPEG format conversion')
@@ -589,6 +595,9 @@ def main():
             print(f"Saved {len(presets)} preset(s) to {preset_file}")
 
         print(f"\nBatch processing complete: {success_count} succeeded, {fail_count} failed")
+
+    elif args.command == 'raw2tiff':
+        raw_to_tiff(args.input, args.output)
 
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
