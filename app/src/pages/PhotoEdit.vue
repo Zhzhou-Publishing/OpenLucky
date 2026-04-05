@@ -128,7 +128,10 @@ const currentPageTitle = computed(() => {
 const goBack = () => {
   router.push({
     path: '/photo-gallery',
-    query: { path: workingDirectory.value }
+    query: {
+      workingDirectory: workingDirectory.value,
+      originalDirectory: originalDirectory.value
+    }
   })
 }
 
