@@ -355,10 +355,9 @@ function createWindow() {
       // Convert tif/tiff files to jpg for browser compatibility
       if (tiffFormats.includes(ext)) {
         try {
-          const tempDir = path.join(app.getPath('temp'), 'photo-gallery-full-res')
-          if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true })
-          }
+          // Create temporary directory using tmp
+          const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-full-res_', unsafeCleanup: true })
+          const tempDir = tempDirObj.name
 
           const convertedPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
           const buffer = await sharp(fullPath).jpeg({ quality: 95 }).toBuffer()
