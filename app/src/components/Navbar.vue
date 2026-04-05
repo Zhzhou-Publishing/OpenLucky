@@ -12,16 +12,19 @@
         class="nav-link"
         active-class="active"
       >
-        {{ route.name }}
+        {{ $t(route.i18nKey) }}
       </router-link>
+      <LanguageSwitcher />
     </div>
   </nav>
 </template>
 
 <script setup>
+import LanguageSwitcher from './LanguageSwitcher.vue'
+
 const routes = [
-  { path: '/', name: 'Home' },
-  { path: '/about', name: 'About' }
+  { path: '/', i18nKey: 'navbar.home' },
+  { path: '/about', i18nKey: 'navbar.about' }
 ]
 </script>
 

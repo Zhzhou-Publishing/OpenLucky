@@ -1,23 +1,23 @@
 <template>
   <div class="photo-gallery-page">
     <div class="header">
-      <button @click="goBack" class="back-button">← Back</button>
+      <button @click="goBack" class="back-button">{{ $t('photoGallery.back') }}</button>
       <h1 class="page-title">{{ title }}</h1>
       <button @click="handleRefresh" class="refresh-button" :disabled="isLoading">
-        🔄 Refresh
+        {{ $t('photoGallery.refresh') }}
       </button>
-      <span class="count-badge">{{ images.length }} images</span>
+      <span class="count-badge">{{ $t('photoGallery.imagesCount', { count: images.length }) }}</span>
     </div>
 
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
-      <p>Loading images...</p>
+      <p>{{ $t('photoGallery.loading') }}</p>
     </div>
 
     <div v-else-if="images.length === 0" class="empty-state">
       <p class="empty-icon">📷</p>
-      <h2>No Images Found</h2>
-      <p>No image files (jpg, jpeg, png, gif, webp, tiff, arw, cr2, cr3, nef, dng, orf, raf) were found in the selected directory.</p>
+      <h2>{{ $t('photoGallery.noImages') }}</h2>
+      <p>{{ $t('photoGallery.noImagesDesc') }}</p>
     </div>
 
     <div v-else class="gallery-grid">

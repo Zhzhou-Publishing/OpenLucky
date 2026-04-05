@@ -1,17 +1,17 @@
 <template>
   <div class="photo-directory-page">
     <div class="container">
-      <h1 class="page-title">Select Photo Directory</h1>
-      <p class="page-description">Choose a local folder containing your photos</p>
+      <h1 class="page-title">{{ $t('photoDirectory.title') }}</h1>
+      <p class="page-description">{{ $t('photoDirectory.description') }}</p>
 
       <!-- OpenLucky installation error -->
       <div v-if="!openluckyAvailable" class="installation-error">
-        ❌ The software installation is incomplete. This may be due to your antivirus software damaging the software. Please reinstall.
+        {{ $t('photoDirectory.installationError') }}
       </div>
 
       <!-- Electron environment indicator -->
       <div v-if="!isElectron" class="warning-box">
-        ⚠️ Not running in Electron environment
+        {{ $t('photoDirectory.electronWarning') }}
       </div>
 
       <button
@@ -19,12 +19,12 @@
         class="select-button"
         :disabled="isLoading || !isElectron || !openluckyAvailable"
       >
-        <span v-if="!isLoading">📁 Select Directory</span>
-        <span v-else>Loading...</span>
+        <span v-if="!isLoading">{{ $t('photoDirectory.selectButton') }}</span>
+        <span v-else>{{ $t('photoDirectory.loading') }}</span>
       </button>
 
       <div v-if="selectedPath" class="selected-info">
-        <p class="path-label">Selected Path:</p>
+        <p class="path-label">{{ $t('photoDirectory.selectedPath') }}</p>
         <p class="path-text">{{ selectedPath }}</p>
       </div>
     </div>

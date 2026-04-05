@@ -1,7 +1,7 @@
 <template>
   <div v-if="!isLoading && imagesCount > 0" class="bottom-menu">
     <div class="menu-item">
-      <label class="menu-label">Preset:</label>
+      <label class="menu-label">{{ $t('bottomMenu.preset') }}</label>
       <select
         v-model="internalSelectedPreset"
         class="preset-select"
@@ -25,7 +25,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getCachedPresets, updateCachedPresets } from '../utils/presetCache'
+
+const { t } = useI18n()
 
 const props = defineProps({
   selectedPreset: {
@@ -63,7 +66,7 @@ const internalSelectedPreset = computed({
 })
 
 const applyButtonText = computed(() => {
-  return props.isApplyingPreset ? 'Applying...' : 'Apply'
+  return props.isApplyingPreset ? t('bottomMenu.applying') : t('bottomMenu.apply')
 })
 
 const handleApplyPreset = () => {

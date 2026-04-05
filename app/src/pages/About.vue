@@ -1,23 +1,19 @@
 <template>
   <div class="about-page">
-    <h1>About OpenLucky Desktop</h1>
+    <h1>{{ $t('about.title') }}</h1>
     <div class="content">
       <section class="info-section">
-        <h2>Version Information</h2>
+        <h2>{{ $t('about.version') }}</h2>
         <p>OpenLucky Desktop {{ version }}</p>
       </section>
 
       <section class="info-section">
-        <h2>Description</h2>
-        <p>
-          OpenLucky Desktop is a powerful desktop application for film processing
-          and batch operations. Built with Electron and Vue 3, it provides a modern
-          and efficient user interface for managing your workflow.
-        </p>
+        <h2>{{ $t('about.description') }}</h2>
+        <p>{{ $t('about.descriptionText') }}</p>
       </section>
 
       <section class="info-section">
-        <h2>Technologies</h2>
+        <h2>{{ $t('about.technologies') }}</h2>
         <ul class="tech-list">
           <li v-for="tech in technologies" :key="tech">{{ tech }}</li>
         </ul>

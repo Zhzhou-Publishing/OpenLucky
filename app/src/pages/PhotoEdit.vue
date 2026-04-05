@@ -1,20 +1,20 @@
 <template>
   <div class="photo-edit-page">
     <div class="header">
-      <button @click="goBack" class="back-button">← Back</button>
+      <button @click="goBack" class="back-button">{{ $t('photoEdit.back') }}</button>
       <h1 class="page-title">{{ currentPageTitle }}</h1>
       <div class="image-info">{{ currentFileName }}</div>
     </div>
 
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
-      <p>Loading images...</p>
+      <p>{{ $t('photoEdit.loading') }}</p>
     </div>
 
     <div v-else-if="images.length === 0" class="empty-state">
       <p class="empty-icon">📷</p>
-      <h2>No Images Found</h2>
-      <p>No image files were found in the directory.</p>
+      <h2>{{ $t('photoEdit.noImages') }}</h2>
+      <p>{{ $t('photoEdit.noImagesDesc') }}</p>
     </div>
 
     <div v-else class="content">
@@ -22,29 +22,28 @@
       <div class="image-display">
         <div class="image-wrapper">
           <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
-          <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">Applying...</div>
+          <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
         </div>
       </div>
 
       <!-- Operation Area -->
       <div class="operation-area">
-        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
+        <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
           :disabled="isApplying && isCurrentImageAffected" />
-        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
+        <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
           :disabled="isApplying && isCurrentImageAffected" />
-        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
+        <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
           :disabled="isApplying && isCurrentImageAffected" />
-        <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
+        <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
           :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
           large-step-decrease-key="Alt + Shift + F" :disabled="isApplying && isCurrentImageAffected" />
-        <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
+        <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
           :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
           large-step-decrease-key="Alt + Shift + G" :disabled="isApplying && isCurrentImageAffected" />
         <button @click="apply" class="apply-button" title="Enter"
-          :disabled="isApplying && isCurrentImageAffected">Apply</button>
+          :disabled="isApplying && isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-          :disabled="isApplying || affectedImages.size > 0">Apply
-          All</button>
+          :disabled="isApplying || affectedImages.size > 0">{{ $t('photoEdit.applyAll') }}</button>
       </div>
 
       <!-- Thumbnail Navigation -->
