@@ -61,6 +61,12 @@ import BottomMenuBar from '../components/BottomMenuBar.vue'
 const router = useRouter()
 const route = useRoute()
 
+// Get path module from Node.js in Electron
+let path = null
+if (window.require) {
+  path = window.require('path')
+}
+
 const images = ref([])
 const isLoading = ref(true)
 const selectedImage = ref(null)
@@ -68,6 +74,8 @@ const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
 const workingDirectory = ref('')
+const outputDirectory = ref('')
+const originalDirectoryPath = ref('')
 
 const directoryPath = computed(() => route.query.path || '')
 
@@ -92,6 +100,7 @@ const openPhotoEdit = (image) => {
     path: '/photo-edit',
     query: {
       workingDirectory: workingDirectory.value,
+      outputDirectory: outputDirectory.value,
       filename: image.name,
       appliedPresetKey: selectedPreset.value
     }
@@ -150,7 +159,8 @@ const applyPreset = async () => {
 
       // Send request to main process
       ipcRenderer.send('apply-preset', {
-        directoryPath: workingDirectory.value,
+        inputPath: workingDirectory.value,
+        outputPath: outputDirectory.value,
         preset: selectedPreset.value
       })
     } else {
@@ -186,12 +196,6 @@ const loadImages = async () => {
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
         isLoading.value = false
-
-        // Check for RAW files that are still converting
-        const convertingRawFiles = result.images.filter(img => img.isRaw && !img.converted)
-        if (convertingRawFiles.length > 0) {
-          startRawConversionMonitoring()
-        }
       })
 
       ipcRenderer.once('images-error', (_, error) => {
@@ -209,40 +213,6 @@ const loadImages = async () => {
   }
 }
 
-let rawConversionMonitorInterval = null
-
-const startRawConversionMonitoring = () => {
-  if (rawConversionMonitorInterval) {
-    clearInterval(rawConversionMonitorInterval)
-  }
-
-  rawConversionMonitorInterval = setInterval(() => {
-    if (!window.require) return
-
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    ipcRenderer.send('get-images', workingDirectory.value)
-
-    ipcRenderer.once('images-loaded', (_, result) => {
-      const hasUnconvertedRaw = result.images.some(img => img.isRaw && !img.converted)
-      images.value = result.images
-
-      // Stop monitoring if all RAW files are converted
-      if (!hasUnconvertedRaw && rawConversionMonitorInterval) {
-        clearInterval(rawConversionMonitorInterval)
-        rawConversionMonitorInterval = null
-      }
-    })
-  }, 2000) // Check every 2 seconds
-}
-
-const stopRawConversionMonitoring = () => {
-  if (rawConversionMonitorInterval) {
-    clearInterval(rawConversionMonitorInterval)
-    rawConversionMonitorInterval = null
-  }
-}
-
 const handleRefresh = async () => {
   await loadImages()
 }
@@ -255,13 +225,26 @@ const handlePresetsLoaded = (presets) => {
 }
 
 onMounted(() => {
-  workingDirectory.value = directoryPath.value
-  // Load images
-  loadImages()
+  originalDirectoryPath.value = directoryPath.value
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', true)
+
+    // Prepare working directory
+    ipcRenderer.send('prepare-working-directory', directoryPath.value)
+
+    ipcRenderer.once('working-directory-prepared', (_, result) => {
+      workingDirectory.value = result.workingDirectory
+      outputDirectory.value = path.join(directoryPath.value, 'output')
+      // Load images after working directory is prepared
+      loadImages()
+    })
+
+    ipcRenderer.once('working-directory-error', (_, error) => {
+      console.error('Error preparing working directory:', error)
+      isLoading.value = false
+    })
   }
 })
 
@@ -271,8 +254,6 @@ onUnmounted(() => {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
   }
-  // Stop RAW conversion monitoring
-  stopRawConversionMonitoring()
 })
 </script>
 

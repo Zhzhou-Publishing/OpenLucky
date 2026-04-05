@@ -91,6 +91,7 @@ const imageTimestamp = ref(Date.now())
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
+const outputDirectory = computed(() => route.query.outputDirectory || '')
 const filename = computed(() => route.query.filename || '')
 
 const currentFileName = computed(() => {
@@ -161,7 +162,8 @@ const apply = () => {
 
     // Send request to main process
     ipcRenderer.send('apply-filmparam', {
-      directoryPath: workingDirectory.value,
+      inputPath: workingDirectory.value,
+      outputPath: outputDirectory.value,
       filename: imageName,
       params: params
     })
@@ -239,7 +241,8 @@ const applyAll = () => {
 
     // Send request to main process
     ipcRenderer.send('apply-filmparambatch', {
-      directoryPath: workingDirectory.value,
+      inputPath: workingDirectory.value,
+      outputPath: outputDirectory.value,
       params: params
     })
 

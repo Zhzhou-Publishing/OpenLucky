@@ -63,6 +63,7 @@ def get_preset_config(config_path, preset_name="kodak_ultramax_400"):
         if not preset:
             print(f"Error: Preset '{preset_name}' not found in config file")
             return
+        return preset
     except Exception as e:
         print(f"Cannot read config file: {e}")
         return
@@ -363,7 +364,7 @@ def main():
             contrast = float(params[4])
         except ValueError as e:
             print(f"Error: Failed to parse parameters: {e}")
-            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            print("Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
             sys.exit(1)
 
         # Read input from file or stdin
@@ -444,7 +445,7 @@ def main():
             contrast = float(params[4])
         except ValueError as e:
             print(f"Error: Failed to parse parameters: {e}")
-            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            print("Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
             sys.exit(1)
 
         # Read input from file or stdin
@@ -501,7 +502,7 @@ def main():
             contrast = float(params[4])
         except ValueError as e:
             print(f"Error: Failed to parse parameters: {e}")
-            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            print("Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
             sys.exit(1)
 
         # Verify input directory

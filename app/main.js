@@ -111,13 +111,6 @@ function createWindow() {
         return (imageExtensions.includes(ext) || rawExtensions.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
-      // Create working directory in system temp
-      const workingTempDir = path.join(app.getPath('temp'), 'openlucky_working_directory')
-      if (!fs.existsSync(workingTempDir)) {
-        const tmpDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
-        fs.renameSync(tmpDirObj.name, workingTempDir)
-      }
-
       // Create temporary thumbnails directory using tmp
       const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-thumbnails_', unsafeCleanup: true })
       const tempDir = tempDirObj.name
@@ -134,108 +127,11 @@ function createWindow() {
         }
       }
 
-      // Create a placeholder SVG for RAW files using tmp
-      const placeholderSvgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200">
-        <rect width="300" height="200" fill="#cccccc"/>
-        <text x="150" y="100" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#666666">RAW</text>
-      </svg>`
-
       // Add timestamp to bypass caching
       const timestamp = Date.now()
 
-      // Separate RAW files and other image files
-      const rawFiles = allImageFiles.filter(file => {
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return rawExtensions.includes(ext)
-      })
-
-      const regularImageFiles = allImageFiles.filter(file => {
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !rawExtensions.includes(ext)
-      })
-
-      // Process RAW files - first return placeholders, then convert in background
-      const rawImages = await Promise.all(rawFiles.map(async (file) => {
-        const inputPath = path.join(directoryPath, file)
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        const baseName = path.basename(file, ext)
-        const tiffFileName = `${baseName}.tif`
-        const outputTiffPath = path.join(workingTempDir, tiffFileName)
-
-        // Create placeholder thumbnail using tmp
-        const placeholderSvgObj = tmp.fileSync({ prefix: `${baseName}_placeholder_`, postfix: '.svg' })
-        const placeholderPath = placeholderSvgObj.name
-        fs.writeFileSync(placeholderPath, placeholderSvgContent)
-
-        // Check if TIFF already exists
-        if (fs.existsSync(outputTiffPath)) {
-          // TIFF exists, generate thumbnail
-          try {
-            const thumbnailPath = path.join(tempDir, `${baseName}_thumb.jpg`)
-            await sharp(outputTiffPath)
-              .resize(300, 200, { fit: 'cover' })
-              .jpeg({ quality: 80 })
-              .toFile(thumbnailPath)
-            return {
-              name: file,
-              path: outputTiffPath,
-              url: `file://${thumbnailPath}?t=${timestamp}`,
-              isRaw: true,
-              converted: true
-            }
-          } catch (err) {
-            console.error('Error generating thumbnail for converted RAW file', file, err)
-            return {
-              name: file,
-              path: outputTiffPath,
-              url: `file://${placeholderPath}?t=${timestamp}`,
-              isRaw: true,
-              converted: true
-            }
-          }
-        } else {
-          // TIFF doesn't exist yet, start conversion in background
-          // Start conversion in background (don't wait)
-          const convertProcess = spawn('openlucky', ['raw2tiff', '-i', inputPath, '-o', outputTiffPath], {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            detached: true,
-            windowsHide: true
-          })
-
-          let stdoutOutput = ''
-          let stderrOutput = ''
-
-          convertProcess.stdout.on('data', (data) => {
-            stdoutOutput += data.toString()
-          })
-
-          convertProcess.stderr.on('data', (data) => {
-            stderrOutput += data.toString()
-          })
-
-          convertProcess.on('close', async (code) => {
-            if (code === 0 && fs.existsSync(outputTiffPath)) {
-              console.log('RAW conversion successful:', file)
-              // Conversion successful, the next get-images request will pick up the converted file
-            } else {
-              console.error('RAW conversion failed:', file, 'Exit code:', code)
-              console.error('Command output (stdout):', stdoutOutput)
-              console.error('Command errors (stderr):', stderrOutput)
-            }
-          })
-
-          return {
-            name: file,
-            path: inputPath,
-            url: `file://${placeholderPath}?t=${timestamp}`,
-            isRaw: true,
-            converted: false
-          }
-        }
-      }))
-
-      // Process regular image files
-      const regularImages = await Promise.all(regularImageFiles.map(async (file) => {
+      // Process all image files
+      const images = await Promise.all(allImageFiles.map(async (file) => {
         // Check if file has preset output_dir
         let fullPath = path.join(directoryPath, file)
 
@@ -248,6 +144,7 @@ function createWindow() {
         }
 
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        const isRaw = rawExtensions.includes(ext)
 
         let imageUrl = `file://${fullPath}?t=${timestamp}`
 
@@ -268,15 +165,13 @@ function createWindow() {
         return {
           name: file,
           path: fullPath,
-          url: imageUrl
+          url: imageUrl,
+          isRaw: isRaw
         }
       }))
 
-      // Combine converted RAW files and regular images
-      const allImages = [...rawImages, ...regularImages]
-
       win.webContents.send('images-loaded', {
-        images: allImages
+        images: images
       })
     } catch (error) {
       console.error('Error loading images:', error)
@@ -336,56 +231,129 @@ function createWindow() {
     }
   })
 
+  // Handle prepare-working-directory request
+  ipcMain.on('prepare-working-directory', async (event, directoryPath) => {
+    try {
+      // Supported image extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
+      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
+
+      // Create temporary working directory
+      const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
+      const workingDirectory = workingDirObj.name
+
+      // Read files in the source directory
+      const files = fs.readdirSync(directoryPath)
+
+      // Filter for image files and .preset.json
+      const filesToProcess = files.filter(file => {
+        if (file === '.preset.json') return true
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return (imageExtensions.includes(ext) || rawExtensions.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+      })
+
+      // Separate RAW and non-RAW files
+      const rawFiles = filesToProcess.filter(file => {
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return rawExtensions.includes(ext)
+      })
+
+      const nonRawFiles = filesToProcess.filter(file => {
+        if (file === '.preset.json') return false
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return !rawExtensions.includes(ext)
+      })
+
+      // Copy non-RAW files to working directory
+      for (const file of nonRawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+        fs.copyFileSync(srcPath, destPath)
+      }
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
+      }
+
+      // Convert RAW files using openlucky raw2tiff
+      const rawConversions = rawFiles.map(file => {
+        return new Promise((resolve) => {
+          const srcPath = path.join(directoryPath, file)
+          const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+          const baseName = path.basename(file, ext)
+          const destPath = path.join(workingDirectory, `${baseName}.tif`)
+
+          const process = spawn('openlucky', ['raw2tiff', '-i', srcPath, '-o', destPath], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true
+          })
+
+          let stderrOutput = ''
+
+          process.stderr.on('data', (data) => {
+            stderrOutput += data.toString()
+          })
+
+          process.on('close', (code) => {
+            if (code === 0 && fs.existsSync(destPath)) {
+              resolve({ success: true, file })
+            } else {
+              console.error('RAW conversion failed:', file, 'Exit code:', code)
+              console.error('Error output:', stderrOutput)
+              resolve({ success: false, file, error: stderrOutput })
+            }
+          })
+
+          process.on('error', (err) => {
+            console.error('RAW conversion error:', file, err.message)
+            resolve({ success: false, file, error: err.message })
+          })
+        })
+      })
+
+      // Wait for all RAW conversions to complete
+      await Promise.all(rawConversions)
+
+      event.sender.send('working-directory-prepared', { workingDirectory })
+    } catch (error) {
+      console.error('Error preparing working directory:', error)
+      event.sender.send('working-directory-error', { error: error.message })
+    }
+  })
+
   // Handle get-full-res-image request
   ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
     try {
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
-      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
       const tiffFormats = ['.tif', '.tiff']
 
       let fullPath = path.join(directoryPath, filename)
 
-      // Check if file is RAW format, if so use converted TIFF from temp directory
-      if (rawExtensions.includes(ext)) {
-        const workingTempDir = path.join(app.getPath('temp'), 'openlucky_working_directory')
-        const baseName = path.basename(filename, ext)
-        const tiffFileName = `${baseName}.tif`
-        const outputTiffPath = path.join(workingTempDir, tiffFileName)
+      // Read .preset.json from working directory
+      const presetsFile = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetsFile)) {
+        try {
+          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
+          const presets = JSON.parse(presetsContent)
 
-        // Check if converted TIFF exists
-        if (fs.existsSync(outputTiffPath)) {
-          // Use converted TIFF file instead of original RAW file
-          fullPath = outputTiffPath
-        } else {
-          // TIFF not yet converted, send error to frontend
-          console.log('RAW file not yet converted:', filename)
-          event.sender.send('full-res-image-error', { error: 'RAW file not yet converted' })
-          return
-        }
-      } else {
-        // Read .preset.json from working directory to find output path for non-RAW files
-        const presetsFile = path.join(directoryPath, '.preset.json')
-        if (fs.existsSync(presetsFile)) {
-          try {
-            const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
-            const presets = JSON.parse(presetsContent)
-            // If file exists in presets and has output_dir, use output path
-            if (presets[filename] && presets[filename].output_dir) {
-              const outputPath = presets[filename].output_dir
-              if (fs.existsSync(outputPath)) {
-                fullPath = outputPath
-              }
+          // If file exists in presets and has output_dir, use output path
+          if (presets[filename] && presets[filename].output_dir) {
+            const outputPath = presets[filename].output_dir
+            if (fs.existsSync(outputPath)) {
+              fullPath = outputPath
             }
-          } catch (err) {
-            console.error('Error reading .preset.json:', err)
           }
+        } catch (err) {
+          console.error('Error reading .preset.json:', err)
         }
       }
 
       let imageUrl = `file://${fullPath}`
 
       // Convert tif/tiff files to jpg for browser compatibility
-      if (tiffFormats.includes(ext) || rawExtensions.includes(ext)) {
+      if (tiffFormats.includes(ext)) {
         try {
           const tempDir = path.join(app.getPath('temp'), 'photo-gallery-full-res')
           if (!fs.existsSync(tempDir)) {
@@ -429,11 +397,11 @@ function createWindow() {
   })
 
   // Handle apply-preset request
-  ipcMain.on('apply-preset', async (event, { directoryPath, preset }) => {
+  ipcMain.on('apply-preset', async (event, { inputPath, outputPath, preset }) => {
     try {
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmbatch', '--input', directoryPath, '--preset', preset]
+      const args = ['filmbatch', '--input', inputPath, '--output', outputPath, '--preset', preset]
 
       event.sender.send('preset-apply-started', { message: 'Processing started' })
 
@@ -475,21 +443,14 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { directoryPath, filename, params }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params }) => {
     try {
-      // Construct input path
-      const inputPath = path.join(directoryPath, filename)
-
-      // Construct output path (put in output subdirectory)
-      const outputDir = path.join(directoryPath, 'output')
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true })
-      }
-      const outputPath = path.join(outputDir, filename)
+      // Construct the input file path
+      const inputFile = path.join(inputPath, filename)
 
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmparam', '--input', inputPath, '--output', outputPath, '--param', params]
+      const args = ['filmparam', '--input', inputFile, '--output', outputPath, '--param', params]
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
 
@@ -531,11 +492,11 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { directoryPath, params }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params }) => {
     try {
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmparambatch', '--input', directoryPath, '--param', params]
+      const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params]
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
 
