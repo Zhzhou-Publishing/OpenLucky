@@ -231,7 +231,7 @@ function createWindow() {
     }
   })
 
-  // Handle prepare-working-directory request
+  // Handle prepare-working-directory request (from PhotoGallery)
   ipcMain.on('prepare-working-directory', async (event, directoryPath) => {
     try {
       // Supported image extensions
@@ -320,6 +320,100 @@ function createWindow() {
     } catch (error) {
       console.error('Error preparing working directory:', error)
       event.sender.send('working-directory-error', { error: error.message })
+    }
+  })
+
+  // Handle prepare-working-directory-from-selected request (from PhotoDirectory)
+  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath) => {
+    try {
+      // Supported image extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
+      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
+
+      // Create temporary working directory
+      const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
+      const workingDirectory = workingDirObj.name
+
+      // Read files in the source directory
+      const files = fs.readdirSync(directoryPath)
+
+      // Filter for image files and .preset.json only (exclude subdirectories and other files)
+      const filesToProcess = files.filter(file => {
+        if (file === '.preset.json') return true
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        const isFile = fs.statSync(path.join(directoryPath, file)).isFile()
+        return isFile && (imageExtensions.includes(ext) || rawExtensions.includes(ext))
+      })
+
+      // Separate RAW and non-RAW files
+      const rawFiles = filesToProcess.filter(file => {
+        if (file === '.preset.json') return false
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return rawExtensions.includes(ext)
+      })
+
+      const nonRawFiles = filesToProcess.filter(file => {
+        if (file === '.preset.json') return false
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return !rawExtensions.includes(ext)
+      })
+
+      // Copy non-RAW files to working directory
+      for (const file of nonRawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+        fs.copyFileSync(srcPath, destPath)
+      }
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
+      }
+
+      // Convert RAW files using openlucky raw2tiff
+      const rawConversions = rawFiles.map(file => {
+        return new Promise((resolve) => {
+          const srcPath = path.join(directoryPath, file)
+          const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+          const baseName = path.basename(file, ext)
+          const destPath = path.join(workingDirectory, `${baseName}.tif`)
+
+          const process = spawn('openlucky', ['raw2tiff', '-i', srcPath, '-o', destPath], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true
+          })
+
+          let stderrOutput = ''
+
+          process.stderr.on('data', (data) => {
+            stderrOutput += data.toString()
+          })
+
+          process.on('close', (code) => {
+            if (code === 0 && fs.existsSync(destPath)) {
+              resolve({ success: true, file })
+            } else {
+              console.error('RAW conversion failed:', file, 'Exit code:', code)
+              console.error('Error output:', stderrOutput)
+              resolve({ success: false, file, error: stderrOutput })
+            }
+          })
+
+          process.on('error', (err) => {
+            console.error('RAW conversion error:', file, err.message)
+            resolve({ success: false, file, error: err.message })
+          })
+        })
+      })
+
+      // Wait for all RAW conversions to complete
+      await Promise.all(rawConversions)
+
+      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, originalDirectory: directoryPath })
+    } catch (error) {
+      console.error('Error preparing working directory from selected:', error)
+      event.sender.send('working-directory-from-selected-error', { error: error.message })
     }
   })
 
@@ -447,9 +541,12 @@ function createWindow() {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
 
+      // Construct the output file path (join output directory with filename)
+      const outputFile = path.join(outputPath, filename)
+
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmparam', '--input', inputFile, '--output', outputPath, '--param', params]
+      const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params]
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
 
@@ -475,7 +572,7 @@ function createWindow() {
 
       process.on('close', (code) => {
         if (code === 0) {
-          event.sender.send('filmparam-apply-success', { message: 'Film processing completed successfully', outputPath })
+          event.sender.send('filmparam-apply-success', { message: 'Film processing completed successfully', outputFile })
         } else {
           event.sender.send('filmparam-apply-error', { message: `Process exited with code ${code}`, error: errorOutput })
         }
@@ -533,6 +630,34 @@ function createWindow() {
     } catch (error) {
       console.error('Error applying filmparambatch:', error)
       event.sender.send('filmparambatch-apply-error', { message: 'Error applying batch film parameters', error: error.message })
+    }
+  })
+
+  // Handle copy-preset-json request
+  ipcMain.on('copy-preset-json', async (event, { workingDirectory, originalDirectory }) => {
+    try {
+      const presetJsonSource = path.join(workingDirectory, '.preset.json')
+      const presetJsonDest = path.join(originalDirectory, '.preset.json')
+
+      // Check if source .preset.json exists
+      if (!fs.existsSync(presetJsonSource)) {
+        event.sender.send('copy-preset-json-error', { message: 'Source .preset.json not found in working directory' })
+        return
+      }
+
+      // Ensure original directory exists
+      if (!fs.existsSync(originalDirectory)) {
+        event.sender.send('copy-preset-json-error', { message: 'Original directory does not exist' })
+        return
+      }
+
+      // Copy the file
+      fs.copyFileSync(presetJsonSource, presetJsonDest)
+
+      event.sender.send('copy-preset-json-success', { message: '.preset.json copied successfully' })
+    } catch (error) {
+      console.error('Error copying .preset.json:', error)
+      event.sender.send('copy-preset-json-error', { message: 'Error copying .preset.json', error: error.message })
     }
   })
 }

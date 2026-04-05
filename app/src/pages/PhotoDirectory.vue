@@ -27,18 +27,6 @@
         <p class="path-label">Selected Path:</p>
         <p class="path-text">{{ selectedPath }}</p>
       </div>
-
-      <div v-if="files.length > 0" class="files-info">
-        <p class="files-count">Found {{ files.length }} files:</p>
-        <ul class="files-list">
-          <li v-for="(file, index) in files.slice(0, 10)" :key="index" class="file-item">
-            {{ file }}
-          </li>
-          <li v-if="files.length > 10" class="file-item more-files">
-            ... and {{ files.length - 10 }} more files
-          </li>
-        </ul>
-      </div>
     </div>
   </div>
 </template>
@@ -94,7 +82,6 @@ const checkOpenLucky = () => {
 }
 
 const selectedPath = ref('')
-const files = ref([])
 const isLoading = ref(false)
 
 const selectDirectory = async () => {
@@ -115,19 +102,36 @@ const selectDirectory = async () => {
     ipcRenderer.once('directory-selected', (_, result) => {
       console.log('Received directory-selected response:', result)
       selectedPath.value = result.path
-      files.value = result.files
 
       // Print to console as requested
       console.log('Selected directory:', result.path)
-      console.log('Files in directory:', result.files)
 
+      // Prepare working directory from selected directory
+      isLoading.value = true
+      ipcRenderer.send('prepare-working-directory-from-selected', result.path)
+    })
+
+    // Handle working directory preparation success
+    ipcRenderer.once('working-directory-from-selected-prepared', (_, result) => {
+      console.log('Working directory prepared:', result.workingDirectory)
+      console.log('Original directory:', result.originalDirectory)
       isLoading.value = false
 
-      // Navigate to PhotoGallery page
+      // Navigate to PhotoGallery page with working directory
       router.push({
         path: '/photo-gallery',
-        query: { path: result.path }
+        query: {
+          workingDirectory: result.workingDirectory,
+          originalDirectory: result.originalDirectory
+        }
       })
+    })
+
+    // Handle working directory preparation error
+    ipcRenderer.once('working-directory-from-selected-error', (_, error) => {
+      console.error('Error preparing working directory:', error)
+      alert('Failed to prepare working directory: ' + error.error)
+      isLoading.value = false
     })
 
     // Handle cancellation

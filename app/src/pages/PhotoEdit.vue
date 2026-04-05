@@ -92,6 +92,7 @@ const previousImageDimensions = ref({ width: 6000, height: 4000 })
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const outputDirectory = computed(() => route.query.outputDirectory || '')
+const originalDirectory = computed(() => route.query.originalDirectory || '')
 const filename = computed(() => route.query.filename || '')
 
 const currentFileName = computed(() => {
@@ -187,6 +188,22 @@ const apply = () => {
         loadPresets(true);
         affectedImages.delete(imageName);
 
+        // Copy .preset.json from working directory to original directory
+        if (originalDirectory.value) {
+          ipcRenderer.send('copy-preset-json', {
+            workingDirectory: workingDirectory.value,
+            originalDirectory: originalDirectory.value
+          });
+
+          ipcRenderer.once('copy-preset-json-success', () => {
+            console.log('.preset.json copied to original directory successfully')
+          })
+
+          ipcRenderer.once('copy-preset-json-error', (_, error) => {
+            console.error('Error copying .preset.json:', error.message)
+          })
+        }
+
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
       }
@@ -263,6 +280,22 @@ const applyAll = () => {
       // Reload presets and then enable controls
       loadPresets(true)
       affectedImages.clear()
+
+      // Copy .preset.json from working directory to original directory
+      if (originalDirectory.value) {
+        ipcRenderer.send('copy-preset-json', {
+          workingDirectory: workingDirectory.value,
+          originalDirectory: originalDirectory.value
+        })
+
+        ipcRenderer.once('copy-preset-json-success', () => {
+          console.log('.preset.json copied to original directory successfully')
+        })
+
+        ipcRenderer.once('copy-preset-json-error', (_, error) => {
+          console.error('Error copying .preset.json:', error.message)
+        })
+      }
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {

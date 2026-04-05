@@ -21,7 +21,14 @@
     </div>
 
     <div v-else class="gallery-grid">
-      <div v-for="(image, index) in images" :key="index" class="image-item" @click="openPhotoEdit(image)" @contextmenu.prevent="openImage(image)">
+      <div
+        v-for="(image, index) in images"
+        :key="index"
+        class="image-item"
+        :class="{ 'applying': isApplyingPreset }"
+        @click="openPhotoEdit(image)"
+        @contextmenu.prevent="openImage(image)"
+      >
         <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
         <div class="image-info">
           <p class="image-name">{{ image.name }}</p>
@@ -77,7 +84,7 @@ const workingDirectory = ref('')
 const outputDirectory = ref('')
 const originalDirectoryPath = ref('')
 
-const directoryPath = computed(() => route.query.path || '')
+const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
 
 const title = computed(() => {
   if (workingDirectory.value) {
@@ -88,6 +95,8 @@ const title = computed(() => {
 })
 
 const goBack = () => {
+  // If we came from PhotoEdit, go back to PhotoGallery (current page) with the same parameters
+  // Otherwise, go back to PhotoDirectory
   router.push('/photo-directory')
 }
 
@@ -96,11 +105,17 @@ const openImage = (image) => {
 }
 
 const openPhotoEdit = (image) => {
+  // Prevent navigation when applying preset
+  if (isApplyingPreset.value) {
+    return
+  }
+
   router.push({
     path: '/photo-edit',
     query: {
       workingDirectory: workingDirectory.value,
       outputDirectory: outputDirectory.value,
+      originalDirectory: originalDirectoryPath.value,
       filename: image.name,
       appliedPresetKey: selectedPreset.value
     }
@@ -140,6 +155,20 @@ const applyPreset = async () => {
       ipcRenderer.once('preset-apply-success', async (_, result) => {
         console.log('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
+
+        // Copy .preset.json from working directory to original directory
+        ipcRenderer.send('copy-preset-json', {
+          workingDirectory: workingDirectory.value,
+          originalDirectory: originalDirectoryPath.value
+        })
+
+        ipcRenderer.once('copy-preset-json-success', () => {
+          console.log('.preset.json copied to original directory successfully')
+        })
+
+        ipcRenderer.once('copy-preset-json-error', (_, error) => {
+          console.error('Error copying .preset.json:', error.message)
+        })
 
         // Wait a moment for the .preset.json to be updated
         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -225,26 +254,34 @@ const handlePresetsLoaded = (presets) => {
 }
 
 onMounted(() => {
-  originalDirectoryPath.value = directoryPath.value
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', true)
 
-    // Prepare working directory
-    ipcRenderer.send('prepare-working-directory', directoryPath.value)
-
-    ipcRenderer.once('working-directory-prepared', (_, result) => {
-      workingDirectory.value = result.workingDirectory
-      outputDirectory.value = path.join(directoryPath.value, 'output')
-      // Load images after working directory is prepared
+    // Check if working directory was provided by PhotoDirectory
+    if (route.query.workingDirectory) {
+      // Use the provided working directory directly
+      workingDirectory.value = route.query.workingDirectory
+      originalDirectoryPath.value = route.query.originalDirectory || ''
+      outputDirectory.value = path.join(originalDirectoryPath.value, 'output')
       loadImages()
-    })
+    } else {
+      // Fallback to old behavior for backward compatibility
+      originalDirectoryPath.value = directoryPath.value
+      ipcRenderer.send('prepare-working-directory', directoryPath.value)
 
-    ipcRenderer.once('working-directory-error', (_, error) => {
-      console.error('Error preparing working directory:', error)
-      isLoading.value = false
-    })
+      ipcRenderer.once('working-directory-prepared', (_, result) => {
+        workingDirectory.value = result.workingDirectory
+        outputDirectory.value = path.join(directoryPath.value, 'output')
+        loadImages()
+      })
+
+      ipcRenderer.once('working-directory-error', (_, error) => {
+        console.error('Error preparing working directory:', error)
+        isLoading.value = false
+      })
+    }
   }
 })
 
@@ -401,9 +438,14 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.image-item:hover {
+.image-item:hover:not(.applying) {
   transform: translateY(-4px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.image-item.applying {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .thumbnail {
