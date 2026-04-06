@@ -25,9 +25,9 @@
         v-for="(image, index) in images"
         :key="index"
         class="image-item"
-        :class="{ 'applying': isApplyingPreset }"
-        @click="openPhotoEdit(image)"
-        @contextmenu.prevent="openImage(image)"
+        :class="{ 'applying': isApplyingPreset, 'cursor-wait': isSavingAll }"
+        @click="!isSavingAll && openPhotoEdit(image)"
+        @contextmenu.prevent="!isSavingAll && openImage(image)"
       >
         <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
         <div class="image-info">
@@ -43,9 +43,11 @@
       :has-unapplied-changes="hasUnappliedChanges"
       :is-loading="isLoading"
       :is-applying-preset="isApplyingPreset"
+      :is-saving-all="isSavingAll"
       :images-count="images.length"
       @update:selected-preset="selectedPreset = $event"
       @apply="applyPreset"
+      @save-all="saveAll"
       @presets-loaded="handlePresetsLoaded"
     />
 
@@ -64,6 +66,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import BottomMenuBar from '../components/BottomMenuBar.vue'
+import { setSaveAllClicked } from '../utils/globalState'
 
 const router = useRouter()
 const route = useRoute()
@@ -80,6 +83,7 @@ const selectedImage = ref(null)
 const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
+const isSavingAll = ref(false)
 const workingDirectory = ref('')
 const outputDirectory = ref('')
 const originalDirectoryPath = ref('')
@@ -128,6 +132,9 @@ const closeModal = () => {
 
 const applyPreset = async () => {
   try {
+    // Reset global isSaveAllClicked state
+    setSaveAllClicked(false)
+
     isApplyingPreset.value = true
     hasUnappliedChanges.value = false
 
@@ -155,20 +162,6 @@ const applyPreset = async () => {
       ipcRenderer.once('preset-apply-success', async (_, result) => {
         console.log('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
-
-        // Copy .preset.json from working directory to original directory
-        ipcRenderer.send('copy-preset-json', {
-          workingDirectory: workingDirectory.value,
-          originalDirectory: originalDirectoryPath.value
-        })
-
-        ipcRenderer.once('copy-preset-json-success', () => {
-          console.log('.preset.json copied to original directory successfully')
-        })
-
-        ipcRenderer.once('copy-preset-json-error', (_, error) => {
-          console.error('Error copying .preset.json:', error.message)
-        })
 
         // Wait a moment for the .preset.json to be updated
         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -253,6 +246,70 @@ const handlePresetsLoaded = (presets) => {
   }
 }
 
+const saveAll = () => {
+  if (!workingDirectory.value || !originalDirectoryPath.value) {
+    console.error('No working directory or original directory')
+    return
+  }
+
+  if (!window.require) {
+    console.error('Not running in Electron')
+    return
+  }
+
+  // Set global isSaveAllClicked state
+  setSaveAllClicked(true)
+
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    // Set saving all state to disable controls
+    isSavingAll.value = true
+
+    // Remove existing listeners to avoid duplicates
+    ipcRenderer.removeAllListeners('preset-to-batch-started')
+    ipcRenderer.removeAllListeners('preset-to-batch-progress')
+    ipcRenderer.removeAllListeners('preset-to-batch-success')
+    ipcRenderer.removeAllListeners('preset-to-batch-error')
+
+    // Prepare the output directory path
+    const outputDir = path.join(originalDirectoryPath.value, 'output')
+
+    // Send request to main process
+    ipcRenderer.send('apply-preset-to-batch', {
+      presetFile: path.join(workingDirectory.value, '.preset.json'),
+      inputDir: originalDirectoryPath.value,
+      outputDir: outputDir
+    })
+
+    // Handle started
+    ipcRenderer.once('preset-to-batch-started', (_, result) => {
+      console.log(result.message)
+    })
+
+    // Handle progress
+    ipcRenderer.on('preset-to-batch-progress', (_, result) => {
+      console.log(result.data)
+    })
+
+    // Handle success
+    ipcRenderer.once('preset-to-batch-success', (_, result) => {
+      console.log(result.message)
+      isSavingAll.value = false
+      loadImages()
+    })
+
+    // Handle error
+    ipcRenderer.once('preset-to-batch-error', (_, result) => {
+      console.error('Error saving all files:', result.message, result.error)
+      isSavingAll.value = false
+    })
+  } catch (error) {
+    console.error('Error saving all files:', error)
+    isSavingAll.value = false
+  }
+}
+
 onMounted(() => {
   // Make window resizable when entering photo gallery
   if (window.require) {
@@ -293,6 +350,16 @@ onMounted(() => {
       })
     }
   }
+
+  // Add Ctrl+S keyboard shortcut
+  const handleKeydown = (event) => {
+    if ((event.key === 's' || event.key === 'S') && event.ctrlKey) {
+      event.preventDefault()
+      saveAll()
+    }
+  }
+  window.saveAllKeydownHandler = handleKeydown
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
@@ -300,6 +367,12 @@ onUnmounted(() => {
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
+  }
+
+  // Remove keyboard event listener
+  if (window.saveAllKeydownHandler) {
+    window.removeEventListener('keydown', window.saveAllKeydownHandler)
+    delete window.saveAllKeydownHandler
   }
 })
 </script>
@@ -456,6 +529,10 @@ onUnmounted(() => {
 .image-item.applying {
   cursor: wait;
   opacity: 0.7;
+}
+
+.image-item.cursor-wait {
+  cursor: wait;
 }
 
 .thumbnail {

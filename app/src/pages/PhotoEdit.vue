@@ -30,29 +30,30 @@
       <!-- Operation Area -->
       <div class="operation-area">
         <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-          :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-          :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-          :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
           :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-          large-step-decrease-key="Alt + Shift + F" :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          large-step-decrease-key="Alt + Shift + F" :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
           :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-          large-step-decrease-key="Alt + Shift + G" :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
-        <button @click="apply" class="apply-button" title="Enter"
+          large-step-decrease-key="Alt + Shift + G" :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+        <button @click="apply" class="apply-button" title="Enter" style="display: none;"
           :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)">{{ $t('photoEdit.apply') }}</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-          :disabled="isApplying || affectedImages.size > 0 || isPreviewing || previewingImages.size > 0">{{ $t('photoEdit.applyAll') }}</button>
+          :disabled="isApplying || affectedImages.size > 0 || isPreviewing || previewingImages.size > 0 || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
+        <SaveAllButton :is-disabled="isSavingAll" @click="saveAll" />
       </div>
 
       <!-- Thumbnail Navigation -->
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
           <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
-            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) || previewingImages.has(image.name) }"
-            @click="selectImage(index)">
+            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) || previewingImages.has(image.name), 'cursor-wait': isSavingAll }"
+            @click="!isSavingAll && selectImage(index)">
             <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
             <div v-if="affectedImages.has(image.name) || previewingImages.has(image.name)" class="thumbnail-overlay">
               <div class="thumbnail-spinner"></div>
@@ -71,6 +72,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NumberInput from '../components/NumberInput.vue'
+import SaveAllButton from '../components/SaveAllButton.vue'
+import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
@@ -94,6 +97,7 @@ const images = ref([])
 const isLoading = ref(true)
 const isApplying = ref(false)
 const isPreviewing = ref(false)
+const isSavingAll = ref(false)
 const affectedImages = reactive(new Set())
 const previewingImages = reactive(new Set())
 const currentIndex = ref(0)
@@ -170,6 +174,9 @@ const apply = () => {
     return
   }
 
+  // Reset global isSaveAllClicked state
+  setSaveAllClicked(false)
+
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
 
@@ -212,22 +219,6 @@ const apply = () => {
         loadPresets(true);
         affectedImages.delete(imageName);
 
-        // Copy .preset.json from working directory to original directory
-        if (originalDirectory.value) {
-          ipcRenderer.send('copy-preset-json', {
-            workingDirectory: workingDirectory.value,
-            originalDirectory: originalDirectory.value
-          });
-
-          ipcRenderer.once('copy-preset-json-success', () => {
-            console.log('.preset.json copied to original directory successfully')
-          })
-
-          ipcRenderer.once('copy-preset-json-error', (_, error) => {
-            console.error('Error copying .preset.json:', error.message)
-          })
-        }
-
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
       }
@@ -265,6 +256,9 @@ const applyPreview = () => {
     console.error('Not running in Electron')
     return
   }
+
+  // Reset global isSaveAllClicked state
+  setSaveAllClicked(false)
 
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
@@ -308,22 +302,6 @@ const applyPreview = () => {
         isPreviewing.value = false;
         previewingImages.delete(imageName);
 
-        // Copy .preset.json from working directory to original directory
-        if (originalDirectory.value) {
-          ipcRenderer.send('copy-preset-json', {
-            workingDirectory: workingDirectory.value,
-            originalDirectory: originalDirectory.value
-          });
-
-          ipcRenderer.once('copy-preset-json-success', () => {
-            console.log('.preset.json copied to original directory successfully')
-          })
-
-          ipcRenderer.once('copy-preset-json-error', (_, error) => {
-            console.error('Error copying .preset.json:', error.message)
-          })
-        }
-
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
       }
@@ -359,6 +337,9 @@ const applyAll = () => {
     console.error('Not running in Electron')
     return
   }
+
+  // Reset global isSaveAllClicked state
+  setSaveAllClicked(false)
 
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
@@ -400,22 +381,6 @@ const applyAll = () => {
       // Reload presets and then enable controls
       loadPresets(true)
       affectedImages.clear()
-
-      // Copy .preset.json from working directory to original directory
-      if (originalDirectory.value) {
-        ipcRenderer.send('copy-preset-json', {
-          workingDirectory: workingDirectory.value,
-          originalDirectory: originalDirectory.value
-        })
-
-        ipcRenderer.once('copy-preset-json-success', () => {
-          console.log('.preset.json copied to original directory successfully')
-        })
-
-        ipcRenderer.once('copy-preset-json-error', (_, error) => {
-          console.error('Error copying .preset.json:', error.message)
-        })
-      }
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
@@ -428,6 +393,73 @@ const applyAll = () => {
     console.error('Error applying film parameters to all images:', error)
     // Reset applying state to re-enable controls immediately on error
     isApplying.value = false
+    affectedImages.clear()
+  }
+}
+
+const saveAll = () => {
+  if (!workingDirectory.value || !originalDirectory.value) {
+    console.error('No working directory or original directory')
+    return
+  }
+
+  if (!window.require) {
+    console.error('Not running in Electron')
+    return
+  }
+
+  // Set global isSaveAllClicked state
+  setSaveAllClicked(true)
+
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    // Set saving all state to disable controls
+    isSavingAll.value = true
+    images.value.forEach(img => affectedImages.add(img.name))
+
+    // Remove existing listeners to avoid duplicates
+    ipcRenderer.removeAllListeners('preset-to-batch-started')
+    ipcRenderer.removeAllListeners('preset-to-batch-progress')
+    ipcRenderer.removeAllListeners('preset-to-batch-success')
+    ipcRenderer.removeAllListeners('preset-to-batch-error')
+
+    // Prepare the output directory path
+    const outputDir = path.join(originalDirectory.value, 'output')
+
+    // Send request to main process
+    ipcRenderer.send('apply-preset-to-batch', {
+      presetFile: path.join(workingDirectory.value, '.preset.json'),
+      inputDir: originalDirectory.value,
+      outputDir: outputDir
+    })
+
+    // Handle started
+    ipcRenderer.once('preset-to-batch-started', (_, result) => {
+      console.log(result.message)
+    })
+
+    // Handle progress
+    ipcRenderer.on('preset-to-batch-progress', (_, result) => {
+      console.log(result.data)
+    })
+
+    // Handle success
+    ipcRenderer.once('preset-to-batch-success', (_, result) => {
+      console.log(result.message)
+      isSavingAll.value = false
+      affectedImages.clear()
+    })
+
+    // Handle error
+    ipcRenderer.once('preset-to-batch-error', (_, result) => {
+      console.error('Error saving all files:', result.message, result.error)
+      isSavingAll.value = false
+      affectedImages.clear()
+    })
+  } catch (error) {
+    console.error('Error saving all files:', error)
+    isSavingAll.value = false
     affectedImages.clear()
   }
 }
@@ -481,6 +513,9 @@ const loadFullResImage = async () => {
 }
 
 const nextImage = () => {
+  if (isSavingAll.value) {
+    return
+  }
   if (currentIndex.value < images.value.length - 1) {
     currentIndex.value++
   } else {
@@ -489,6 +524,9 @@ const nextImage = () => {
 }
 
 const previousImage = () => {
+  if (isSavingAll.value) {
+    return
+  }
   if (currentIndex.value > 0) {
     currentIndex.value--
   } else {
@@ -510,6 +548,13 @@ function handleKeydown(event) {
   }
 
   switch (event.key) {
+    case 's':
+    case 'S':
+      if (event.ctrlKey) {
+        event.preventDefault()
+        saveAll()
+      }
+      break
     case 'Enter':
       event.preventDefault()
       if (event.ctrlKey) {
@@ -521,12 +566,16 @@ function handleKeydown(event) {
     case 'ArrowRight':
     case ']':
       event.preventDefault()
-      nextImage()
+      if (!isSavingAll.value) {
+        nextImage()
+      }
       break
     case 'ArrowLeft':
     case '[':
       event.preventDefault()
-      previousImage()
+      if (!isSavingAll.value) {
+        previousImage()
+      }
       break
   }
 }
@@ -967,6 +1016,10 @@ onUnmounted(() => {
 
 .thumbnail-item.affected {
   opacity: 0.7;
+}
+
+.thumbnail-item.cursor-wait {
+  cursor: wait;
 }
 
 .thumbnail-overlay {

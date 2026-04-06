@@ -5,7 +5,7 @@
       <select
         v-model="internalSelectedPreset"
         class="preset-select"
-        :disabled="isLoading || isApplyingPreset || isLoadingPresets"
+        :disabled="isLoading || isApplyingPreset || isLoadingPresets || isSavingAll"
       >
         <option v-for="preset in internalPresets" :key="preset.value" :value="preset.value">
           {{ preset.label }}
@@ -14,10 +14,18 @@
       <button
         @click="handleApplyPreset"
         class="apply-button"
-        :disabled="isLoading || isApplyingPreset || isLoadingPresets"
+        :disabled="isLoading || isApplyingPreset || isLoadingPresets || isSavingAll"
       >
         {{ applyButtonText }}
         <span v-if="hasUnappliedChanges && !isLoadingPresets" class="red-dot"></span>
+      </button>
+      <button
+        @click="handleSaveAll"
+        class="save-all-button"
+        :disabled="isSavingAll"
+        title="Ctrl + S"
+      >
+        {{ $t('saveAllButton.saveAll') }}
       </button>
     </div>
   </div>
@@ -47,13 +55,17 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  isSavingAll: {
+    type: Boolean,
+    default: false
+  },
   imagesCount: {
     type: Number,
     default: 0
   }
 })
 
-const emit = defineEmits(['update:selectedPreset', 'apply', 'presets-loaded'])
+const emit = defineEmits(['update:selectedPreset', 'apply', 'presets-loaded', 'saveAll'])
 
 const internalPresets = ref([])
 const isLoadingPresets = ref(true)
@@ -71,6 +83,10 @@ const applyButtonText = computed(() => {
 
 const handleApplyPreset = () => {
   emit('apply')
+}
+
+const handleSaveAll = () => {
+  emit('saveAll')
 }
 
 const loadPresets = async () => {
@@ -240,5 +256,33 @@ onMounted(() => {
   background: #ff4444;
   border-radius: 50%;
   border: 2px solid white;
+}
+
+.save-all-button {
+  padding: 8px 20px;
+  background: #42a5f5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.3s ease;
+  margin-left: 10px;
+  min-width: 120px;
+}
+
+.save-all-button:hover:not(:disabled) {
+  background: #2196f3;
+}
+
+.save-all-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.save-all-button:disabled {
+  background: #90caf9;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>

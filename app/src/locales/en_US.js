@@ -41,6 +41,9 @@ export default {
     apply: 'Apply',
     applying: 'Applying...'
   },
+  saveAllButton: {
+    saveAll: 'Save All'
+  },
   about: {
     title: 'About OpenLucky Desktop',
     version: 'Version Information',

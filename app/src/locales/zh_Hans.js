@@ -41,6 +41,9 @@ export default {
     apply: '应用',
     applying: '应用中...'
   },
+  saveAllButton: {
+    saveAll: '全部保存'
+  },
   about: {
     title: '关于 OpenLucky 桌面版',
     version: '版本信息',

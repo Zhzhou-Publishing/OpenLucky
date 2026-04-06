@@ -779,6 +779,209 @@ function createWindow() {
       event.sender.send('copy-preset-json-error', { message: 'Error copying .preset.json', error: error.message })
     }
   })
+
+  // Handle apply-preset-to-file request (single file preset application)
+  ipcMain.on('apply-preset-to-file', async (event, { presetFile, inputFilePath, outputFilePath }) => {
+    try {
+      // Read preset file
+      if (!fs.existsSync(presetFile)) {
+        event.sender.send('preset-to-file-error', { message: 'Preset file not found', error: `Preset file does not exist: ${presetFile}` })
+        return
+      }
+
+      const presetContent = fs.readFileSync(presetFile, 'utf-8')
+      const presetObj = JSON.parse(presetContent)
+
+      // Get filename from input path
+      const filename = path.basename(inputFilePath)
+      const ext = path.extname(filename)
+      const isRaw = RAW_EXTENSIONS.includes(ext)
+
+      // Try to find preset for this file
+      let presetKey = null
+
+      // Try multiple key formats for RAW files
+      if (isRaw) {
+        // Try: original filename, filename + .tif, filename + .tiff
+        const possibleKeys = [
+          filename,
+          filename + '.tif',
+          filename + '.tiff'
+        ]
+
+        for (const key of possibleKeys) {
+          if (presetObj[key]) {
+            presetKey = key
+            break
+          }
+        }
+      } else {
+        // For non-RAW files, try direct filename match
+        if (presetObj[filename]) {
+          presetKey = filename
+        }
+      }
+
+      if (!presetKey) {
+        event.sender.send('preset-to-file-error', { message: 'Preset not found for file', error: `No preset found for file: ${filename}` })
+        return
+      }
+
+      // Get preset parameters
+      const presetParams = presetObj[presetKey]
+      const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+
+      // Construct command
+      const command = 'openlucky'
+      const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+      event.sender.send('preset-to-file-started', { message: 'Processing started' })
+
+      // Spawn process
+      const process = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+        // Send progress updates to renderer
+        event.sender.send('preset-to-file-progress', { data: data.toString() })
+      })
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          event.sender.send('preset-to-file-success', { message: 'Preset applied to file successfully' })
+        } else {
+          event.sender.send('preset-to-file-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('preset-to-file-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error applying preset to file:', error)
+      event.sender.send('preset-to-file-error', { message: 'Error applying preset to file', error: error.message })
+    }
+  })
+
+  // Handle apply-preset-to-batch request (batch preset application)
+  ipcMain.on('apply-preset-to-batch', async (event, { presetFile, inputDir, outputDir }) => {
+    try {
+      // Read preset file
+      if (!fs.existsSync(presetFile)) {
+        event.sender.send('preset-to-batch-error', { message: 'Preset file not found', error: `Preset file does not exist: ${presetFile}` })
+        return
+      }
+
+      const presetContent = fs.readFileSync(presetFile, 'utf-8')
+      const presetObj = JSON.parse(presetContent)
+
+      // Ensure output directory exists
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true })
+      }
+
+      // Get all image files from input directory (including RAW and non-RAW)
+      const files = fs.readdirSync(inputDir)
+      const imageFiles = files.filter(file => {
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(inputDir, file)).isFile()
+      })
+
+      // Process each file
+      let processedCount = 0
+      const totalCount = imageFiles.length
+
+      for (const file of imageFiles) {
+        const ext = path.extname(file)
+        const isRaw = RAW_EXTENSIONS.includes(ext)
+
+        // Try to find preset for this file
+        let presetKey = null
+
+        // Try multiple key formats for RAW files
+        if (isRaw) {
+          const possibleKeys = [
+            file,
+            file + '.tif',
+            file + '.tiff'
+          ]
+
+          for (const key of possibleKeys) {
+            if (presetObj[key]) {
+              presetKey = key
+              break
+            }
+          }
+        } else {
+          // For non-RAW files, try direct filename match
+          if (presetObj[file]) {
+            presetKey = file
+          }
+        }
+
+        if (presetKey) {
+          // Get preset parameters
+          const presetParams = presetObj[presetKey]
+          const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+
+          // Construct input and output paths
+          const inputFilePath = path.join(inputDir, file)
+          const outputFilePath = path.join(outputDir, file)
+
+          // Construct command
+          const command = 'openlucky'
+          const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
+          console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+          event.sender.send('preset-to-batch-progress', {
+            file: file,
+            progress: `${processedCount + 1}/${totalCount}`,
+            data: `Processing ${file}`
+          })
+
+          // Spawn process and wait for completion
+          await new Promise((resolve) => {
+            const process = spawn(command, args, {
+              stdio: ['pipe', 'pipe', 'pipe'],
+              detached: true,
+              windowsHide: true
+            })
+
+            process.on('close', (code) => {
+              if (code !== 0) {
+                console.error(`Error processing ${file}: Exit code ${code}`)
+              }
+              resolve()
+            })
+
+            process.on('error', (err) => {
+              console.error(`Error processing ${file}:`, err.message)
+              resolve()
+            })
+          })
+
+          processedCount++
+        }
+      }
+
+      event.sender.send('preset-to-batch-success', { message: `Batch processing completed. Processed ${processedCount}/${totalCount} files.` })
+    } catch (error) {
+      console.error('Error applying preset to batch:', error)
+      event.sender.send('preset-to-batch-error', { message: 'Error applying preset to batch', error: error.message })
+    }
+  })
 }
 
 // 当 Electron 完成初始化时被调用
