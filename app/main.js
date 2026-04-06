@@ -264,28 +264,33 @@ function createWindow() {
         return !rawExtensions.includes(ext)
       })
 
-      // Copy non-RAW files to working directory
-      for (const file of nonRawFiles) {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
-        fs.copyFileSync(srcPath, destPath)
+      // Function to check if image needs resize (long edge >= 800)
+      const needsResize = async (imagePath) => {
+        try {
+          const ext = path.extname(imagePath).toLowerCase()
+          const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
+
+          // For RAW files, assume they need resizing (camera RAW files are typically large)
+          if (rawExtensions.includes(ext)) {
+            return true
+          }
+
+          // For non-RAW files, check dimensions with Sharp
+          const metadata = await sharp(imagePath).metadata()
+          const width = metadata.width
+          const height = metadata.height
+          const longEdge = Math.max(width, height)
+          return longEdge >= 800
+        } catch (error) {
+          console.error('Error checking image dimensions:', error)
+          return false // Default to no resize if check fails
+        }
       }
 
-      // Copy .preset.json to working directory
-      const presetJsonPath = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetJsonPath)) {
-        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
-      }
-
-      // Convert RAW files using openlucky raw2tiff
-      const rawConversions = rawFiles.map(file => {
+      // Function to resize image using openlucky tool resize command
+      const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const srcPath = path.join(directoryPath, file)
-          const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-          const baseName = path.basename(file, ext)
-          const destPath = path.join(workingDirectory, `${baseName}.tif`)
-
-          const process = spawn('openlucky', ['raw2tiff', '-i', srcPath, '-o', destPath], {
+          const process = spawn('openlucky', ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true
           })
@@ -297,26 +302,80 @@ function createWindow() {
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(destPath)) {
-              resolve({ success: true, file })
+            if (code === 0 && fs.existsSync(outputPath)) {
+              resolve({ success: true })
             } else {
-              console.error('RAW conversion failed:', file, 'Exit code:', code)
+              console.error('Resize failed:', inputPath, 'Exit code:', code)
               console.error('Error output:', stderrOutput)
-              resolve({ success: false, file, error: stderrOutput })
+              resolve({ success: false, error: stderrOutput })
             }
           })
 
           process.on('error', (err) => {
-            console.error('RAW conversion error:', file, err.message)
-            resolve({ success: false, file, error: err.message })
+            console.error('Resize error:', inputPath, err.message)
+            resolve({ success: false, error: err.message })
           })
         })
+      }
+
+      // Copy and process non-RAW files to working directory
+      for (const file of nonRawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+
+        if (await needsResize(srcPath)) {
+          // Resize image to 800px long edge
+          await resizeImage(srcPath, destPath)
+        } else {
+          // Copy directly if no resize needed
+          fs.copyFileSync(srcPath, destPath)
+        }
+      }
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
+      }
+
+      // Process RAW files using openlucky tool resize (no separate conversion step)
+      const rawProcessings = rawFiles.map(async file => {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+
+        if (await needsResize(srcPath)) {
+          // Resize RAW image to 800px long edge directly
+          const result = await resizeImage(srcPath, destPath)
+          if (result.success) {
+            console.log('RAW resized:', file)
+            return { success: true, file }
+          } else {
+            console.error('Failed to resize RAW:', file)
+            return { success: false, file, error: result.error }
+          }
+        } else {
+          // Copy directly if no resize needed
+          try {
+            fs.copyFileSync(srcPath, destPath)
+            console.log('RAW copied (no resize needed):', file)
+            return { success: true, file }
+          } catch (err) {
+            console.error('Failed to copy RAW:', file, err.message)
+            return { success: false, file, error: err.message }
+          }
+        }
       })
 
-      // Wait for all RAW conversions to complete
-      await Promise.all(rawConversions)
+      // Wait for all RAW processings to complete
+      await Promise.all(rawProcessings)
 
-      event.sender.send('working-directory-prepared', { workingDirectory })
+      // Create output subdirectory
+      const outputDirectory = path.join(workingDirectory, 'output')
+      if (!fs.existsSync(outputDirectory)) {
+        fs.mkdirSync(outputDirectory, { recursive: true })
+      }
+
+      event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory })
     } catch (error) {
       console.error('Error preparing working directory:', error)
       event.sender.send('working-directory-error', { error: error.message })
@@ -358,28 +417,33 @@ function createWindow() {
         return !rawExtensions.includes(ext)
       })
 
-      // Copy non-RAW files to working directory
-      for (const file of nonRawFiles) {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
-        fs.copyFileSync(srcPath, destPath)
+      // Function to check if image needs resize (long edge >= 800)
+      const needsResize = async (imagePath) => {
+        try {
+          const ext = path.extname(imagePath).toLowerCase()
+          const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
+
+          // For RAW files, assume they need resizing (camera RAW files are typically large)
+          if (rawExtensions.includes(ext)) {
+            return true
+          }
+
+          // For non-RAW files, check dimensions with Sharp
+          const metadata = await sharp(imagePath).metadata()
+          const width = metadata.width
+          const height = metadata.height
+          const longEdge = Math.max(width, height)
+          return longEdge >= 800
+        } catch (error) {
+          console.error('Error checking image dimensions:', error)
+          return false // Default to no resize if check fails
+        }
       }
 
-      // Copy .preset.json to working directory
-      const presetJsonPath = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetJsonPath)) {
-        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
-      }
-
-      // Convert RAW files using openlucky raw2tiff
-      const rawConversions = rawFiles.map(file => {
+      // Function to resize image using openlucky tool resize command
+      const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const srcPath = path.join(directoryPath, file)
-          const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-          const baseName = path.basename(file, ext)
-          const destPath = path.join(workingDirectory, `${baseName}.tif`)
-
-          const process = spawn('openlucky', ['raw2tiff', '-i', srcPath, '-o', destPath], {
+          const process = spawn('openlucky', ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true
           })
@@ -391,26 +455,80 @@ function createWindow() {
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(destPath)) {
-              resolve({ success: true, file })
+            if (code === 0 && fs.existsSync(outputPath)) {
+              resolve({ success: true })
             } else {
-              console.error('RAW conversion failed:', file, 'Exit code:', code)
+              console.error('Resize failed:', inputPath, 'Exit code:', code)
               console.error('Error output:', stderrOutput)
-              resolve({ success: false, file, error: stderrOutput })
+              resolve({ success: false, error: stderrOutput })
             }
           })
 
           process.on('error', (err) => {
-            console.error('RAW conversion error:', file, err.message)
-            resolve({ success: false, file, error: err.message })
+            console.error('Resize error:', inputPath, err.message)
+            resolve({ success: false, error: err.message })
           })
         })
+      }
+
+      // Copy and process non-RAW files to working directory
+      for (const file of nonRawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+
+        if (await needsResize(srcPath)) {
+          // Resize image to 800px long edge
+          await resizeImage(srcPath, destPath)
+        } else {
+          // Copy directly if no resize needed
+          fs.copyFileSync(srcPath, destPath)
+        }
+      }
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
+      }
+
+      // Process RAW files using openlucky tool resize (no separate conversion step)
+      const rawProcessings = rawFiles.map(async file => {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+
+        if (await needsResize(srcPath)) {
+          // Resize RAW image to 800px long edge directly
+          const result = await resizeImage(srcPath, destPath)
+          if (result.success) {
+            console.log('RAW resized:', file)
+            return { success: true, file }
+          } else {
+            console.error('Failed to resize RAW:', file)
+            return { success: false, file, error: result.error }
+          }
+        } else {
+          // Copy directly if no resize needed
+          try {
+            fs.copyFileSync(srcPath, destPath)
+            console.log('RAW copied (no resize needed):', file)
+            return { success: true, file }
+          } catch (err) {
+            console.error('Failed to copy RAW:', file, err.message)
+            return { success: false, file, error: err.message }
+          }
+        }
       })
 
-      // Wait for all RAW conversions to complete
-      await Promise.all(rawConversions)
+      // Wait for all RAW processings to complete
+      await Promise.all(rawProcessings)
 
-      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, originalDirectory: directoryPath })
+      // Create output subdirectory
+      const outputDirectory = path.join(workingDirectory, 'output')
+      if (!fs.existsSync(outputDirectory)) {
+        fs.mkdirSync(outputDirectory, { recursive: true })
+      }
+
+      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory from selected:', error)
       event.sender.send('working-directory-from-selected-error', { error: error.message })

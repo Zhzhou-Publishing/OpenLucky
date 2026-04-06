@@ -264,7 +264,12 @@ onMounted(() => {
       // Use the provided working directory directly
       workingDirectory.value = route.query.workingDirectory
       originalDirectoryPath.value = route.query.originalDirectory || ''
-      outputDirectory.value = path.join(originalDirectoryPath.value, 'output')
+      // Use the outputDirectory from query if available, otherwise compute it
+      if (route.query.outputDirectory) {
+        outputDirectory.value = route.query.outputDirectory
+      } else {
+        outputDirectory.value = path.join(workingDirectory.value, 'output')
+      }
       loadImages()
     } else {
       // Fallback to old behavior for backward compatibility
@@ -273,7 +278,12 @@ onMounted(() => {
 
       ipcRenderer.once('working-directory-prepared', (_, result) => {
         workingDirectory.value = result.workingDirectory
-        outputDirectory.value = path.join(directoryPath.value, 'output')
+        // Use the outputDirectory from result if available, otherwise compute it
+        if (result.outputDirectory) {
+          outputDirectory.value = result.outputDirectory
+        } else {
+          outputDirectory.value = path.join(workingDirectory.value, 'output')
+        }
         loadImages()
       })
 

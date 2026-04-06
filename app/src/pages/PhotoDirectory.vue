@@ -114,6 +114,7 @@ const selectDirectory = async () => {
     // Handle working directory preparation success
     ipcRenderer.once('working-directory-from-selected-prepared', (_, result) => {
       console.log('Working directory prepared:', result.workingDirectory)
+      console.log('Output directory:', result.outputDirectory)
       console.log('Original directory:', result.originalDirectory)
       isLoading.value = false
 
@@ -122,6 +123,7 @@ const selectDirectory = async () => {
         path: '/photo-gallery',
         query: {
           workingDirectory: result.workingDirectory,
+          outputDirectory: result.outputDirectory,
           originalDirectory: result.originalDirectory
         }
       })

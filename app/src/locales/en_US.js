@@ -27,6 +27,7 @@ export default {
     noImages: 'No Images Found',
     noImagesDesc: 'No image files were found in the directory.',
     applying: 'Applying...',
+    previewing: 'Previewing...',
     maskR: 'Mask-R',
     maskG: 'Mask-G',
     maskB: 'Mask-B',

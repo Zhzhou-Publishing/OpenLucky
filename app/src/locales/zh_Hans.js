@@ -27,6 +27,7 @@ export default {
     noImages: '未找到图片',
     noImagesDesc: '目录中未找到图片文件。',
     applying: '应用中...',
+    previewing: '预览中...',
     maskR: 'Mask-R',
     maskG: 'Mask-G',
     maskB: 'Mask-B',

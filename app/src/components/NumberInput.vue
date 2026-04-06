@@ -12,6 +12,7 @@
         :disabled="disabled"
         @input="onInput"
         @blur="onBlur"
+        @keydown="onKeydown"
         class="number-field"
       />
       <div class="buttons">
@@ -72,7 +73,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'keydown'])
 
 const inputRef = ref(null)
 const inputValue = ref(props.modelValue)
@@ -128,6 +129,10 @@ function onBlur() {
       inputValue.value = Math.max(props.min, Math.min(props.max, numValue))
     }
   }
+}
+
+function onKeydown(event) {
+  emit('keydown', event)
 }
 
 function increment(step) {
