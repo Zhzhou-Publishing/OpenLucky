@@ -129,6 +129,16 @@ const selectDirectory = async () => {
       })
     })
 
+    // Handle window title update
+    ipcRenderer.on('window-title-update', (_, { title }) => {
+      document.title = title
+    })
+
+    // Handle window title restore
+    ipcRenderer.on('window-title-restore', () => {
+      document.title = 'OpenLucky Desktop App'
+    })
+
     // Handle working directory preparation error
     ipcRenderer.once('working-directory-from-selected-error', (_, error) => {
       console.error('Error preparing working directory:', error)

@@ -18,16 +18,33 @@
     </div>
 
     <div v-else class="content">
-      <!-- Large Image Display -->
-      <div class="image-display">
-        <div class="image-wrapper">
-          <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
-          <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
-          <div v-if="isPreviewing && !isApplying" class="previewing-badge">{{ $t('photoEdit.previewing') }}</div>
+      <!-- Thumbnail Navigation - Left Side -->
+      <div class="thumbnails-container">
+        <div class="thumbnails-wrapper">
+          <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
+            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) || previewingImages.has(image.name), 'cursor-wait': isSavingAll }"
+            @click="!isSavingAll && selectImage(index)">
+            <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
+            <div v-if="affectedImages.has(image.name) || previewingImages.has(image.name)" class="thumbnail-overlay">
+              <div class="thumbnail-spinner"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Operation Area -->
+      <!-- Main Content Area - Right Side -->
+      <div class="main-content">
+        <!-- Large Image Display -->
+        <div class="image-display">
+          <div class="image-wrapper">
+            <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
+            <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
+            <div v-if="isPreviewing && !isApplying" class="previewing-badge">{{ $t('photoEdit.previewing') }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operation Area - Fixed at Page Bottom -->
       <div class="operation-area">
         <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
           :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
@@ -47,24 +64,7 @@
           :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
         <SaveAllButton :is-disabled="isSavingAll" @click="saveAll" />
       </div>
-
-      <!-- Thumbnail Navigation -->
-      <div class="thumbnails-container">
-        <div class="thumbnails-wrapper">
-          <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
-            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) || previewingImages.has(image.name), 'cursor-wait': isSavingAll }"
-            @click="!isSavingAll && selectImage(index)">
-            <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
-            <div v-if="affectedImages.has(image.name) || previewingImages.has(image.name)" class="thumbnail-overlay">
-              <div class="thumbnail-spinner"></div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
-
-    <!-- Bottom Toolbar Space for Future Tools -->
-    <div class="bottom-toolbar"></div>
   </div>
 </template>
 
@@ -541,10 +541,8 @@ const previousImage = () => {
 
 function handleKeydown(event) {
   // Check if this is one of our navigation shortcuts
-  const isNavigationShortcut = event.key === 'ArrowRight' ||
-    event.key === 'ArrowLeft' ||
-    event.key === '[' ||
-    event.key === ']' ||
+  const isNavigationShortcut = event.key === 'ArrowUp' ||
+    event.key === 'ArrowDown' ||
     event.key === 'Enter'
 
   // If it's not a navigation shortcut and the target is an input/textarea, don't process
@@ -568,15 +566,13 @@ function handleKeydown(event) {
         apply()
       }
       break
-    case 'ArrowRight':
-    case ']':
+    case 'ArrowDown':
       event.preventDefault()
       if (!isSavingAll.value) {
         nextImage()
       }
       break
-    case 'ArrowLeft':
-    case '[':
+    case 'ArrowUp':
       event.preventDefault()
       if (!isSavingAll.value) {
         previousImage()
@@ -789,6 +785,7 @@ onUnmounted(() => {
   border-bottom: 1px solid #e0e0e0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .back-button {
@@ -880,123 +877,41 @@ onUnmounted(() => {
 .content {
   flex: 1;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
-}
-
-.image-display {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  overflow: hidden;
-  width: 90%;
-  margin: 0 auto;
-}
-
-.image-wrapper {
   position: relative;
-  display: inline-block;
-  max-height: 50vh;
 }
 
-.main-image {
-  width: 100%;
-  max-height: 50vh;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.applying-badge,
-.previewing-badge {
-  position: absolute;
-  bottom: 5%;
-  right: 5%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 10;
-  animation: fadeIn 0.3s ease;
-  pointer-events: none;
-}
-
-.previewing-badge {
-  background: rgba(66, 184, 131, 0.8);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.operation-area {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  flex-shrink: 0;
-}
-
-.apply-button,
-.apply-all-button {
-  padding: 8px 20px;
-  background: #42b883;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.apply-button:hover:not(:disabled),
-.apply-all-button:hover:not(:disabled) {
-  background: #35a372;
-}
-
-.apply-button:active:not(:disabled),
-.apply-all-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.apply-button:disabled,
-.apply-all-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
+/* Thumbnails Container - Left Side */
 .thumbnails-container {
-  height: 100px;
+  width: 100px;
+  height: calc(100vh - 64px - 70px);
   background: white;
-  border-top: 1px solid #e0e0e0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  border-right: 1px solid #e0e0e0;
+  overflow-y: scroll;
+  overflow-x: hidden;
   flex-shrink: 0;
+}
+
+.thumbnails-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thumbnails-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.thumbnails-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
 
 .thumbnails-wrapper {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 10px 16px;
-  height: 100%;
+  padding: 10px 10px;
   align-items: center;
+  width: 100%;
 }
 
 .thumbnail-item {
@@ -1056,10 +971,117 @@ onUnmounted(() => {
   display: block;
 }
 
-.bottom-toolbar {
-  height: 80px;
+/* Main Content Area - Right Side */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Image Display - Takes available space */
+.image-display {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  overflow: hidden;
+  width: 100%;
+  height: calc(100vh - 64px - 80px - 120px);
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  height: 100%;
+}
+
+.main-image {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.applying-badge,
+.previewing-badge {
+  position: absolute;
+  bottom: 5%;
+  right: 5%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 10;
+  animation: fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+.previewing-badge {
+  background: rgba(66, 184, 131, 0.8);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Operation Area - Fixed at Page Bottom */
+.operation-area {
+  position: fixed;
+  bottom: 0;
+  left: 100px;
+  right: 0;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
   background: white;
   border-top: 1px solid #e0e0e0;
-  flex-shrink: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.apply-button,
+.apply-all-button {
+  padding: 8px 20px;
+  background: #42b883;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.3s ease;
+  white-space: nowrap;
+}
+
+.apply-button:hover:not(:disabled),
+.apply-all-button:hover:not(:disabled) {
+  background: #35a372;
+}
+
+.apply-button:active:not(:disabled),
+.apply-all-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.apply-button:disabled,
+.apply-all-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>

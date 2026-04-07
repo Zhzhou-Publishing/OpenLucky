@@ -21,6 +21,11 @@ export default {
     noImagesDesc: 'No image files (jpg, jpeg, png, gif, webp, tiff, arw, cr2, cr3, nef, dng, orf, or raf) were found in the selected directory.',
     applying: 'Applying...'
   },
+  windowTitle: {
+    baseTitle: 'OpenLucky Desktop App',
+    applying: 'Applying',
+    saving: 'Saving'
+  },
   photoEdit: {
     back: '← Back',
     loading: 'Loading images...',

@@ -683,6 +683,9 @@ function createWindow() {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
+        // Update window title with current file path
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${srcPath}` })
+
         if (await needsResize(srcPath)) {
           // Resize image to 800px long edge
           await resizeImage(srcPath, destPath)
@@ -702,6 +705,9 @@ function createWindow() {
       const rawProcessings = rawFiles.map(async file => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
+
+        // Update window title with current file path
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${srcPath}` })
 
         if (await needsResize(srcPath)) {
           // Resize RAW image to 800px long edge directly
@@ -734,6 +740,9 @@ function createWindow() {
       if (!fs.existsSync(outputDirectory)) {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
+
+      // Restore original window title before sending completion event
+      event.sender.send('window-title-restore', {})
 
       event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {

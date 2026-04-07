@@ -65,11 +65,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 // Get path module from Node.js in Electron
 let path = null
@@ -87,6 +89,7 @@ const isSavingAll = ref(false)
 const workingDirectory = ref('')
 const outputDirectory = ref('')
 const originalDirectoryPath = ref('')
+const originalWindowTitle = ref('OpenLucky Desktop App')
 
 const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
 
@@ -135,6 +138,12 @@ const applyPreset = async () => {
     // Reset global isSaveAllClicked state
     setSaveAllClicked(false)
 
+    // Save original window title
+    originalWindowTitle.value = document.title
+
+    // Update window title with "Applying" suffix
+    document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.applying')}`
+
     isApplyingPreset.value = true
     hasUnappliedChanges.value = false
 
@@ -163,6 +172,9 @@ const applyPreset = async () => {
         console.log('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
 
+        // Restore original window title
+        document.title = originalWindowTitle.value
+
         // Wait a moment for the .preset.json to be updated
         await new Promise(resolve => setTimeout(resolve, 1000))
 
@@ -177,6 +189,9 @@ const applyPreset = async () => {
           console.error('Error details:', result.error)
         }
         isApplyingPreset.value = false
+
+        // Restore original window title
+        document.title = originalWindowTitle.value
       })
 
       // Send request to main process
@@ -189,10 +204,16 @@ const applyPreset = async () => {
       // Fallback for non-Electron environment
       console.warn('Not running in Electron, cannot apply preset')
       isApplyingPreset.value = false
+
+      // Restore original window title
+      document.title = originalWindowTitle.value
     }
   } catch (error) {
     console.error('Error applying preset:', error)
     isApplyingPreset.value = false
+
+    // Restore original window title
+    document.title = originalWindowTitle.value
   }
 }
 
@@ -260,6 +281,12 @@ const saveAll = () => {
   // Set global isSaveAllClicked state
   setSaveAllClicked(true)
 
+  // Save original window title
+  originalWindowTitle.value = document.title
+
+  // Update window title with initial "Saving" suffix
+  document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.saving')}`
+
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
 
@@ -287,15 +314,25 @@ const saveAll = () => {
       console.log(result.message)
     })
 
-    // Handle progress
+    // Handle progress - update window title with current file being processed
     ipcRenderer.on('preset-to-batch-progress', (_, result) => {
       console.log(result.data)
+
+      // Update window title with current file path being processed
+      if (result.file) {
+        const filePath = path.join(originalDirectoryPath.value, result.file)
+        document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.saving')} ${filePath}`
+      }
     })
 
     // Handle success
     ipcRenderer.once('preset-to-batch-success', (_, result) => {
       console.log(result.message)
       isSavingAll.value = false
+
+      // Restore original window title
+      document.title = originalWindowTitle.value
+
       loadImages()
     })
 
@@ -303,14 +340,24 @@ const saveAll = () => {
     ipcRenderer.once('preset-to-batch-error', (_, result) => {
       console.error('Error saving all files:', result.message, result.error)
       isSavingAll.value = false
+
+      // Restore original window title
+      document.title = originalWindowTitle.value
     })
   } catch (error) {
     console.error('Error saving all files:', error)
     isSavingAll.value = false
+
+    // Restore original window title
+    document.title = originalWindowTitle.value
   }
 }
 
 onMounted(() => {
+  // Initialize window title
+  originalWindowTitle.value = t('windowTitle.baseTitle')
+  document.title = originalWindowTitle.value
+
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
@@ -368,6 +415,9 @@ onUnmounted(() => {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
   }
+
+  // Restore original window title
+  document.title = originalWindowTitle.value
 
   // Remove keyboard event listener
   if (window.saveAllKeydownHandler) {

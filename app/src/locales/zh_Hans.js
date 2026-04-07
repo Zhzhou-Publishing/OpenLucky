@@ -21,6 +21,11 @@ export default {
     noImagesDesc: '在选定的目录中未找到图片文件（jpg、jpeg、png、gif、webp、tiff、arw、cr2、cr3、nef、dng、orf 或 raf）。',
     applying: '应用中...'
   },
+  windowTitle: {
+    baseTitle: 'OpenLucky Desktop App',
+    applying: '应用中',
+    saving: '保存中'
+  },
   photoEdit: {
     back: '← 返回',
     loading: '加载图片中...',
