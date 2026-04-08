@@ -1,5 +1,6 @@
 import rawpy
 import cv2
+import numpy as np
 from pathlib import Path
 
 from cmd.constants.image_formats import RAW_EXTENSIONS
@@ -9,6 +10,56 @@ EDGE_OPTIONS = {'width', 'height', 'long-edge', 'short-edge'}
 
 # 支持的缩放模式
 MODE_OPTIONS = {'ratio', 'fixed-value'}
+
+
+def read_image_safe(filepath):
+    """
+    Read image file safely, supporting Chinese paths on Windows.
+
+    Uses numpy.fromfile + cv2.imdecode to bypass OpenCV's
+    Unicode path limitations on Windows.
+
+    Args:
+        filepath: Path to the image file
+
+    Returns:
+        numpy.ndarray: Image data, or None if failed
+    """
+    try:
+        # Read file as bytes
+        with open(filepath, 'rb') as f:
+            file_bytes = np.fromfile(f, dtype=np.uint8)
+
+        # Decode using OpenCV
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+        return img
+    except Exception:
+        return None
+
+
+def write_image_safe(filepath, encoded_bytes):
+    """
+    Write image file safely, supporting Chinese paths on Windows.
+
+    Uses np.tofile to bypass potential file writing issues.
+
+    Args:
+        filepath: Path to save the image file
+        encoded_bytes: Encoded image bytes from cv2.imencode
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Create output directory
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+        # Write using numpy's tofile method
+        np.array(list(encoded_bytes.tobytes()), dtype=np.uint8).tofile(filepath)
+        return True
+    except Exception as e:
+        print(f"Error writing file: {e}")
+        return False
 
 
 def validate_output_filename(input_path, output_path):
@@ -171,8 +222,8 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
                     bright=1.0,
                 )
         else:
-            # 非RAW格式：使用OpenCV读取
-            img = cv2.imread(str(input_path), cv2.IMREAD_UNCHANGED)
+            # 非RAW格式：使用安全方式读取（支持中文路径）
+            img = read_image_safe(str(input_path))
             if img is None:
                 print(f"Error: Failed to read image '{input_path}'")
                 return False
@@ -226,12 +277,9 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
             print(f"Error: Failed to encode image to '{output_path}'")
             return False
 
-        # 创建输出目录
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 写入文件
-        with open(output_path, 'wb') as f:
-            f.write(encoded_img.tobytes())
+        # 写入文件（使用安全方式支持中文路径）
+        if not write_image_safe(str(output_path), encoded_img):
+            return False
 
         print(f"Successfully resized and saved to: {output_path}")
         return True
