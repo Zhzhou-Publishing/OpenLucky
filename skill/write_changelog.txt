@@ -1,4 +1,5 @@
 前提1：仅在用户在非 main 分支下、且当前分支已完全提交时，才执行这个 skill。
+前提2：如果 OpenLucky.iss 中的版本号与 app/package.json 的版本号不一致，请弹出警告告知用户并退出此 skill。
 
 动作1：更新 main 分支、推送当前分支到远程。
 动作2：对照当前分支和 main 分支，撰写 changelog（放在 changelog 目录）
