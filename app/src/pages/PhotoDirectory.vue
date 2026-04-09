@@ -23,9 +23,9 @@
         <span v-else>{{ $t('photoDirectory.loading') }}</span>
       </button>
 
-      <div v-if="selectedPath" class="selected-info">
-        <p class="path-label">{{ $t('photoDirectory.selectedPath') }}</p>
-        <p class="path-text">{{ selectedPath }}</p>
+      <div v-if="selectedPath || processingProgress" class="selected-info">
+        <p class="path-label">{{ processingProgress ? $t('photoDirectory.processingProgress') : $t('photoDirectory.selectedPath') }}</p>
+        <p class="path-text">{{ processingProgress || selectedPath }}</p>
       </div>
     </div>
   </div>
@@ -83,6 +83,7 @@ const checkOpenLucky = () => {
 
 const selectedPath = ref('')
 const isLoading = ref(false)
+const processingProgress = ref('')
 
 const selectDirectory = async () => {
   try {
@@ -132,6 +133,16 @@ const selectDirectory = async () => {
     // Handle window title update
     ipcRenderer.on('window-title-update', (_, { title }) => {
       document.title = title
+    })
+
+    // Handle processing progress update
+    ipcRenderer.on('processing-progress-update', (_, { progress }) => {
+      processingProgress.value = progress
+    })
+
+    // Handle processing progress clear
+    ipcRenderer.on('processing-progress-clear', () => {
+      processingProgress.value = ''
     })
 
     // Handle window title restore

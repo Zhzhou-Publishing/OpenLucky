@@ -541,8 +541,8 @@ const previousImage = () => {
 
 function handleKeydown(event) {
   // Check if this is one of our navigation shortcuts
-  const isNavigationShortcut = event.key === 'ArrowUp' ||
-    event.key === 'ArrowDown' ||
+  const isNavigationShortcut = (event.key === 'ArrowUp' && event.ctrlKey) ||
+    (event.key === 'ArrowDown' && event.ctrlKey) ||
     event.key === 'Enter'
 
   // If it's not a navigation shortcut and the target is an input/textarea, don't process
@@ -567,15 +567,19 @@ function handleKeydown(event) {
       }
       break
     case 'ArrowDown':
-      event.preventDefault()
-      if (!isSavingAll.value) {
-        nextImage()
+      if (event.ctrlKey) {
+        event.preventDefault()
+        if (!isSavingAll.value) {
+          nextImage()
+        }
       }
       break
     case 'ArrowUp':
-      event.preventDefault()
-      if (!isSavingAll.value) {
-        previousImage()
+      if (event.ctrlKey) {
+        event.preventDefault()
+        if (!isSavingAll.value) {
+          previousImage()
+        }
       }
       break
   }

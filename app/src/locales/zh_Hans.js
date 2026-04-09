@@ -10,7 +10,8 @@ export default {
     electronWarning: '⚠️ 未在 Electron 环境中运行',
     selectButton: '📁 选择目录',
     loading: '加载中...',
-    selectedPath: '已选择路径:'
+    selectedPath: '已选择路径:',
+    processingProgress: '正在准备预览'
   },
   photoGallery: {
     back: '← 返回',
