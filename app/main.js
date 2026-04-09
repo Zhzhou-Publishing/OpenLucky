@@ -679,12 +679,15 @@ function createWindow() {
       }
 
       // Copy and process non-RAW files to working directory
-      for (const file of nonRawFiles) {
+      for (let i = 0; i < nonRawFiles.length; i++) {
+        const file = nonRawFiles[i]
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
-        // Update window title with current file path
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${srcPath}` })
+        // Update window title with current file path and progress
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${i + 1}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+        // Send processing progress update to renderer
+        event.sender.send('processing-progress-update', { progress: `[${i + 1}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
 
         if (await needsResize(srcPath)) {
           // Resize image to 800px long edge
@@ -706,8 +709,11 @@ function createWindow() {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
-        // Update window title with current file path
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${srcPath}` })
+        // Update window title with current file path and progress
+        const fileIndex = rawFiles.indexOf(file) + nonRawFiles.length + 1
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${fileIndex}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+        // Send processing progress update to renderer
+        event.sender.send('processing-progress-update', { progress: `[${fileIndex}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
 
         if (await needsResize(srcPath)) {
           // Resize RAW image to 800px long edge directly
@@ -743,6 +749,8 @@ function createWindow() {
 
       // Restore original window title before sending completion event
       event.sender.send('window-title-restore', {})
+      // Send processing progress clear to renderer
+      event.sender.send('processing-progress-clear', {})
 
       event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {

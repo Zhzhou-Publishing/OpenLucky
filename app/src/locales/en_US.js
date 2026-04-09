@@ -10,7 +10,8 @@ export default {
     electronWarning: '⚠️ Not running in Electron environment',
     selectButton: '📁 Select Directory',
     loading: 'Loading...',
-    selectedPath: 'Selected Path:'
+    selectedPath: 'Selected Path:',
+    processingProgress: 'Preparing preview'
   },
   photoGallery: {
     back: '← Back',
