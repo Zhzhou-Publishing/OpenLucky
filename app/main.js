@@ -678,46 +678,63 @@ function createWindow() {
         })
       }
 
-      // Copy and process non-RAW files to working directory
-      for (let i = 0; i < nonRawFiles.length; i++) {
-        const file = nonRawFiles[i]
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
-
-        // Update window title with current file path and progress
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${i + 1}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-        // Send processing progress update to renderer
-        event.sender.send('processing-progress-update', { progress: `[${i + 1}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-        if (await needsResize(srcPath)) {
-          // Resize image to 800px long edge
-          await resizeImage(srcPath, destPath)
-        } else {
-          // Copy directly if no resize needed
-          fs.copyFileSync(srcPath, destPath)
-        }
-      }
-
       // Copy .preset.json to working directory
       const presetJsonPath = path.join(directoryPath, '.preset.json')
       if (fs.existsSync(presetJsonPath)) {
         fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
       }
 
-      // Process RAW files using openlucky tool resize (no separate conversion step)
-      const rawProcessings = rawFiles.map(async file => {
+      // Create a lock-based counter for sequential progress updates
+      const counter = {
+        value: 0,
+        lock: Promise.resolve(),
+        async increment() {
+          await this.lock
+          this.value++
+          this.lock = Promise.resolve()
+          return this.value
+        }
+      }
+
+      // Process non-RAW files using Promise
+      const nonRawProcessings = nonRawFiles.map(async (file) => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
+        const result = await needsResize(srcPath)
+          ? await resizeImage(srcPath, destPath)
+          : (() => {
+              try {
+                fs.copyFileSync(srcPath, destPath)
+                return { success: true }
+              } catch (err) {
+                console.error('Failed to copy non-RAW:', file, err.message)
+                return { success: false, error: err.message }
+              }
+            })()
+
+        const count = await counter.increment()
         // Update window title with current file path and progress
-        const fileIndex = rawFiles.indexOf(file) + nonRawFiles.length + 1
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${fileIndex}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
         // Send processing progress update to renderer
-        event.sender.send('processing-progress-update', { progress: `[${fileIndex}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+        event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+
+        return result.success ? { success: true, file } : { success: false, file, error: result.error }
+      })
+
+      // Process RAW files using Promise
+      const rawProcessings = rawFiles.map(async (file) => {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
 
         if (await needsResize(srcPath)) {
-          // Resize RAW image to 800px long edge directly
           const result = await resizeImage(srcPath, destPath)
+          const count = await counter.increment()
+          // Update window title with current file path and progress
+          event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+          // Send processing progress update to renderer
+          event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+
           if (result.success) {
             console.log('RAW resized:', file)
             return { success: true, file }
@@ -726,20 +743,31 @@ function createWindow() {
             return { success: false, file, error: result.error }
           }
         } else {
-          // Copy directly if no resize needed
           try {
             fs.copyFileSync(srcPath, destPath)
+            const count = await counter.increment()
+            // Update window title with current file path and progress
+            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+            // Send processing progress update to renderer
+            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+
             console.log('RAW copied (no resize needed):', file)
             return { success: true, file }
           } catch (err) {
+            const count = await counter.increment()
+            // Update window title with current file path and progress
+            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+            // Send processing progress update to renderer
+            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+
             console.error('Failed to copy RAW:', file, err.message)
             return { success: false, file, error: err.message }
           }
         }
       })
 
-      // Wait for all RAW processings to complete
-      await Promise.all(rawProcessings)
+      // Wait for all non-RAW and RAW processings to complete
+      await Promise.all([...nonRawProcessings, ...rawProcessings])
 
       // Create output subdirectory
       const outputDirectory = path.join(workingDirectory, 'output')
