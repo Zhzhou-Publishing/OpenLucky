@@ -91,3 +91,12 @@ presets:
     # Agfa 胶片通常有不错的对比度，但暗部容易沉下去
     gamma: 2.2
     contrast: 1.2
+
+  # 哈曼蓝凤凰200
+  harman_phoenix_ii:
+    label: "HARMAN Phoenix II (ISO:200;+2ev)"
+    mask_r: 175
+    mask_g: 125
+    mask_b: 125
+    gamma: 2.2
+    contrast: 1.2
