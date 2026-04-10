@@ -27,9 +27,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install pyinstaller
-          if (Test-Path requirements.txt) {
-            pip install -r requirements.txt
-          }
+          pip install -r requirements.txt
 
       - name: Build CLI (Windows optimized)
         if: matrix.os == 'windows-latest'
