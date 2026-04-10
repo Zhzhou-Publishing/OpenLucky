@@ -110,6 +110,8 @@ def main():
     film_parser.add_argument('--config', '-c', required=False, help='Preset configuration file (yaml) path (auto-search if empty)')
     film_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
                              help='Preset name to use (default: kodak_ultramax_400)')
+    film_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
+                             help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -118,6 +120,8 @@ def main():
     filmbatch_parser.add_argument('--config', '-c', required=False, help='Preset configuration file (yaml) path (auto-search if empty)')
     filmbatch_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
                                    help='Preset name to use (default: kodak_ultramax_400)')
+    filmbatch_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
+                                   help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -125,6 +129,8 @@ def main():
     filmparam_parser.add_argument('--output', '-o', required=False, help='Output file save path. Leave empty to write to stdout.')
     filmparam_parser.add_argument('--param', '-r', required=False,
                                    help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
+    filmparam_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
+                                   help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -132,6 +138,8 @@ def main():
     filmparambatch_parser.add_argument('--output', '-o', required=False, help='Output image directory (default: output subdirectory in input directory)')
     filmparambatch_parser.add_argument('--param', '-r', required=True,
                                          help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
+    filmparambatch_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
+                                         help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -217,7 +225,8 @@ def main():
             preset_mask_g=preset['mask_g'],
             preset_mask_r=preset['mask_r'],
             preset_gamma=preset.get('gamma', 1.0),
-            preset_contrast=preset.get('contrast', 1.0)
+            preset_contrast=preset.get('contrast', 1.0),
+            rotate_clockwise=args.rotate_clockwise
         )
 
         if output_bytes is None:
@@ -243,6 +252,8 @@ def main():
                 # Save preset to .preset.json
                 preset_config = config['presets'].get(args.preset)
                 if preset_config:
+                    # Add rotate_clockwise to preset_config
+                    preset_config['rotate_clockwise'] = args.rotate_clockwise
                     # Use forward slashes in path to avoid double backslashes in JSON
                     if args.output is not None:
                         output_path_for_preset = Path(args.output)
@@ -324,7 +335,8 @@ def main():
                     preset_mask_g=preset['mask_g'],
                     preset_mask_r=preset['mask_r'],
                     preset_gamma=preset.get('gamma', 1.0),
-                    preset_contrast=preset.get('contrast', 1.0)
+                    preset_contrast=preset.get('contrast', 1.0),
+                    rotate_clockwise=args.rotate_clockwise
                 )
 
 
@@ -341,6 +353,8 @@ def main():
                 for key, value in preset_config.items():
                     if key != 'label':
                         presets_by_dir[dir_key][input_file.name][key] = value
+                # Add rotate_clockwise
+                presets_by_dir[dir_key][input_file.name]['rotate_clockwise'] = args.rotate_clockwise
             except Exception as e:
                 print(e)
                 fail_count += 1
@@ -411,7 +425,8 @@ def main():
             preset_mask_g=mask_g,
             preset_mask_b=mask_b,
             preset_gamma=gamma,
-            preset_contrast=contrast
+            preset_contrast=contrast,
+            rotate_clockwise=args.rotate_clockwise
         )
 
         if output_bytes is None:
@@ -439,7 +454,8 @@ def main():
             'mask_g': mask_g,
             'mask_b': mask_b,
             'gamma': gamma,
-            'contrast': contrast
+            'contrast': contrast,
+            'rotate_clockwise': args.rotate_clockwise
         }
         input_path_for_preset = Path(args.input) if args.input else None
         output_path_for_preset = Path(args.output) if args.output else None
@@ -498,7 +514,8 @@ def main():
             'mask_g': mask_g,
             'mask_b': mask_b,
             'gamma': gamma,
-            'contrast': contrast
+            'contrast': contrast,
+            'rotate_clockwise': args.rotate_clockwise
         }
 
         # Batch processing - collect presets first
@@ -517,7 +534,8 @@ def main():
                     preset_mask_g=mask_g,
                     preset_mask_r=mask_r,
                     preset_gamma=gamma,
-                    preset_contrast=contrast
+                    preset_contrast=contrast,
+                    rotate_clockwise=args.rotate_clockwise
                 )
                 success_count += 1
 

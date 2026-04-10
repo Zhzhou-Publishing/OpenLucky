@@ -906,7 +906,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0 }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -916,7 +916,7 @@ function createWindow() {
 
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params]
+      const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
@@ -959,11 +959,11 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0 }) => {
     try {
       // Construct the command
       const command = 'openlucky'
-      const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params]
+      const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
@@ -1188,6 +1188,7 @@ function createWindow() {
           // Get preset parameters
           const presetParams = presetObj[presetKey]
           const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+          const rotateClockwise = presetParams.rotate_clockwise || 0
 
           // Construct input and output paths
           const inputFilePath = path.join(inputDir, file)
@@ -1195,7 +1196,7 @@ function createWindow() {
 
           // Construct command
           const command = 'openlucky'
-          const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
+          const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           event.sender.send('preset-to-batch-progress', {

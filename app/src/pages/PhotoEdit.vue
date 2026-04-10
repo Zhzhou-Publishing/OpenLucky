@@ -40,6 +40,15 @@
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
             <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
             <div v-if="isPreviewing && !isApplying" class="previewing-badge">{{ $t('photoEdit.previewing') }}</div>
+            <!-- Rotate buttons -->
+            <div class="rotate-controls" v-show="!isSavingAll">
+              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn" :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" title="Rotate counter-clockwise">
+                ↺
+              </button>
+              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn" :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" title="Rotate clockwise">
+                ↻
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -62,7 +71,7 @@
           :disabled="isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)">{{ $t('photoEdit.apply') }}</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
           :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
-        <SaveAllButton :is-disabled="isSavingAll" @click="saveAll" />
+        <SaveAllButton :is-disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" @click="saveAll" />
       </div>
     </div>
   </div>
@@ -112,6 +121,7 @@ const presetsData = ref({})
 const imageTimestamp = ref(Date.now())
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
+const rotateClockwiseMap = ref({}) // Store rotation for each image
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
 const outputDirectory = computed(() => route.query.outputDirectory || '')
@@ -130,6 +140,13 @@ const currentImage = computed(() => {
     return images.value[currentIndex.value]
   }
   return null
+})
+
+const currentRotateClockwise = computed(() => {
+  if (currentImage.value) {
+    return rotateClockwiseMap.value[currentImage.value.name] || 0
+  }
+  return 0
 })
 
 const isCurrentImageAffected = computed(() => {
@@ -158,6 +175,26 @@ const goBack = () => {
 
 const selectImage = (index) => {
   currentIndex.value = index
+}
+
+const rotateClockwiseBtn = () => {
+  if (!currentImage.value) return
+  const imageName = currentImage.value.name
+  let currentAngle = rotateClockwiseMap.value[imageName] || 0
+  let newAngle = (currentAngle + 90) % 360
+  if (newAngle === 360) newAngle = 0
+  rotateClockwiseMap.value[imageName] = newAngle
+  applyPreview()
+}
+
+const rotateCounterClockwiseBtn = () => {
+  if (!currentImage.value) return
+  const imageName = currentImage.value.name
+  let currentAngle = rotateClockwiseMap.value[imageName] || 0
+  let newAngle = currentAngle - 90
+  if (newAngle < 0) newAngle = newAngle + 360
+  rotateClockwiseMap.value[imageName] = newAngle
+  applyPreview()
 }
 
 const getUrlWithTimestamp = (url) => {
@@ -195,7 +232,8 @@ const apply = () => {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
-      params: params
+      params: params,
+      rotateClockwise: currentRotateClockwise.value
     })
 
     // Handle response
@@ -277,7 +315,8 @@ const applyPreview = () => {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
-      params: params
+      params: params,
+      rotateClockwise: currentRotateClockwise.value
     })
 
     // Handle response
@@ -363,7 +402,8 @@ const applyAll = () => {
     ipcRenderer.send('apply-filmparambatch', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
-      params: params
+      params: params,
+      rotateClockwise: currentRotateClockwise.value
     })
 
     // Handle response
@@ -672,6 +712,7 @@ const loadPresetForCurrentImage = () => {
     input3.value = preset.mask_b || 0
     input4.value = preset.gamma || 0
     input5.value = preset.contrast || 0
+    rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
     input1.value = 0
@@ -679,6 +720,7 @@ const loadPresetForCurrentImage = () => {
     input3.value = 0
     input4.value = 0
     input5.value = 0
+    rotateClockwiseMap.value[currentFileName.value] = 0
   }
 
   // Set presetLoaded to true after loading presets, enabling preview debounce
@@ -710,6 +752,12 @@ watch(currentIndex, () => {
 
 watch(images, () => {
   if (images.value.length > 0) {
+    // Initialize rotateClockwiseMap for all images to 0
+    images.value.forEach(img => {
+      if (!rotateClockwiseMap.value[img.name]) {
+        rotateClockwiseMap.value[img.name] = 0
+      }
+    })
     loadFullResImage()
     loadPresetForCurrentImage()
   }
@@ -1027,6 +1075,46 @@ onUnmounted(() => {
 
 .previewing-badge {
   background: rgba(66, 184, 131, 0.8);
+}
+
+.rotate-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+.rotate-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.rotate-button:hover:not(:disabled) {
+  background: #42b883;
+  color: white;
+  transform: scale(1.1);
+}
+
+.rotate-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.rotate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @keyframes fadeIn {

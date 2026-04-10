@@ -13,6 +13,7 @@ def process_film_bytestream_with_params(
     preset_mask_b,
     preset_gamma=1.0,
     preset_contrast=1.0,
+    rotate_clockwise=0,
     is_raw=False,
 ):
     """
@@ -94,7 +95,18 @@ def process_film_bytestream_with_params(
             (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * preset_contrast, 0, 1.0
         )
 
-    # 6. Encode back to byte stream
+    # 6. Rotate image if needed (before encoding)
+    if rotate_clockwise != 0:
+        # Rotate clockwise by the specified degrees
+        # OpenCV's rotate function only supports 90 degree multiples
+        if rotate_clockwise == 90:
+            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        elif rotate_clockwise == 180:
+            img = cv2.rotate(img, cv2.ROTATE_180)
+        elif rotate_clockwise == 270:
+            img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    # 7. Encode back to byte stream
     # Remember to convert back to BGR for OpenCV encoding
     img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
@@ -118,6 +130,7 @@ def process_film_with_params(
     preset_mask_b,
     preset_gamma=1.0,
     preset_contrast=1.0,
+    rotate_clockwise=0,
 ):
     # 1. Read input file as byte stream
     try:
@@ -138,6 +151,7 @@ def process_film_with_params(
         preset_mask_b=preset_mask_b,
         preset_gamma=preset_gamma,
         preset_contrast=preset_contrast,
+        rotate_clockwise=rotate_clockwise,
         is_raw=ext in RAW_EXTENSIONS,
     )
 
