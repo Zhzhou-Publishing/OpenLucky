@@ -10,7 +10,9 @@
     "electron": "electron .",
     "start": "npm run build && electron .",
     "build:win": "npm run build && electron-builder --win --x64",
-    "build:win:portable": "npm run build && electron-builder --win portable --x64"
+    "build:win:portable": "npm run build && electron-builder --win portable --x64",
+    "build:mac": "npm run build && electron-builder --mac --arm64",
+    "build:mac:universal": "npm run build && electron-builder --mac --universal"
   },
   "keywords": [],
   "author": "ZhZhou",
@@ -34,8 +36,8 @@
     "vue-router": "^5.0.3"
   },
   "build": {
-    "appId": "com.openlucky.desktop",
-    "productName": "OpenLuckyApp",
+    "appId": "com.github.zhzhou-publishing.openlucky",
+    "productName": "OpenLucky",
     "directories": {
       "output": "dist-electron"
     },
@@ -61,11 +63,44 @@
       ],
       "icon": "build-resources/OpenLuckyIcon.ico"
     },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build-resources/OpenLuckyIcon.icns",
+      "category": "public.app-category.productivity",
+      "extraResources": [
+        {
+          "from": "../bin/openlucky",
+          "to": "openlucky"
+        }
+      ]
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

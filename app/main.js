@@ -6,6 +6,27 @@ const { spawn } = require('child_process')
 const tmp = require('tmp')
 const https = require('https')
 
+/**
+ * Get the path to the openlucky CLI executable
+ * On Windows: uses openlucky command from PATH
+ * In development (non-Windows): uses ../bin/openlucky/openlucky
+ * In production (non-Windows): uses Resources/openlucky/openlucky
+ */
+function getOpenLuckyPath() {
+  // On Windows, directly use the openlucky command from PATH
+  if (process.platform === 'win32') {
+    return 'openlucky'
+  }
+
+  if (app.isPackaged) {
+    // In production, use resourcesPath which points to Contents/Resources
+    return path.join(process.resourcesPath, 'openlucky', 'openlucky')
+  } else {
+    // In development, use relative path to bin/openlucky/openlucky
+    return path.join(__dirname, '..', '..', 'bin', 'openlucky', 'openlucky')
+  }
+}
+
 // Image format constants
 const IMAGE_EXTENSIONS = [
   '.jpg',
@@ -241,7 +262,7 @@ function createWindow() {
   // Handle check-openlucky request
   ipcMain.on('check-openlucky', async (event) => {
     try {
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['--help']
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -391,7 +412,7 @@ function createWindow() {
   ipcMain.on('get-presets', async (event) => {
     try {
       // Construct the command
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['config', 'read', '-f', 'json']
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -494,7 +515,7 @@ function createWindow() {
       // Function to resize image using openlucky tool resize command
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const command = 'openlucky'
+          const command = getOpenLuckyPath()
           const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -646,7 +667,7 @@ function createWindow() {
       // Function to resize image using openlucky tool resize command
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const command = 'openlucky'
+          const command = getOpenLuckyPath()
           const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -862,7 +883,7 @@ function createWindow() {
   ipcMain.on('apply-preset', async (event, { inputPath, outputPath, preset }) => {
     try {
       // Construct the command
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['filmbatch', '--input', inputPath, '--output', outputPath, '--preset', preset]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -915,7 +936,7 @@ function createWindow() {
       const outputFile = path.join(outputPath, filename)
 
       // Construct the command
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -962,7 +983,7 @@ function createWindow() {
   ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0 }) => {
     try {
       // Construct the command
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1085,7 +1106,7 @@ function createWindow() {
       const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
 
       // Construct command
-      const command = 'openlucky'
+      const command = getOpenLuckyPath()
       const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1195,7 +1216,7 @@ function createWindow() {
           const outputFilePath = path.join(outputDir, file)
 
           // Construct command
-          const command = 'openlucky'
+          const command = getOpenLuckyPath()
           const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

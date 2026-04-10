@@ -1,6 +1,0 @@
-pillow==12.1.1
-numpy==2.4.3
-opencv-python==4.13.0.92
-pyyaml==6.0.3
-pyinstaller==6.19.0
-rawpy==0.26.1
