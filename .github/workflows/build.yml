@@ -170,6 +170,6 @@ jobs:
           files: |
             OpenLucky*.exe
             *.checksum.txt
-            *.dmg
+            app/dist-electron/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
