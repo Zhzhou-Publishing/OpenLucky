@@ -5,7 +5,7 @@
 动作2：对照当前分支和 main 分支，撰写 changelog（放在 changelog 目录）
     英文版文件名：CHANGELOG.en_US.<tag_version>.md
     中文版文件名：CHANGELOG.zh_Hans.<tag_version>.md
-    <tag_version> 从 app/package.json 中读取 .version 字段。
+    <tag_version> 从 app/package.json 中读取 .version 字段，如果 .version 字段值不带前缀 v，则加上前缀 v 当作 <tag_version>。
 动作3：增加新的 CHANGELOG 过后，提交当前分支，并推送远程，推送完毕后用浏览器打开当前分支到 main 分支的 Pull Request 页面。
 
 注意，如果有同名文件，则让用户确认是否要替换，如果用户不替换，则不要执行。
