@@ -14,17 +14,19 @@ const https = require('https')
  * In production (non-Windows): uses Resources/openlucky/openlucky
  */
 function getOpenLuckyPath() {
-  // On Windows, directly use the openlucky command from PATH
-  if (process.platform === 'win32') {
-    return 'openlucky'
-  }
 
   if (app.isPackaged) {
     // In production, use resourcesPath which points to Contents/Resources
     return path.join(process.resourcesPath, 'openlucky', 'openlucky')
   } else {
-    // In development, use relative path to bin/openlucky/openlucky
-    return path.join(__dirname, '..', '..', 'bin', 'openlucky', 'openlucky')
+    // In development, use local openlucky command from bin directory
+    if (process.platform === 'win32') {
+      // Windows: bin/openlucky (executable file)
+      return path.join(__dirname, '..', 'bin', 'openlucky')
+    } else {
+      // macOS/Linux: bin/openlucky/openlucky
+      return path.join(__dirname, '..', 'bin', 'openlucky', 'openlucky')
+    }
   }
 }
 
@@ -793,7 +795,7 @@ function createWindow() {
       // Process RAW files using Promise
       const rawProcessings = rawFiles.map(async (file) => {
         const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
+        const destPath = path.join(workingDirectory, file + '.tif')
 
         if (await needsResize(srcPath)) {
           const result = await resizeImage(srcPath, destPath)
