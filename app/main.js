@@ -9,15 +9,21 @@ const https = require('https')
 
 /**
  * Get the path to the openlucky CLI executable
- * On Windows: uses openlucky command from PATH
- * In development (non-Windows): uses ../bin/openlucky/openlucky
+ * In production (Windows): uses openlucky command from PATH
  * In production (non-Windows): uses Resources/openlucky/openlucky
+ * In development (Windows): uses ../bin/openlucky
+ * In development (non-Windows): uses ../bin/openlucky/openlucky
  */
 function getOpenLuckyPath() {
 
   if (app.isPackaged) {
-    // In production, use resourcesPath which points to Contents/Resources
-    return path.join(process.resourcesPath, 'openlucky', 'openlucky')
+    if (process.platform === 'win32') {
+      // Windows production: use openlucky from PATH
+      return 'openlucky'
+    } else {
+      // macOS/Linux production: use resourcesPath which points to Contents/Resources
+      return path.join(process.resourcesPath, 'openlucky', 'openlucky')
+    }
   } else {
     // In development, use local openlucky command from bin directory
     if (process.platform === 'win32') {
