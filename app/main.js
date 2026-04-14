@@ -72,7 +72,14 @@ function getCurrentVersion() {
   try {
     // 使用 Electron 的 app.getVersion() 方法，它会从应用程序的元数据中读取版本号
     // 这个方法在开发环境和打包环境中都能正常工作
-    return app.getVersion()
+    let version = app.getVersion()
+
+    // 确保版本号带v前缀，以便与GitHub API返回的版本格式一致
+    if (version && !version.startsWith('v')) {
+      version = 'v' + version
+    }
+
+    return version
   } catch (error) {
     console.error('[UpdateChecker] Error reading version:', error)
     return 'unknown'
