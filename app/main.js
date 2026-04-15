@@ -6,6 +6,7 @@ const sharp = require('sharp')
 const { spawn } = require('child_process')
 const tmp = require('tmp')
 const https = require('https')
+const pLimit = require('p-limit').default
 
 /**
  * Get the path to the openlucky CLI executable
@@ -58,10 +59,15 @@ const RAW_EXTENSIONS = [
   '.raf'
 ]
 
-const TIFF_FORMATS = [
+const TIFF_EXTENSIONS = [
   '.tif',
   '.tiff'
 ]
+
+// Helper function to check file extension with case-insensitive matching
+const checkExtension = (extensions, ext) => {
+  return extensions.includes(ext.toLowerCase())
+}
 
 // Update checker constants
 const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
@@ -308,6 +314,10 @@ function createWindow() {
     autoHideMenuBar: true,
     resizable: false,
     webPreferences: {
+      devTools: false, // 开发环境启用开发者工具，生产环境禁用以提升性能
+      spellCheck: false, // 极限节省性能：关闭拼写检查
+      enableWebSQL: false, // 极限节省性能：关闭 WebSQL 支持
+      offscreen: false, // 极限节省性能：不使用离屏渲染，如果涉及 CSS/Canvas 绘制问题，可以考虑开启
       nodeIntegration: true,
       contextIsolation: false
     }
@@ -399,7 +409,7 @@ function createWindow() {
       // Filter for image files (including RAW files)
       const allImageFiles = files.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Create temporary thumbnails directory using tmp
@@ -435,12 +445,12 @@ function createWindow() {
         }
 
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        const isRaw = RAW_EXTENSIONS.includes(ext)
+        const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
         let imageUrl = `file://${fullPath}?t=${timestamp}`
 
         // Generate thumbnail for tif/tiff files
-        if (TIFF_FORMATS.includes(ext)) {
+        if (checkExtension(TIFF_EXTENSIONS, ext)) {
           try {
             const thumbnailPath = path.join(tempDir, `${path.basename(file, ext)}.jpg`)
             await sharp(fullPath)
@@ -537,19 +547,19 @@ function createWindow() {
       const filesToProcess = files.filter(file => {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return RAW_EXTENSIONS.includes(ext)
+        return checkExtension(RAW_EXTENSIONS, ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !RAW_EXTENSIONS.includes(ext)
+        return !checkExtension(RAW_EXTENSIONS, ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
@@ -558,7 +568,7 @@ function createWindow() {
           const ext = path.extname(imagePath).toLowerCase()
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (RAW_EXTENSIONS.includes(ext)) {
+          if (checkExtension(RAW_EXTENSIONS, ext)) {
             return true
           }
 
@@ -688,20 +698,20 @@ function createWindow() {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
         const isFile = fs.statSync(path.join(directoryPath, file)).isFile()
-        return isFile && (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext))
+        return isFile && (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext))
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return RAW_EXTENSIONS.includes(ext)
+        return checkExtension(RAW_EXTENSIONS, ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !RAW_EXTENSIONS.includes(ext)
+        return !checkExtension(RAW_EXTENSIONS, ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
@@ -710,7 +720,7 @@ function createWindow() {
           const ext = path.extname(imagePath).toLowerCase()
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (RAW_EXTENSIONS.includes(ext)) {
+          if (checkExtension(RAW_EXTENSIONS, ext)) {
             return true
           }
 
@@ -779,14 +789,30 @@ function createWindow() {
         }
       }
 
-      // Process non-RAW files using Promise
-      const nonRawProcessings = nonRawFiles.map(async (file) => {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
+      // Get CPU core count for concurrency setting
+      let cpuCoreCount = 1
+      try {
+        const cpus = os.cpus()
+        cpuCoreCount = cpus.length
+        console.log(`Detected CPU cores: ${cpuCoreCount}`)
+        console.log(`Setting concurrency limit to: ${cpuCoreCount} parallel processes`)
+      } catch (error) {
+        console.warn('Failed to detect CPU core count, using default: 1', error.message)
+        cpuCoreCount = 1
+      }
 
-        const result = await needsResize(srcPath)
-          ? await resizeImage(srcPath, destPath)
-          : (() => {
+      // Create a concurrency limiter based on CPU core count
+      const limit = pLimit(cpuCoreCount)
+
+      // Process non-RAW files using Promise with concurrency limit
+      const nonRawProcessings = nonRawFiles.map(async (file) => {
+        return limit(async () => {
+          const srcPath = path.join(directoryPath, file)
+          const destPath = path.join(workingDirectory, file)
+
+          const result = await needsResize(srcPath)
+            ? await resizeImage(srcPath, destPath)
+            : (() => {
               try {
                 fs.copyFileSync(srcPath, destPath)
                 return { success: true }
@@ -796,57 +822,60 @@ function createWindow() {
               }
             })()
 
-        const count = await counter.increment()
-        // Update window title with current file path and progress
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-        // Send processing progress update to renderer
-        event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-        return result.success ? { success: true, file } : { success: false, file, error: result.error }
-      })
-
-      // Process RAW files using Promise
-      const rawProcessings = rawFiles.map(async (file) => {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file + '.tif')
-
-        if (await needsResize(srcPath)) {
-          const result = await resizeImage(srcPath, destPath)
           const count = await counter.increment()
           // Update window title with current file path and progress
           event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
           // Send processing progress update to renderer
           event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
 
-          if (result.success) {
-            console.log('RAW resized:', file)
-            return { success: true, file }
+          return result.success ? { success: true, file } : { success: false, file, error: result.error }
+        })
+      })
+
+      // Process RAW files using Promise with concurrency limit
+      const rawProcessings = rawFiles.map(async (file) => {
+        return limit(async () => {
+          const srcPath = path.join(directoryPath, file)
+          const destPath = path.join(workingDirectory, file + '.tif')
+
+          if (await needsResize(srcPath)) {
+            const result = await resizeImage(srcPath, destPath)
+            const count = await counter.increment()
+            // Update window title with current file path and progress
+            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+            // Send processing progress update to renderer
+            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+
+            if (result.success) {
+              console.log('RAW resized:', file)
+              return { success: true, file }
+            } else {
+              console.error('Failed to resize RAW:', file)
+              return { success: false, file, error: result.error }
+            }
           } else {
-            console.error('Failed to resize RAW:', file)
-            return { success: false, file, error: result.error }
-          }
-        } else {
-          try {
-            fs.copyFileSync(srcPath, destPath)
-            const count = await counter.increment()
-            // Update window title with current file path and progress
-            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-            // Send processing progress update to renderer
-            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+            try {
+              fs.copyFileSync(srcPath, destPath)
+              const count = await counter.increment()
+              // Update window title with current file path and progress
+              event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+              // Send processing progress update to renderer
+              event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
 
-            console.log('RAW copied (no resize needed):', file)
-            return { success: true, file }
-          } catch (err) {
-            const count = await counter.increment()
-            // Update window title with current file path and progress
-            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-            // Send processing progress update to renderer
-            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+              console.log('RAW copied (no resize needed):', file)
+              return { success: true, file }
+            } catch (err) {
+              const count = await counter.increment()
+              // Update window title with current file path and progress
+              event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
+              // Send processing progress update to renderer
+              event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
 
-            console.error('Failed to copy RAW:', file, err.message)
-            return { success: false, file, error: err.message }
+              console.error('Failed to copy RAW:', file, err.message)
+              return { success: false, file, error: err.message }
+            }
           }
-        }
+        })
       })
 
       // Wait for all non-RAW and RAW processings to complete
@@ -899,7 +928,7 @@ function createWindow() {
       let imageUrl = `file://${fullPath}`
 
       // Convert tif/tiff files to jpg for browser compatibility
-      if (TIFF_FORMATS.includes(ext)) {
+      if (checkExtension(TIFF_EXTENSIONS, ext)) {
         try {
           // Create temporary directory using tmp
           const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-full-res_', unsafeCleanup: true })
@@ -1131,7 +1160,7 @@ function createWindow() {
       // Get filename from input path
       const filename = path.basename(inputFilePath)
       const ext = path.extname(filename)
-      const isRaw = RAW_EXTENSIONS.includes(ext)
+      const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
       // Try to find preset for this file
       let presetKey = null
@@ -1167,9 +1196,15 @@ function createWindow() {
       const presetParams = presetObj[presetKey]
       const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
 
+      // If RAW file and output is not TIFF format, add .tif extension
+      let finalOutputPath = outputFilePath
+      if (isRaw && !checkExtension(TIFF_EXTENSIONS, path.extname(outputFilePath))) {
+        finalOutputPath += '.tif'
+      }
+
       // Construct command
       const command = getOpenLuckyPath()
-      const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
+      const args = ['filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-to-file-started', { message: 'Processing started' })
@@ -1232,7 +1267,7 @@ function createWindow() {
       const files = fs.readdirSync(inputDir)
       const imageFiles = files.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(inputDir, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(inputDir, file)).isFile()
       })
 
       // Process each file
@@ -1241,7 +1276,7 @@ function createWindow() {
 
       for (const file of imageFiles) {
         const ext = path.extname(file)
-        const isRaw = RAW_EXTENSIONS.includes(ext)
+        const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
         // Try to find preset for this file
         let presetKey = null
@@ -1267,6 +1302,7 @@ function createWindow() {
           }
         }
 
+        console.log("apply-preset-to-batch, presetKey:", presetKey)
         if (presetKey) {
           // Get preset parameters
           const presetParams = presetObj[presetKey]
@@ -1275,7 +1311,12 @@ function createWindow() {
 
           // Construct input and output paths
           const inputFilePath = path.join(inputDir, file)
-          const outputFilePath = path.join(outputDir, file)
+          let outputFilePath = path.join(outputDir, file)
+
+          // If RAW file and output is not TIFF format, add .tif extension
+          if (isRaw && !checkExtension(TIFF_EXTENSIONS, path.extname(outputFilePath))) {
+            outputFilePath += '.tif'
+          }
 
           // Construct command
           const command = getOpenLuckyPath()
@@ -1340,6 +1381,9 @@ function showUpdateDialog(win, updateInfo) {
     console.error('Error showing update dialog:', error)
   })
 }
+
+// 极限节省性能：禁用硬件加速，如果涉及到图像处理和显示，可能会有更好的兼容性
+app.disableHardwareAcceleration();
 
 // 当 Electron 完成初始化时被调用
 app.whenReady().then(async () => {
