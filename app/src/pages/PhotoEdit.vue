@@ -465,7 +465,7 @@ const applyAll = () => {
   }
 }
 
-const saveAll = () => {
+const saveAll = async () => {
   if (!workingDirectory.value || !originalDirectory.value) {
     console.error('No working directory or original directory')
     return
@@ -486,47 +486,83 @@ const saveAll = () => {
     images.value.forEach(img => affectedImages.add(img.name))
 
     // Remove existing listeners to avoid duplicates
-    ipcRenderer.removeAllListeners('preset-to-batch-started')
-    ipcRenderer.removeAllListeners('preset-to-batch-progress')
-    ipcRenderer.removeAllListeners('preset-to-batch-success')
-    ipcRenderer.removeAllListeners('preset-to-batch-error')
+    ipcRenderer.removeAllListeners('preset-to-file-started')
+    ipcRenderer.removeAllListeners('preset-to-file-progress')
+    ipcRenderer.removeAllListeners('preset-to-file-success')
+    ipcRenderer.removeAllListeners('preset-to-file-error')
 
     // Prepare the output directory path
     const outputDir = path.join(originalDirectory.value, 'output')
 
-    // Send request to main process
-    ipcRenderer.send('apply-preset-to-batch', {
-      presetFile: path.join(workingDirectory.value, '.preset.json'),
-      inputDir: originalDirectory.value,
-      outputDir: outputDir
-    })
+    // Ensure output directory exists
+    const fs = window.require('fs')
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
 
-    // Handle started
-    ipcRenderer.once('preset-to-batch-started', (_, result) => {
-      console.log(result.message)
-    })
+    // Process each file individually
+    const filesToProcess = images.value.map(img => img.name)
+    let processedCount = 0
+    let successCount = 0
+    let errorCount = 0
 
-    // Handle progress
-    ipcRenderer.on('preset-to-batch-progress', (_, result) => {
-      console.log(result.data)
-    })
+    // Process files sequentially
+    for (const filename of filesToProcess) {
+      console.log(`Processing file ${processedCount + 1}/${filesToProcess.length}: ${filename}`)
 
-    // Handle success
-    ipcRenderer.once('preset-to-batch-success', (_, result) => {
-      console.log(result.message)
-      // Update all image timestamps to refresh display without reloading page
-      images.value.forEach(img => {
-        img.timestamp = Date.now()
-      })
-      triggerImagesReactivity()
-      affectedImages.clear()
-    })
+      // Send request to main process for each file
+      const presetFile = path.join(workingDirectory.value, '.preset.json')
+      const filePath = path.join(originalDirectory.value, filename)
+      const outputFilePath = path.join(outputDir, filename)
 
-    // Handle error
-    ipcRenderer.once('preset-to-batch-error', (_, result) => {
-      console.error('Error saving all files:', result.message, result.error)
-      affectedImages.clear()
+      try {
+        await new Promise((resolve) => {
+          // Handle started
+          const startedHandler = (_, result) => {
+            console.log(result.message)
+          }
+          ipcRenderer.once('preset-to-file-started', startedHandler)
+
+          // Handle success
+          const successHandler = (_, result) => {
+            console.log(result.message)
+            successCount++
+            resolve()
+          }
+          ipcRenderer.once('preset-to-file-success', successHandler)
+
+          // Handle error
+          const errorHandler = (_, result) => {
+            console.error('Error processing file:', filename, result.message, result.error)
+            errorCount++
+            resolve() // Continue with next file even if this one fails
+          }
+          ipcRenderer.once('preset-to-file-error', errorHandler)
+
+          // Send request
+          ipcRenderer.send('apply-preset-to-file', {
+            presetFile: presetFile,
+            inputFilePath: filePath,
+            outputFilePath: outputFilePath
+          })
+        })
+      } catch (error) {
+        console.error('Error processing file:', filename, error)
+        errorCount++
+      }
+
+      processedCount++
+    }
+
+    // Update all image timestamps to refresh display without reloading page
+    images.value.forEach(img => {
+      img.timestamp = Date.now()
     })
+    triggerImagesReactivity()
+    affectedImages.clear()
+
+    // Log summary
+    console.log(`Save all completed: ${successCount} succeeded, ${errorCount} failed, ${processedCount} total`)
   } catch (error) {
     console.error('Error saving all files:', error)
     affectedImages.clear()
