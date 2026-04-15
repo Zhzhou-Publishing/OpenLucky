@@ -10,7 +10,7 @@ from lib.process_film import process_film_with_params, process_film_bytestream_w
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
 from lib.tool.resize import resize_image
-from cmd.constants.image_formats import IMAGE_EXTENSIONS
+from cmd.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
 
 def save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label=None):
@@ -219,6 +219,15 @@ def main():
 
         # Process with byte stream function
         preset = get_preset_config(config_file, args.preset)
+
+        # Check if input file is RAW format (do it once when we have file info)
+        if args.input is not None:
+            ext = input_file.suffix.lower()
+            is_raw = ext in RAW_EXTENSIONS
+        else:
+            # For stdin input, cannot determine if it's RAW from extension, default to False
+            is_raw = False
+
         output_bytes = process_film_bytestream_with_params(
             input_bytes,
             preset_mask_b=preset['mask_b'],
@@ -226,7 +235,8 @@ def main():
             preset_mask_r=preset['mask_r'],
             preset_gamma=preset.get('gamma', 1.0),
             preset_contrast=preset.get('contrast', 1.0),
-            rotate_clockwise=args.rotate_clockwise
+            rotate_clockwise=args.rotate_clockwise,
+            is_raw=is_raw
         )
 
         if output_bytes is None:
@@ -398,9 +408,14 @@ def main():
             print("Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
             sys.exit(1)
 
+        is_raw = False
         # Read input from file or stdin
         if args.input is not None:
             input_file = Path(args.input)
+
+            ext = input_file.suffix.lower()
+            is_raw = ext in RAW_EXTENSIONS
+            
             if not input_file.exists():
                 print(f"Error: Input file does not exist: {input_file}")
                 sys.exit(1)
@@ -426,7 +441,8 @@ def main():
             preset_mask_b=mask_b,
             preset_gamma=gamma,
             preset_contrast=contrast,
-            rotate_clockwise=args.rotate_clockwise
+            rotate_clockwise=args.rotate_clockwise,
+            is_raw=is_raw
         )
 
         if output_bytes is None:
