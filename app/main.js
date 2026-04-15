@@ -1196,9 +1196,15 @@ function createWindow() {
       const presetParams = presetObj[presetKey]
       const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
 
+      // If RAW file and output is not TIFF format, add .tif extension
+      let finalOutputPath = outputFilePath
+      if (isRaw && !checkExtension(TIFF_EXTENSIONS, path.extname(outputFilePath))) {
+        finalOutputPath += '.tif'
+      }
+
       // Construct command
       const command = getOpenLuckyPath()
-      const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString]
+      const args = ['filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-to-file-started', { message: 'Processing started' })
@@ -1305,7 +1311,12 @@ function createWindow() {
 
           // Construct input and output paths
           const inputFilePath = path.join(inputDir, file)
-          const outputFilePath = path.join(outputDir, file)
+          let outputFilePath = path.join(outputDir, file)
+
+          // If RAW file and output is not TIFF format, add .tif extension
+          if (isRaw && !checkExtension(TIFF_EXTENSIONS, path.extname(outputFilePath))) {
+            outputFilePath += '.tif'
+          }
 
           // Construct command
           const command = getOpenLuckyPath()
