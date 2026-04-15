@@ -309,7 +309,7 @@ function createWindow() {
     autoHideMenuBar: true,
     resizable: false,
     webPreferences: {
-      devTools: false, // 极限节省性能：禁用开发者工具，即便是开发环境也可禁用，仅在有必要时再开启
+      devTools: false, // 开发环境启用开发者工具，生产环境禁用以提升性能
       spellCheck: false, // 极限节省性能：关闭拼写检查
       enableWebSQL: false, // 极限节省性能：关闭 WebSQL 支持
       offscreen: false, // 极限节省性能：不使用离屏渲染，如果涉及 CSS/Canvas 绘制问题，可以考虑开启
@@ -1291,6 +1291,7 @@ function createWindow() {
           }
         }
 
+        console.log("apply-preset-to-batch, presetKey:", presetKey)
         if (presetKey) {
           // Get preset parameters
           const presetParams = presetObj[presetKey]

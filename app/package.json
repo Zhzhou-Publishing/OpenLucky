@@ -5,6 +5,8 @@
   "main": "main.js",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "electron .",
+    "dev:hot": "concurrently \"npm run dev\" \"npm run dev:electron\" --kill-others",
     "build": "vite build && npm run update-emoji",
     "update-emoji": "node scripts/update-emoji.js",
     "electron": "electron .",
