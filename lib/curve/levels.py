@@ -97,7 +97,7 @@ def levels_clip(
         ch_img[ch_img <= s_thresh] = 0.0
         ch_img[ch_img >= h_thresh] = 1.0
 
-        if mode == “clip-stretch”:
+        if mode == "clip-stretch":
             # 拉伸：将中间值线性映射到 [0, 1]
             mask = (ch_img > 0.0) & (ch_img < 1.0)
             if s_thresh < h_thresh:
