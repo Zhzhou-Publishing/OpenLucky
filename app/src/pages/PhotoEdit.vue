@@ -54,23 +54,51 @@
 
       <!-- Operation Area - Fixed at Page Bottom -->
       <div class="operation-area">
-        <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-        <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-        <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-        <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
-          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-          large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-        <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
-          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-          large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-        <button @click="apply" class="apply-button" title="Enter" style="display: none;"
-          :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
-        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-          :disabled="isAllImagesAffected">{{ $t('photoEdit.applyAll') }}</button>
-        <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
+        <Tabs
+          :tabs="[
+            { id: 'basic', label: '基础参数' },
+            { id: 'advanced', label: '高级参数' }
+          ]"
+          :default-tab="'basic'"
+          @tab-change="handleTabChange"
+        >
+          <template #default="{ activeTab }">
+            <!-- Basic Parameters Tab -->
+            <div v-if="activeTab === 'basic'" class="tab-content">
+              <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
+                :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
+                large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
+                :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
+                large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+            </div>
+
+            <!-- Advanced Parameters Tab -->
+            <div v-if="activeTab === 'advanced'" class="tab-content">
+              <NumberInput label="对比度 R" v-model="contrastR" :max="2" :min="0.5" increase-key="1" decrease-key="!"
+                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput label="对比度 G" v-model="contrastG" :max="2" :min="0.5" increase-key="2" decrease-key="@"
+                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput label="对比度 B" v-model="contrastB" :max="2" :min="0.5" increase-key="3" decrease-key="#"
+                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+            </div>
+
+            <!-- Common Action Buttons -->
+            <div class="action-buttons">
+              <button @click="apply" class="apply-button" title="Enter" style="display: none;"
+                :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
+              <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
+                :disabled="isAllImagesAffected">{{ $t('photoEdit.applyAll') }}</button>
+              <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
+            </div>
+          </template>
+        </Tabs>
       </div>
     </div>
   </div>
@@ -81,6 +109,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NumberInput from '../components/NumberInput.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
+import Tabs from '../components/Tabs.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
 
 // Get path module for Electron environment
@@ -111,6 +140,9 @@ const input2 = ref(0)
 const input3 = ref(0)
 const input4 = ref(0)
 const input5 = ref(0)
+const contrastR = ref(1.0)
+const contrastG = ref(1.0)
+const contrastB = ref(1.0)
 const presetsData = ref({})
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
@@ -158,6 +190,10 @@ const currentPageTitle = computed(() => {
   }
   return 'Photo Edit'
 })
+
+const handleTabChange = (tabId) => {
+  console.log('Tab changed to:', tabId)
+}
 
 const goBack = () => {
   router.push({
@@ -253,8 +289,8 @@ const apply = () => {
 
     const imageName = currentImage.value.name;
 
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
+    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
+    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
 
     // Mark image as affected to disable controls
     affectedImages.add(imageName)
@@ -334,8 +370,8 @@ const applyPreview = () => {
 
     const imageName = currentImage.value.name;
 
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
+    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
+    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
 
     // Mark image as affected to disable controls
     affectedImages.add(imageName)
@@ -726,6 +762,9 @@ const loadPresetForCurrentImage = () => {
     input3.value = preset.mask_b || 0
     input4.value = preset.gamma || 0
     input5.value = preset.contrast || 0
+    contrastR.value = preset.contrast_r || 1.0
+    contrastG.value = preset.contrast_g || 1.0
+    contrastB.value = preset.contrast_b || 1.0
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
@@ -734,6 +773,9 @@ const loadPresetForCurrentImage = () => {
     input3.value = 0
     input4.value = 0
     input5.value = 0
+    contrastR.value = 1.0
+    contrastG.value = 1.0
+    contrastB.value = 1.0
     rotateClockwiseMap.value[currentFileName.value] = 0
   }
 
@@ -795,7 +837,7 @@ function handleInputKeydown(event) {
 }
 
 // Watch for input value changes to restart debounce (only if user has already started typing)
-const inputsToWatch = [input1, input2, input3, input4, input5]
+const inputsToWatch = [input1, input2, input3, input4, input5, contrastR, contrastG, contrastB]
 inputsToWatch.forEach(input => {
   watch(input, () => {
     // Only restart debounce if preset is loaded and current image is affected
@@ -1139,15 +1181,27 @@ onUnmounted(() => {
   bottom: 0;
   left: 100px;
   right: 0;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
   padding: 16px;
   background: white;
   border-top: 1px solid #e0e0e0;
   z-index: 100;
   box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 16px;
 }
 
 .apply-button,
