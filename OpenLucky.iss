@@ -1,13 +1,13 @@
 ; --- Inno Setup 脚本 (修复版) ---
 #define MyAppName "OpenLucky"
-#define MyAppVersion "1.4.2-rc6"
+#define MyAppVersion "1.4.2-rc7"
 #define MyAppPublisher "Ares"
 #define MyAppExeName "openlucky.exe"
 
 [Setup]
 AppId={{8B3C9A52-7F12-4B6A-9D3E-A5F1E2C5B4D9}
 AppName={#MyAppName}
-AppVersion={#MyAppVersion}
+AppVersion=v{#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}

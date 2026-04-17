@@ -801,8 +801,7 @@ function createWindow() {
         cpuCoreCount = 1
       }
 
-      // Create a concurrency limiter based on CPU core count
-      const limit = pLimit(cpuCoreCount)
+      const limit = pLimit(Math.max(1, cpuCoreCount / 2 - 1))
 
       // Process non-RAW files using Promise with concurrency limit
       const nonRawProcessings = nonRawFiles.map(async (file) => {

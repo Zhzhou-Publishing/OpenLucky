@@ -10,6 +10,7 @@ from lib.process_film import process_film_with_params, process_film_bytestream_w
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
 from lib.tool.resize import resize_image
+from lib.curve.levels import levels_clip
 from cmd.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
 
@@ -176,6 +177,25 @@ def main():
                                help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
+
+    # curve subcommand
+    curve_parser = subparsers.add_parser('curve', help='Curve adjustment tools')
+    curve_subparsers = curve_parser.add_subparsers(dest='curve_command', help='Available curve subcommands')
+
+    # curve levels subcommand
+    levels_parser = curve_subparsers.add_parser('levels', help='Highlight and shadow clipping')
+    levels_parser.add_argument('--shadows', '-s', type=int, default=0,
+                               help='Shadow clipping in permilles (0-1000)')
+    levels_parser.add_argument('--highlights', '-hl', type=int, default=0,
+                               help='Highlight clipping in permilles (0-1000)')
+    levels_parser.add_argument('--channel', '-c', default='all',
+                               choices=['all', 'red', 'green', 'blue'],
+                               help='Channel to apply clipping (default: all)')
+    levels_parser.add_argument('--mode', '-m', default='clip-stretch',
+                               choices=['clip-only', 'clip-stretch'],
+                               help='Clipping mode (default: clip-stretch)')
+    levels_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    levels_parser.add_argument('--output', '-o', required=True, help='Output image file path')
 
     args = parser.parse_args()
 
@@ -665,6 +685,36 @@ def main():
                 sys.exit(1)
         else:
             tool_parser.print_help()
+            sys.exit(1)
+
+    elif args.command == 'curve':
+        if args.curve_command == 'levels':
+            input_file = Path(args.input)
+            if not input_file.exists():
+                print(f"Error: Input file does not exist: {input_file}")
+                sys.exit(1)
+
+            output_file = Path(args.output)
+
+            # For RAW input, ensure output has .tiff extension
+            ext = input_file.suffix.lower()
+            if ext in RAW_EXTENSIONS and output_file.suffix.lower() not in ('.tif', '.tiff'):
+                output_file = output_file.with_suffix(output_file.suffix + '.tiff')
+                print(f"RAW input detected, output will be saved as TIFF: {output_file}")
+
+            success = levels_clip(
+                input_path=input_file,
+                output_path=output_file,
+                shadows=args.shadows,
+                highlights=args.highlights,
+                channel=args.channel,
+                mode=args.mode,
+            )
+
+            if not success:
+                sys.exit(1)
+        else:
+            curve_parser.print_help()
             sys.exit(1)
 
     else:
