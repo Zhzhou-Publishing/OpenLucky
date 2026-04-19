@@ -10,6 +10,7 @@ from lib.process_film import process_film_with_params, process_film_bytestream_w
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
 from lib.tool.resize import resize_image
+from lib.tool.reshape import reshape_image, parse_point, parse_shape
 from lib.curve.levels import levels_clip
 from cmd.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -177,6 +178,16 @@ def main():
                                help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
+
+    # tool reshape subcommand
+    reshape_parser = tool_subparsers.add_parser('reshape', help='Four-point perspective correction')
+    reshape_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    reshape_parser.add_argument('--output', '-o', required=True, help='Output image file path')
+    reshape_parser.add_argument('--point1', '-p1', required=True, help='Top-left crop anchor point (x,y format, e.g., 10,13)')
+    reshape_parser.add_argument('--point2', '-p2', required=True, help='Top-right crop anchor point (x,y format, e.g., 100,14)')
+    reshape_parser.add_argument('--point3', '-p3', required=True, help='Bottom-right crop anchor point (x,y format, e.g., 101,134)')
+    reshape_parser.add_argument('--point4', '-p4', required=True, help='Bottom-left crop anchor point (x,y format, e.g., 8,132)')
+    reshape_parser.add_argument('--shape', '-s', required=True, help='Output canvas dimensions (width,height format, e.g., 6000,4000)')
 
     # curve subcommand
     curve_parser = subparsers.add_parser('curve', help='Curve adjustment tools')
@@ -696,6 +707,37 @@ def main():
                 edge=args.edge,
                 mode=args.mode,
                 value=value
+            )
+
+            if not success:
+                sys.exit(1)
+        elif args.tool_command == 'reshape':
+            # Parse points
+            try:
+                point1 = parse_point(args.point1, 'point1')
+                point2 = parse_point(args.point2, 'point2')
+                point3 = parse_point(args.point3, 'point3')
+                point4 = parse_point(args.point4, 'point4')
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+            # Parse shape
+            try:
+                shape = parse_shape(args.shape)
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+            # Perform reshape
+            success = reshape_image(
+                input_path=args.input,
+                output_path=args.output,
+                point1=point1,
+                point2=point2,
+                point3=point3,
+                point4=point4,
+                shape=shape
             )
 
             if not success:
