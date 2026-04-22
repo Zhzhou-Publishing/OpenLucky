@@ -789,95 +789,53 @@ function createWindow() {
         }
       }
 
-      // Get CPU core count for concurrency setting
-      let limitNum = 1
-      // try {
-      //   let cpuCoreCount = os.cpus().length
-      //   limitNum = Math.max(1, cpuCoreCount / 2 - 1)
-      //   console.log(`Detected CPU cores: ${cpuCoreCount}`)
-      //   console.log(`Setting concurrency limit to: ${limitNum} parallel processes`)
-      // } catch (error) {
-      //   console.warn('Failed to detect CPU core count, using default: 1', error.message)
-      // }
+      const totalFiles = rawFiles.length + nonRawFiles.length
 
-      let limit = pLimit(limitNum)
+      // Process RAW files first (serial)
+      for (const file of rawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file + '.tif')
 
-      // Process non-RAW files using Promise with concurrency limit
-      const nonRawProcessings = nonRawFiles.map(async (file) => {
-        return limit(async () => {
-          const srcPath = path.join(directoryPath, file)
-          const destPath = path.join(workingDirectory, file)
-
-          const result = await needsResize(srcPath)
-            ? await resizeImage(srcPath, destPath)
-            : (() => {
-              try {
-                fs.copyFileSync(srcPath, destPath)
-                return { success: true }
-              } catch (err) {
-                console.error('Failed to copy non-RAW:', file, err.message)
-                return { success: false, error: err.message }
-              }
-            })()
-
-          const count = await counter.increment()
-          // Update window title with current file path and progress
-          event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-          // Send processing progress update to renderer
-          event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-          return result.success ? { success: true, file } : { success: false, file, error: result.error }
-        })
-      })
-
-      // Process RAW files using Promise with concurrency limit
-      const rawProcessings = rawFiles.map(async (file) => {
-        return limit(async () => {
-          const srcPath = path.join(directoryPath, file)
-          const destPath = path.join(workingDirectory, file + '.tif')
-
-          if (await needsResize(srcPath)) {
-            const result = await resizeImage(srcPath, destPath)
-            const count = await counter.increment()
-            // Update window title with current file path and progress
-            event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-            // Send processing progress update to renderer
-            event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-            if (result.success) {
-              console.log('RAW resized:', file)
-              return { success: true, file }
-            } else {
-              console.error('Failed to resize RAW:', file)
-              return { success: false, file, error: result.error }
-            }
+        if (await needsResize(srcPath)) {
+          const result = await resizeImage(srcPath, destPath)
+          if (result.success) {
+            console.log('RAW resized:', file)
           } else {
-            try {
-              fs.copyFileSync(srcPath, destPath)
-              const count = await counter.increment()
-              // Update window title with current file path and progress
-              event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-              // Send processing progress update to renderer
-              event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-              console.log('RAW copied (no resize needed):', file)
-              return { success: true, file }
-            } catch (err) {
-              const count = await counter.increment()
-              // Update window title with current file path and progress
-              event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-              // Send processing progress update to renderer
-              event.sender.send('processing-progress-update', { progress: `[${count}/${nonRawFiles.length + rawFiles.length}] ${srcPath}` })
-
-              console.error('Failed to copy RAW:', file, err.message)
-              return { success: false, file, error: err.message }
-            }
+            console.error('Failed to resize RAW:', file)
           }
-        })
-      })
+        } else {
+          try {
+            fs.copyFileSync(srcPath, destPath)
+            console.log('RAW copied (no resize needed):', file)
+          } catch (err) {
+            console.error('Failed to copy RAW:', file, err.message)
+          }
+        }
 
-      // Wait for all non-RAW and RAW processings to complete
-      await Promise.all([...nonRawProcessings, ...rawProcessings])
+        const count = await counter.increment()
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${totalFiles}] ${srcPath}` })
+        event.sender.send('processing-progress-update', { progress: `[${count}/${totalFiles}] ${srcPath}` })
+      }
+
+      // Process non-RAW files (serial)
+      for (const file of nonRawFiles) {
+        const srcPath = path.join(directoryPath, file)
+        const destPath = path.join(workingDirectory, file)
+
+        if (await needsResize(srcPath)) {
+          await resizeImage(srcPath, destPath)
+        } else {
+          try {
+            fs.copyFileSync(srcPath, destPath)
+          } catch (err) {
+            console.error('Failed to copy non-RAW:', file, err.message)
+          }
+        }
+
+        const count = await counter.increment()
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${totalFiles}] ${srcPath}` })
+        event.sender.send('processing-progress-update', { progress: `[${count}/${totalFiles}] ${srcPath}` })
+      }
 
       // Create output subdirectory
       const outputDirectory = path.join(workingDirectory, 'output')
