@@ -3,6 +3,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const sharp = require('sharp')
+const sizeOf = require('image-size')
 const { spawn } = require('child_process')
 const tmp = require('tmp')
 const https = require('https')
@@ -572,10 +573,8 @@ function createWindow() {
             return true
           }
 
-          // For non-RAW files, check dimensions with Sharp
-          const metadata = await sharp(imagePath).metadata()
-          const width = metadata.width
-          const height = metadata.height
+          // For non-RAW files, read only the header via image-size (avoids Sharp/libvips native memory growth)
+          const { width, height } = sizeOf(imagePath)
           const longEdge = Math.max(width, height)
           return longEdge >= 800
         } catch (error) {
@@ -724,10 +723,8 @@ function createWindow() {
             return true
           }
 
-          // For non-RAW files, check dimensions with Sharp
-          const metadata = await sharp(imagePath).metadata()
-          const width = metadata.width
-          const height = metadata.height
+          // For non-RAW files, read only the header via image-size (avoids Sharp/libvips native memory growth)
+          const { width, height } = sizeOf(imagePath)
           const longEdge = Math.max(width, height)
           return longEdge >= 800
         } catch (error) {
