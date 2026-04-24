@@ -33,9 +33,9 @@ Source: "app\dist-electron\win-unpacked\*"; DestDir: "{app}\"; Flags: ignorevers
 
 [Icons]
 ; 创建桌面快捷方式
-Name: "{userdesktop}\OpenLucky"; Filename: "{app}\OpenLuckyApp.exe"; IconFilename: "{app}\OpenLuckyApp.exe"
+Name: "{userdesktop}\OpenLucky"; Filename: "{app}\OpenLucky.exe"; IconFilename: "{app}\OpenLucky.exe"
 ; 创建开始菜单快捷方式
-Name: "{group}\OpenLucky"; Filename: "{app}\OpenLuckyApp.exe"; IconFilename: "{app}\OpenLuckyApp.exe"
+Name: "{group}\OpenLucky"; Filename: "{app}\OpenLucky.exe"; IconFilename: "{app}\OpenLucky.exe"
 
 [Registry]
 ; 4. 系统级 PATH 变量
