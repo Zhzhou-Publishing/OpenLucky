@@ -74,6 +74,56 @@ const checkExtension = (extensions, ext) => {
 const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
 
+// Global variable to track if current version is recalled
+let recalled = false
+
+// Get system locale for i18n
+function getSystemLocale() {
+  const locale = app.getLocale() || 'en'
+  console.log('[UpdateChecker] System locale:', locale)
+  return locale
+}
+
+// Check if current locale is Chinese (Simplified)
+function isChineseLocale() {
+  const locale = getSystemLocale().toLowerCase()
+  return locale === 'zh_cn' || locale === 'zh-cn' || locale === 'zh-hans' || locale === 'zh_hans'
+}
+
+// Get localized text for dialogs
+function getLocalizedText(type) {
+  const isChinese = isChineseLocale()
+
+  const texts = {
+    update: {
+      title: isChinese ? '新版本可用' : 'New Version Available',
+      message: (version) => isChinese
+        ? `发现新版本 ${version}`
+        : `Found New Version ${version}`,
+      detail: (publishedAt) => isChinese
+        ? `发布时间: ${new Date(publishedAt).toLocaleString()}`
+        : `Release Time: ${new Date(publishedAt).toLocaleString()}`,
+      downloadButton: isChinese ? '立即下载' : 'Download',
+      cancelButton: isChinese ? '取消' : 'Cancel',
+      recallNotice: isChinese ? '当前软件版本已经不再有技术支持，请下载最新版本。' : 'Current software version is no longer supported. Please download the latest version.'
+    },
+    networkError: {
+      title: isChinese ? '检查更新失败' : 'Checking Update Failed',
+      message: isChinese ? '无法检查更新，请确认网络环境可以访问 GitHub。' : 'Cannot check update, please ensure that the network to Github is accessible.',
+      okButton: isChinese ? '确定' : 'OK'
+    },
+    versionRecalled: {
+      title: isChinese ? '版本已召回' : 'Version Recalled',
+      message: isChinese ? '当前版本已被召回，软件将退出。' : 'Current version has been recalled. The application will exit.',
+      detail: isChinese ? '当前软件版本已经不再有技术支持，请下载最新版本。' : 'Current software version is no longer supported. Please download the latest version.',
+      downloadButton: isChinese ? '下载最新版本' : 'Download Latest Version',
+      quitButton: isChinese ? '退出' : 'Quit'
+    }
+  }
+
+  return texts[type]
+}
+
 // 读取当前版本号
 function getCurrentVersion() {
   try {
@@ -146,13 +196,83 @@ function saveCheckTime() {
 }
 
 /**
+ * Get recall status from storage file
+ * Returns { recalled: boolean, version: string } or { recalled: false }
+ */
+function getRecallStatus() {
+  try {
+    const filePath = getStorageFilePath()
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8').trim()
+      console.log('[RecallStatus] Read from storage:', data)
+
+      // Check if data starts with 'recall:'
+      if (data.startsWith('recall:')) {
+        const recalledVersion = data.substring(7) // Remove 'recall:' prefix
+        console.log('[RecallStatus] Found recall marker for version:', recalledVersion)
+
+        const currentVersion = getCurrentVersion()
+        console.log('[RecallStatus] Current version:', currentVersion)
+
+        // Check if the recalled version matches current version
+        if (recalledVersion === currentVersion) {
+          console.log('[RecallStatus] Current version matches recalled version')
+          return { recalled: true, version: recalledVersion }
+        } else {
+          console.log('[RecallStatus] Current version does not match recalled version, ignoring recall')
+          return { recalled: false }
+        }
+      } else {
+        console.log('[RecallStatus] No recall marker found, data is timestamp')
+        return { recalled: false }
+      }
+    }
+    console.log('[RecallStatus] Storage file does not exist')
+    return { recalled: false }
+  } catch (e) {
+    console.error('Error reading recall status:', e)
+    return { recalled: false }
+  }
+}
+
+/**
+ * Save recall status to file
+ */
+function saveRecallStatus(version) {
+  try {
+    const filePath = getStorageFilePath()
+    const userDataDir = app.getPath('userData')
+
+    // Ensure userData directory exists
+    if (!fs.existsSync(userDataDir)) {
+      fs.mkdirSync(userDataDir, { recursive: true })
+    }
+
+    const recallData = `recall:${version}`
+    fs.writeFileSync(filePath, recallData, 'utf-8')
+    console.log('[RecallStatus] Saved recall status:', recallData)
+  } catch (e) {
+    console.error('Failed to save recall status:', e)
+  }
+}
+
+/**
  * Check if we should check for updates based on hour interval
- * Returns true if we should check (either first time or new hour interval)
+ * Returns { shouldCheck: boolean, recallStatus: { recalled: boolean, version?: string } }
  */
 function shouldCheckForUpdates() {
+  // First, check if there's a recall status in the file
+  const recallStatus = getRecallStatus()
+  if (recallStatus.recalled) {
+    console.log('[UpdateChecker] Found recall status for current version, should check')
+    return { shouldCheck: true, recallStatus }
+  }
+
+  // If no recall status, check timestamp as before
   const lastCheck = getLastCheckTime()
   if (lastCheck === 0) {
-    return true // Never checked before
+    console.log('[UpdateChecker] Never checked before, should check')
+    return { shouldCheck: true, recallStatus }
   }
 
   const now = Date.now()
@@ -160,7 +280,75 @@ function shouldCheckForUpdates() {
   const currentHour = Math.floor(now / (60 * 60 * 1000))
 
   // Check if we're in a new hour interval
-  return currentHour > lastCheckHour
+  const shouldCheck = currentHour > lastCheckHour
+  console.log('[UpdateChecker] Hour interval check:', shouldCheck ? 'should check' : 'skip')
+  return { shouldCheck, recallStatus }
+}
+
+/**
+ * Check if current version is recalled (release deleted)
+ * Returns { recalled: boolean, version: string } or null on error
+ */
+async function checkVersionRecalled() {
+  try {
+    const currentVersion = getCurrentVersion()
+    console.log('[VersionRecallChecker] Checking if version is recalled...')
+    console.log('[VersionRecallChecker] Current version:', currentVersion)
+
+    // Ensure version has v prefix
+    const tag = currentVersion.startsWith('v') ? currentVersion : 'v' + currentVersion
+    const url = `https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/tags/${tag}`
+    console.log('[VersionRecallChecker] Checking release tag:', url)
+
+    return new Promise((resolve, reject) => {
+      const options = {
+        headers: {
+          'User-Agent': 'openlucky-desktop-version-recall-checker'
+        },
+        timeout: 10000
+      }
+
+      const req = https.get(url, options, (res) => {
+        console.log('[VersionRecallChecker] HTTP Status Code:', res.statusCode)
+
+        if (res.statusCode === 404) {
+          console.log('[VersionRecallChecker] Version recalled (404 Not Found)')
+          resolve({
+            recalled: true,
+            version: currentVersion
+          })
+          return
+        }
+
+        if (res.statusCode === 200) {
+          console.log('[VersionRecallChecker] Version exists and is active')
+          resolve({
+            recalled: false,
+            version: currentVersion
+          })
+          return
+        }
+
+        // Other status codes
+        console.error('[VersionRecallChecker] Unexpected status code:', res.statusCode)
+        reject(new Error(`GitHub API returned unexpected status code: ${res.statusCode}`))
+      })
+
+      req.on('timeout', () => {
+        req.destroy()
+        console.error('[VersionRecallChecker] Request timed out')
+        reject(new Error('GitHub API request timed out'))
+      })
+
+      req.on('error', (err) => {
+        console.error('[VersionRecallChecker] Network error:', err.message)
+        reject(new Error(`Network error: ${err.message}`))
+      })
+    })
+  } catch (error) {
+    console.error('[VersionRecallChecker] Error checking version recall:', error)
+    return null
+  }
 }
 
 /**
@@ -213,17 +401,45 @@ function fetchLatestRelease() {
 /**
  * Check for updates
  * Returns { hasUpdate: boolean, version: string, publishedAt: string, htmlUrl: string } or
+ *         { recalled: boolean, version: string } or
  *         { skipped: true } or
  *         null (on error)
  */
 async function checkForUpdates() {
   try {
-    if (!shouldCheckForUpdates()) {
+    const { shouldCheck, recallStatus } = shouldCheckForUpdates()
+
+    if (!shouldCheck) {
       console.log('[UpdateChecker] Already checked this hour, skipping')
       return { skipped: true }
     }
 
-    console.log('[UpdateChecker] Checking for updates...')
+    // First, check if there's a recall status from file
+    if (recallStatus.recalled) {
+      console.log('[UpdateChecker] Found recall status from file for current version, returning recall result')
+      recalled = true
+      return recallStatus
+    }
+
+    // Second, check if current version is recalled via GitHub API
+    console.log('[UpdateChecker] Step 1: Checking if current version is recalled...')
+    const recallResult = await checkVersionRecalled()
+
+    if (recallResult === null) {
+      console.error('[UpdateChecker] Version recall check failed, proceeding with update check')
+    } else if (recallResult.recalled) {
+      console.log('[UpdateChecker] Version is recalled, saving recall status and returning')
+      // Save recall status to file
+      saveRecallStatus(recallResult.version)
+      // Set global recalled variable
+      recalled = true
+      return recallResult
+    } else {
+      console.log('[UpdateChecker] Version is not recalled, proceeding with update check')
+    }
+
+    // Third, check for updates
+    console.log('[UpdateChecker] Step 2: Checking for updates...')
     const release = await fetchLatestRelease()
 
     if (!release || !release.name) {
@@ -237,8 +453,10 @@ async function checkForUpdates() {
     console.log('[UpdateChecker] Current version:', currentVersion)
     console.log('[UpdateChecker] Latest version:', release.name)
 
-    // Save check time after successful API call
-    saveCheckTime()
+    // Save check time after successful API call (only if not recalled)
+    if (!recalled) {
+      saveCheckTime()
+    }
 
     // Compare versions
     if (release.name !== currentVersion) {
@@ -1318,22 +1536,67 @@ function createWindow() {
 }
 
 // 显示更新通知对话框
-function showUpdateDialog(win, updateInfo) {
+function showUpdateDialog(win, updateInfo, isRecalled = false) {
+  const texts = getLocalizedText('update')
+  let detail = texts.detail(updateInfo.publishedAt)
+
+  // 如果是召回情况，添加召回提示
+  if (isRecalled) {
+    detail += '\n\n' + texts.recallNotice
+  }
+
   dialog.showMessageBox(win, {
     type: 'info',
-    title: 'New Version',
-    message: `Found New Version ${updateInfo.version}`,
-    detail: `Release Time: ${new Date(updateInfo.publishedAt).toLocaleString()}`,
-    buttons: ['Download', 'Cancel'],
+    title: texts.title,
+    message: texts.message(updateInfo.version),
+    detail: detail,
+    buttons: [texts.downloadButton, texts.cancelButton],
     defaultId: 0,
     cancelId: 1
   }).then((result) => {
     if (result.response === 0) {
       // 用户点击"立即下载"按钮，使用默认浏览器打开 release 页面
       shell.openExternal(updateInfo.htmlUrl)
+    } else if (isRecalled) {
+      // 如果是召回情况且用户点击取消，退出应用
+      app.quit()
     }
   }).catch((error) => {
     console.error('Error showing update dialog:', error)
+  })
+}
+
+// 显示版本召回对话框，强制用户下载最新版本或退出
+function showRecallDialog(win, latestVersion, latestHtmlUrl) {
+  const texts = getLocalizedText('versionRecalled')
+
+  dialog.showMessageBox(win, {
+    type: 'warning',
+    title: texts.title,
+    message: texts.message,
+    detail: texts.detail,
+    buttons: [texts.downloadButton, texts.quitButton],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      // 用户点击"下载最新版本"按钮，使用默认浏览器打开 release 页面
+      shell.openExternal(latestHtmlUrl).then(() => {
+        // 打开链接后退出应用
+        app.quit()
+      }).catch((error) => {
+        console.error('Error opening download URL:', error)
+        // 即使打开链接失败，也要退出应用
+        app.quit()
+      })
+    } else {
+      // 用户点击"退出"按钮
+      app.quit()
+    }
+  }).catch((error) => {
+    console.error('Error showing recall dialog:', error)
+    // 出错也要退出
+    app.quit()
   })
 }
 
@@ -1349,6 +1612,35 @@ app.whenReady().then(async () => {
 
   // 检查更新
   const updateInfo = await checkForUpdates()
+
+  // 处理版本召回情况
+  if (updateInfo && updateInfo.recalled) {
+    console.log('[App] Version is recalled, fetching latest release info...')
+    try {
+      const latestRelease = await fetchLatestRelease()
+      if (latestRelease && latestRelease.name && latestRelease.html_url) {
+        const win = BrowserWindow.getAllWindows()[0]
+        if (win && !win.isDestroyed()) {
+          setTimeout(() => {
+            showRecallDialog(win, latestRelease.name, latestRelease.html_url)
+          }, 1000)
+        } else {
+          // 如果窗口不可用，直接退出
+          app.quit()
+        }
+      } else {
+        // 无法获取最新版本信息，直接退出
+        console.error('[App] Failed to fetch latest release info for recall, quitting...')
+        app.quit()
+      }
+    } catch (error) {
+      console.error('[App] Error fetching latest release for recall:', error)
+      app.quit()
+    }
+    return
+  }
+
+  // 处理正常更新检查
   if (updateInfo && updateInfo.hasUpdate) {
     // 等待窗口准备好后显示更新对话框
     const win = BrowserWindow.getAllWindows()[0]
@@ -1361,12 +1653,13 @@ app.whenReady().then(async () => {
     // 检查更新失败，显示网络错误警告
     const win = BrowserWindow.getAllWindows()[0]
     if (win && !win.isDestroyed()) {
+      const texts = getLocalizedText('networkError')
       setTimeout(() => {
         dialog.showMessageBox(win, {
           type: 'warning',
-          title: 'Checking Update Failed',
-          message: 'Cannot check update, please ensure that the nerwork to Github is accessible.',
-          buttons: ['OK']
+          title: texts.title,
+          message: texts.message,
+          buttons: [texts.okButton]
         }).catch((error) => {
           console.error('Error showing network error dialog:', error)
         })
