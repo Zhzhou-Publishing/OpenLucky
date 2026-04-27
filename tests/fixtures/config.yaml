@@ -1,0 +1,19 @@
+presets:
+  kodak_ultramax_400:
+    label: "Kodak UltraMax 400 (test fixture)"
+    mask_r: 215
+    mask_g: 145
+    mask_b: 95
+    contrast: 1.15
+    gamma: 0.45
+
+  test_preset_alt:
+    label: "Alternate preset for tests"
+    mask_r: 200
+    mask_g: 150
+    mask_b: 100
+    contrast_r: 1.0
+    contrast_g: 1.0
+    contrast_b: 1.0
+    contrast: 1.0
+    gamma: 1.0
