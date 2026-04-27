@@ -90,11 +90,6 @@ def validate_output_filename(input_path, output_path):
         # RAW格式：输出可以是原文件名，或原文件名+.tif/.tiff
         output_ext = output_path.suffix.lower()
         filename_match = output_path.name == input_path.name
-        
-        print("input_path.name:", input_path.name)
-        print("output_path.name:", output_path.name)
-        print("output_path.stem:", output_path.stem)
-        print("output_path.stem == input_path.name:", output_path.stem == input_path.name)
 
         if filename_match:
             # 输出文件名与输入完全相同

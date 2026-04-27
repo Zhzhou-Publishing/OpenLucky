@@ -533,7 +533,7 @@ function createWindow() {
     autoHideMenuBar: true,
     resizable: false,
     webPreferences: {
-      devTools: false, // 开发环境启用开发者工具，生产环境禁用以提升性能
+      devTools: true, // 开发环境启用开发者工具，生产环境禁用以提升性能
       spellCheck: false, // 极限节省性能：关闭拼写检查
       enableWebSQL: false, // 极限节省性能：关闭 WebSQL 支持
       offscreen: false, // 极限节省性能：不使用离屏渲染，如果涉及 CSS/Canvas 绘制问题，可以考虑开启
@@ -873,7 +873,7 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
-      event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory })
+      event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
       event.sender.send('working-directory-error', { error: error.message })
@@ -998,7 +998,7 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
-      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory })
+      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
       event.sender.send('working-directory-from-selected-error', { error: error.message })
@@ -1385,10 +1385,13 @@ function createWindow() {
 
         // Try multiple key formats for RAW files
         if (isRaw) {
+          fileWithoutExt = file.slice(0, file.lastIndexOf('.'))
           const possibleKeys = [
             file,
             file + '.tif',
-            file + '.tiff'
+            file + '.tiff',
+            fileWithoutExt + '.tif',
+            fileWithoutExt + '.tiff'
           ]
 
           for (const key of possibleKeys) {
