@@ -1,6 +1,6 @@
 {
   "name": "openlucky-app",
-  "version": "1.4.2-rc12",
+  "version": "1.4.2",
   "description": "",
   "main": "main.js",
   "scripts": {
