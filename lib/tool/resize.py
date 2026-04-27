@@ -89,9 +89,14 @@ def validate_output_filename(input_path, output_path):
     if is_raw:
         # RAW格式：输出可以是原文件名，或原文件名+.tif/.tiff
         output_ext = output_path.suffix.lower()
-        stem_match = output_path.stem == input_path.name
+        filename_match = output_path.name == input_path.name
+        
+        print("input_path.name:", input_path.name)
+        print("output_path.name:", output_path.name)
+        print("output_path.stem:", output_path.stem)
+        print("output_path.stem == input_path.name:", output_path.stem == input_path.name)
 
-        if stem_match:
+        if filename_match:
             # 输出文件名与输入完全相同
             return True
         elif output_ext in {'.tif', '.tiff'}:
@@ -199,7 +204,10 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
         output_path = Path(output_path)
 
         # 验证输出文件名
-        validate_output_filename(input_path, output_path)
+        output_filename_valid = validate_output_filename(input_path, output_path)
+        if not output_filename_valid:
+            print("invalid output filename")
+            return False
 
         # 确定是否为RAW格式
         input_ext = input_path.suffix.lower()

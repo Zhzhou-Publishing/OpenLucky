@@ -1,6 +1,6 @@
 {
   "name": "openlucky-app",
-  "version": "1.4.2-rc11",
+  "version": "1.4.2-rc12",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -41,7 +41,7 @@
   },
   "build": {
     "appId": "com.github.zhzhou-publishing.openlucky",
-    "productName": "OpenLucky",
+    "productName": "OpenLuckyApp",
     "directories": {
       "output": "dist-electron"
     },

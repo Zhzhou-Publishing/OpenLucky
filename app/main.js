@@ -560,8 +560,7 @@ function createWindow() {
       // Spawn the process to check if openlucky --help works
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,
-        detached: true
+        windowsHide: true
       })
 
       let errorOutput = ''
@@ -710,7 +709,6 @@ function createWindow() {
       // Spawn the process
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: true,
         windowsHide: true
       })
 
@@ -759,6 +757,11 @@ function createWindow() {
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
       const workingDirectory = workingDirObj.name
 
+      // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
+      // 统一所有图片的并发控制，防止非 RAW 文件过多时造成系统压力
+      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const limit = pLimit(concurrencyLimit)
+
       // Read files in the source directory
       const files = fs.readdirSync(directoryPath)
 
@@ -769,17 +772,8 @@ function createWindow() {
         return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
-      // Separate RAW and non-RAW files
-      const rawFiles = filesToProcess.filter(file => {
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return checkExtension(RAW_EXTENSIONS, ext)
-      })
-
-      const nonRawFiles = filesToProcess.filter(file => {
-        if (file === '.preset.json') return false
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !checkExtension(RAW_EXTENSIONS, ext)
-      })
+      // Separate images and config file
+      const imageFiles = filesToProcess.filter(file => file !== '.preset.json')
 
       // Function to check if image needs resize (long edge >= 800)
       const needsResize = async (imagePath) => {
@@ -820,7 +814,7 @@ function createWindow() {
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(outputPath)) {
+            if (code === 0) {
               resolve({ success: true })
             } else {
               console.error('Resize failed:', inputPath, 'Exit code:', code)
@@ -836,56 +830,42 @@ function createWindow() {
         })
       }
 
-      // Copy and process non-RAW files to working directory
-      for (const file of nonRawFiles) {
+      // Process all images (both RAW and non-RAW) using pLimit to control concurrency
+      const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
         if (await needsResize(srcPath)) {
           // Resize image to 800px long edge
-          await resizeImage(srcPath, destPath)
-        } else {
-          // Copy directly if no resize needed
-          fs.copyFileSync(srcPath, destPath)
-        }
-      }
-
-      // Copy .preset.json to working directory
-      const presetJsonPath = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetJsonPath)) {
-        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
-      }
-
-      // Process RAW files using openlucky tool resize (no separate conversion step)
-      const rawProcessings = rawFiles.map(async file => {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file)
-
-        if (await needsResize(srcPath)) {
-          // Resize RAW image to 800px long edge directly
           const result = await resizeImage(srcPath, destPath)
           if (result.success) {
-            console.log('RAW resized:', file)
+            console.log('Image processed (resized):', file)
             return { success: true, file }
           } else {
-            console.error('Failed to resize RAW:', file)
+            console.error('Failed to process image (resize):', result.error)
             return { success: false, file, error: result.error }
           }
         } else {
           // Copy directly if no resize needed
           try {
             fs.copyFileSync(srcPath, destPath)
-            console.log('RAW copied (no resize needed):', file)
+            console.log('Image processed (copied):', file)
             return { success: true, file }
           } catch (err) {
-            console.error('Failed to copy RAW:', file, err.message)
+            console.error('Failed to process image (copy):', file, err.message)
             return { success: false, file, error: err.message }
           }
         }
-      })
+      }))
 
-      // Wait for all RAW processings to complete
-      await Promise.all(rawProcessings)
+      // Wait for all image processings to complete
+      await Promise.all(imageProcessings)
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
+      }
 
       // Create output subdirectory
       const outputDirectory = path.join(workingDirectory, 'output')
@@ -907,10 +887,14 @@ function createWindow() {
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
       const workingDirectory = workingDirObj.name
 
+      // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
+      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const limit = pLimit(concurrencyLimit)
+
       // Read files in the source directory
       const files = fs.readdirSync(directoryPath)
 
-      // Filter for image files and .preset.json only (exclude subdirectories and other files)
+      // Filter for image files and .preset.json only
       const filesToProcess = files.filter(file => {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
@@ -918,36 +902,26 @@ function createWindow() {
         return isFile && (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext))
       })
 
-      // Separate RAW and non-RAW files
-      const rawFiles = filesToProcess.filter(file => {
-        if (file === '.preset.json') return false
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return checkExtension(RAW_EXTENSIONS, ext)
-      })
-
-      const nonRawFiles = filesToProcess.filter(file => {
-        if (file === '.preset.json') return false
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !checkExtension(RAW_EXTENSIONS, ext)
-      })
+      // Separate images from config file
+      const imageFiles = filesToProcess.filter(file => file !== '.preset.json')
 
       // Function to check if image needs resize (long edge >= 800)
       const needsResize = async (imagePath) => {
         try {
           const ext = path.extname(imagePath).toLowerCase()
 
-          // For RAW files, assume they need resizing (camera RAW files are typically large)
+          // For RAW files, assume they need resizing
           if (checkExtension(RAW_EXTENSIONS, ext)) {
             return true
           }
 
-          // For non-RAW files, read only the header via image-size (avoids Sharp/libvips native memory growth)
+          // For non-RAW files, read header via image-size
           const { width, height } = sizeOf(imagePath)
           const longEdge = Math.max(width, height)
           return longEdge >= 800
         } catch (error) {
           console.error('Error checking image dimensions:', error)
-          return false // Default to no resize if check fails
+          return false
         }
       }
 
@@ -964,92 +938,58 @@ function createWindow() {
           })
 
           let stderrOutput = ''
-
           process.stderr.on('data', (data) => {
             stderrOutput += data.toString()
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(outputPath)) {
+            if (code === 0) {
               resolve({ success: true })
             } else {
               console.error('Resize failed:', inputPath, 'Exit code:', code)
-              console.error('Error output:', stderrOutput)
               resolve({ success: false, error: stderrOutput })
             }
           })
 
           process.on('error', (err) => {
-            console.error('Resize error:', inputPath, err.message)
             resolve({ success: false, error: err.message })
           })
         })
       }
 
-      // Copy .preset.json to working directory
-      const presetJsonPath = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetJsonPath)) {
-        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
-      }
-
-      // Create a lock-based counter for sequential progress updates
-      const counter = {
-        value: 0,
-        lock: Promise.resolve(),
-        async increment() {
-          await this.lock
-          this.value++
-          this.lock = Promise.resolve()
-          return this.value
-        }
-      }
-
-      const totalFiles = rawFiles.length + nonRawFiles.length
-
-      // Process RAW files first (serial)
-      for (const file of rawFiles) {
-        const srcPath = path.join(directoryPath, file)
-        const destPath = path.join(workingDirectory, file + '.tif')
-
-        if (await needsResize(srcPath)) {
-          const result = await resizeImage(srcPath, destPath)
-          if (result.success) {
-            console.log('RAW resized:', file)
-          } else {
-            console.error('Failed to resize RAW:', file)
-          }
-        } else {
-          try {
-            fs.copyFileSync(srcPath, destPath)
-            console.log('RAW copied (no resize needed):', file)
-          } catch (err) {
-            console.error('Failed to copy RAW:', file, err.message)
-          }
-        }
-
-        const count = await counter.increment()
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${totalFiles}] ${srcPath}` })
-        event.sender.send('processing-progress-update', { progress: `[${count}/${totalFiles}] ${srcPath}` })
-      }
-
-      // Process non-RAW files (serial)
-      for (const file of nonRawFiles) {
+      // Process all images using pLimit for concurrency control
+      const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
 
         if (await needsResize(srcPath)) {
-          await resizeImage(srcPath, destPath)
+          const result = await resizeImage(srcPath, destPath)
+          if (result.success) {
+            console.log('Image processed (resized):', file)
+            return { success: true, file }
+          } else {
+            console.error('Failed to process image (resize):', result.error)
+            return { success: false, file, error: result.error }
+          }
         } else {
           try {
             fs.copyFileSync(srcPath, destPath)
+            console.log('Image processed (copied):', file)
+            return { success: true, file }
           } catch (err) {
-            console.error('Failed to copy non-RAW:', file, err.message)
+            console.error('Failed to process image (copy):', file, err.message)
+            return { success: false, file, error: err.message }
           }
         }
+      }))
 
-        const count = await counter.increment()
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - [${count}/${totalFiles}] ${srcPath}` })
-        event.sender.send('processing-progress-update', { progress: `[${count}/${totalFiles}] ${srcPath}` })
+      // Wait for all processings to complete
+      await Promise.all(imageProcessings)
+
+      // Copy .preset.json to working directory
+      const presetJsonPath = path.join(directoryPath, '.preset.json')
+      if (fs.existsSync(presetJsonPath)) {
+        fs.copyFileSync(presetJsonPath, path.join(workingDirectory, '.preset.json'))
       }
 
       // Create output subdirectory
@@ -1058,14 +998,9 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
-      // Restore original window title before sending completion event
-      event.sender.send('window-title-restore', {})
-      // Send processing progress clear to renderer
-      event.sender.send('processing-progress-clear', {})
-
-      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
+      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory })
     } catch (error) {
-      console.error('Error preparing working directory from selected:', error)
+      console.error('Error preparing working directory:', error)
       event.sender.send('working-directory-from-selected-error', { error: error.message })
     }
   })
@@ -1154,7 +1089,6 @@ function createWindow() {
       // Spawn the process
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: true,
         windowsHide: true
       })
 
@@ -1207,7 +1141,6 @@ function createWindow() {
       // Spawn the process
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: true,
         windowsHide: true
       })
 
@@ -1254,7 +1187,6 @@ function createWindow() {
       // Spawn the process
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: true,
         windowsHide: true
       })
 
@@ -1383,7 +1315,6 @@ function createWindow() {
       // Spawn process
       const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: true,
         windowsHide: true
       })
 
@@ -1506,7 +1437,6 @@ function createWindow() {
           await new Promise((resolve) => {
             const process = spawn(command, args, {
               stdio: ['pipe', 'pipe', 'pipe'],
-              detached: true,
               windowsHide: true
             })
 
