@@ -814,7 +814,7 @@ function createWindow() {
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(outputPath)) {
+            if (code === 0) {
               resolve({ success: true })
             } else {
               console.error('Resize failed:', inputPath, 'Exit code:', code)
@@ -943,7 +943,7 @@ function createWindow() {
           })
 
           process.on('close', (code) => {
-            if (code === 0 && fs.existsSync(outputPath)) {
+            if (code === 0) {
               resolve({ success: true })
             } else {
               console.error('Resize failed:', inputPath, 'Exit code:', code)
@@ -998,10 +998,10 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
-      event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory })
+      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory })
     } catch (error) {
       console.error('Error preparing working directory:', error)
-      event.sender.send('working-directory-error', { error: error.message })
+      event.sender.send('working-directory-from-selected-error', { error: error.message })
     }
   })
 
