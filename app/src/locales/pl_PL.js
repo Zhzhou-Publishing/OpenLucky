@@ -1,0 +1,69 @@
+export default {
+  navbar: {
+    home: 'Strona główna',
+    about: 'O programie',
+    leaveConfirm: 'Opuszczenie tej strony spowoduje utratę załadowanych obrazów. Kontynuować?'
+  },
+  photoDirectory: {
+    title: 'Wybierz katalog zdjęć',
+    description: 'Wybierz lokalny folder zawierający Twoje zdjęcia',
+    installationError: '❌ Instalacja oprogramowania jest niekompletna. Możliwe, że Twój program antywirusowy uszkodził oprogramowanie. Proszę zainstalować ponownie.',
+    electronWarning: '⚠️ Nie uruchomiono w środowisku Electron',
+    selectButton: '📁 Wybierz katalog',
+    loading: 'Ładowanie...',
+    selectedPath: 'Wybrana ścieżka:',
+    processingProgress: 'Przygotowywanie podglądu'
+  },
+  photoGallery: {
+    back: '← Wstecz',
+    refresh: '🔄 Odśwież',
+    imagesCount: '{count} obrazów',
+    loading: 'Ładowanie obrazów...',
+    noImages: 'Nie znaleziono obrazów',
+    noImagesDesc: 'W wybranym katalogu nie znaleziono plików obrazów (jpg, jpeg, png, gif, webp, tiff, arw, cr2, cr3, nef, dng, orf lub raf).',
+    applying: 'Stosowanie...'
+  },
+  windowTitle: {
+    baseTitle: 'OpenLucky Desktop App',
+    applying: 'Stosowanie',
+    saving: 'Zapisywanie'
+  },
+  photoEdit: {
+    back: '← Wstecz',
+    loading: 'Ładowanie obrazów...',
+    noImages: 'Nie znaleziono obrazów',
+    noImagesDesc: 'Nie znaleziono plików obrazów w katalogu.',
+    applying: 'Stosowanie...',
+    previewing: 'Podgląd...',
+    maskR: 'Mask-R',
+    maskG: 'Mask-G',
+    maskB: 'Mask-B',
+    gamma: 'Gamma',
+    contrast: 'Kontrast',
+    apply: 'Zastosuj',
+    applyAll: 'Zastosuj do wszystkich',
+    basicTab: 'Parametry podstawowe',
+    advancedTab: 'Korekcja stężenia emulsji',
+    contrastR: 'Kontrast R',
+    contrastG: 'Kontrast G',
+    contrastB: 'Kontrast B'
+  },
+  bottomMenu: {
+    preset: 'Ustawienie wstępne:',
+    apply: 'Zastosuj',
+    applying: 'Stosowanie...'
+  },
+  saveAllButton: {
+    saveAll: 'Zapisz wszystkie'
+  },
+  about: {
+    title: 'O OpenLucky Desktop',
+    version: 'Informacje o wersji',
+    description: 'Opis',
+    descriptionText: 'OpenLucky Desktop to potężna aplikacja desktopowa do przetwarzania filmu fotograficznego i operacji wsadowych. Zbudowana z Electron i Vue 3, zapewnia nowoczesny i wydajny interfejs użytkownika do zarządzania przepływem pracy.',
+    homepage: 'Strona główna projektu',
+    license: 'Licencja',
+    licenseSummary: 'Zezwala na użytek komercyjny, modyfikację, dystrybucję i użytek prywatny; wymaga zachowania informacji o prawach autorskich oraz wskazania istotnych zmian; nie udziela praw do znaków towarowych i nie zapewnia żadnej gwarancji.',
+    language: 'Język Language'
+  }
+}

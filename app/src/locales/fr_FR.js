@@ -65,16 +65,5 @@ export default {
     license: 'Licence',
     licenseSummary: 'Autorise l\'utilisation commerciale, la modification, la distribution et l\'utilisation privée ; impose la conservation de la mention de copyright et l\'indication des modifications importantes ; n\'accorde aucun droit de marque et ne fournit aucune garantie.',
     language: 'Langue Language'
-  },
-  languageSwitcher: {
-    label: 'Langue Language',
-    zh_Hans: '简体中文',
-    zh_Hant: '繁體中文',
-    en_US: 'English (United States)',
-    fr_FR: 'Français',
-    ru_RU: 'Русский',
-    es_ES: 'Español',
-    pt_PT: 'Português',
-    ja_JP: '日本語'
   }
 }

@@ -65,16 +65,5 @@ export default {
     license: '使用許諾',
     licenseSummary: '商用利用、改変、配布、私的利用を許可しています。著作権表示の保持と重要な変更点の明示が必要です。商標権の付与はなく、いかなる保証も提供しません。',
     language: '言語 Language'
-  },
-  languageSwitcher: {
-    label: '言語 Language',
-    zh_Hans: '简体中文',
-    zh_Hant: '繁體中文',
-    en_US: 'English (United States)',
-    fr_FR: 'Français',
-    ru_RU: 'Русский',
-    es_ES: 'Español',
-    pt_PT: 'Português',
-    ja_JP: '日本語'
   }
 }

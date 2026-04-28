@@ -65,16 +65,5 @@ export default {
     license: '開源許可證',
     licenseSummary: '允許商業使用、修改、分發與私人使用；需保留版權聲明並標明重大變更；不授予商標權，亦不提供任何擔保。',
     language: '語言 Language'
-  },
-  languageSwitcher: {
-    label: '語言 Language',
-    zh_Hans: '简体中文',
-    zh_Hant: '繁體中文',
-    en_US: 'English (United States)',
-    fr_FR: 'Français',
-    ru_RU: 'Русский',
-    es_ES: 'Español',
-    pt_PT: 'Português',
-    ja_JP: '日本語'
   }
 }

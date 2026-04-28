@@ -65,16 +65,5 @@ export default {
     license: '开源协议',
     licenseSummary: '允许商业使用、修改、分发与私人使用；需保留版权声明并标明重大改动；不授予商标权，亦不提供任何担保。',
     language: '语言 Language'
-  },
-  languageSwitcher: {
-    label: '语言 Language',
-    zh_Hans: '简体中文',
-    zh_Hant: '繁體中文',
-    en_US: 'English (United States)',
-    fr_FR: 'Français',
-    ru_RU: 'Русский',
-    es_ES: 'Español',
-    pt_PT: 'Português',
-    ja_JP: '日本語'
   }
 }
