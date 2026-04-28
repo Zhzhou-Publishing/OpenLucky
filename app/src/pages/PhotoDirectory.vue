@@ -34,6 +34,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { fetchPresets } from '../utils/presetCache'
 
 const router = useRouter()
 
@@ -58,6 +59,9 @@ onMounted(() => {
 
       // Check if openlucky is available
       checkOpenLucky()
+
+      // Pre-load preset list so PhotoGallery can show it immediately
+      fetchPresets().catch(() => {})
     } catch (error) {
       console.error('Failed to load electron APIs:', error)
       isElectron.value = false

@@ -48,7 +48,6 @@
       @update:selected-preset="selectedPreset = $event"
       @apply="applyPreset"
       @save-all="saveAll"
-      @presets-loaded="handlePresetsLoaded"
     />
 
     <!-- Image Modal -->
@@ -68,6 +67,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
+import { presets as globalPresets } from '../utils/presetCache'
 
 const router = useRouter()
 const route = useRoute()
@@ -260,12 +260,13 @@ const handleRefresh = async () => {
   await loadImages()
 }
 
-const handlePresetsLoaded = (presets) => {
-  // Select first preset by default if available
-  if (presets && presets.length > 0 && !presets.find(p => p.value === selectedPreset.value)) {
-    selectedPreset.value = presets[0].value
+// Default the selected preset to the first available entry whenever the
+// global preset list changes, including the initial pre-load.
+watch(globalPresets, (list) => {
+  if (list && list.length > 0 && !list.find(p => p.value === selectedPreset.value)) {
+    selectedPreset.value = list[0].value
   }
-}
+}, { immediate: true })
 
 const saveAll = () => {
   if (!workingDirectory.value || !originalDirectoryPath.value) {
