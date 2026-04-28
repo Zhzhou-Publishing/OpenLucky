@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: '首页',
     about: '关于',
-    leaveConfirm: '离开当前页面将丢失已加载的图片，确定继续吗？'
+    leaveConfirm: '离开当前页面将丢失已加载的图片，确定继续吗？',
+    closeConfirm: '关闭窗口将丢失尚未保存的修改，确定要关闭吗？'
   },
   photoDirectory: {
     title: '选择照片目录',

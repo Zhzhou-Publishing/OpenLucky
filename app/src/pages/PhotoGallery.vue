@@ -359,10 +359,8 @@ onMounted(() => {
   originalWindowTitle.value = t('windowTitle.baseTitle')
   document.title = originalWindowTitle.value
 
-  // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', true)
 
     // Check if working directory was provided by PhotoDirectory
     if (route.query.workingDirectory) {
@@ -411,12 +409,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // Make window non-resizable when leaving photo gallery
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', false)
-  }
-
   // Restore original window title
   document.title = originalWindowTitle.value
 

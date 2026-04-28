@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'Startseite',
     about: 'Über',
-    leaveConfirm: 'Wenn Sie diese Seite verlassen, gehen die geladenen Bilder verloren. Fortfahren?'
+    leaveConfirm: 'Wenn Sie diese Seite verlassen, gehen die geladenen Bilder verloren. Fortfahren?',
+    closeConfirm: 'Beim Schließen des Fensters gehen nicht gespeicherte Änderungen verloren. Trotzdem schließen?'
   },
   photoDirectory: {
     title: 'Fotoverzeichnis auswählen',

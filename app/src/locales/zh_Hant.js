@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: '首頁',
     about: '關於',
-    leaveConfirm: '離開當前頁面將會丟失已載入的圖片，確定繼續嗎？'
+    leaveConfirm: '離開當前頁面將會丟失已載入的圖片，確定繼續嗎？',
+    closeConfirm: '關閉視窗將會遺失尚未儲存的修改，確定要關閉嗎？'
   },
   photoDirectory: {
     title: '選擇相片目錄',

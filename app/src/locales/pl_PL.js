@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'Strona główna',
     about: 'O programie',
-    leaveConfirm: 'Opuszczenie tej strony spowoduje utratę załadowanych obrazów. Kontynuować?'
+    leaveConfirm: 'Opuszczenie tej strony spowoduje utratę załadowanych obrazów. Kontynuować?',
+    closeConfirm: 'Niezapisane zmiany zostaną utracone po zamknięciu okna. Zamknąć mimo to?'
   },
   photoDirectory: {
     title: 'Wybierz katalog zdjęć',

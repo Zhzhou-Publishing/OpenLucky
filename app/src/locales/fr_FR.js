@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'Accueil',
     about: 'À propos',
-    leaveConfirm: 'Quitter cette page entraînera la perte des images chargées. Continuer ?'
+    leaveConfirm: 'Quitter cette page entraînera la perte des images chargées. Continuer ?',
+    closeConfirm: 'Les modifications non enregistrées seront perdues si vous fermez la fenêtre. Fermer quand même ?'
   },
   photoDirectory: {
     title: 'Sélectionner le répertoire de photos',

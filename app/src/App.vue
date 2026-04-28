@@ -9,10 +9,27 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import Navbar from './components/Navbar.vue'
 import twemoji from '@twemoji/api'
+import { globalState } from './utils/globalState'
+
+const route = useRoute()
+const { t } = useI18n()
+
+// Routes that hold loaded image state; closing the window from here
+// without a SaveAll loses the unsaved work.
+const PROTECTED_PATHS = ['/photo-gallery', '/photo-edit']
 
 let observer = null
+let ipcRenderer = null
+const onConfirmClose = () => {
+  const guarded = PROTECTED_PATHS.includes(route.path) && !globalState.isSaveAllClicked
+  if (!guarded || window.confirm(t('navbar.closeConfirm'))) {
+    ipcRenderer.send('confirm-close-response', true)
+  }
+}
 
 const twemojiConfig = {
   base: './',
@@ -26,6 +43,10 @@ const parseTwemoji = () => {
 }
 
 onMounted(() => {
+  if (window.require) {
+    ipcRenderer = window.require('electron').ipcRenderer
+    ipcRenderer.on('confirm-close', onConfirmClose)
+  }
 
   // 初始化 Twemoji
   parseTwemoji()
@@ -46,6 +67,9 @@ onUnmounted(() => {
   // 清理观察者
   if (observer) {
     observer.disconnect()
+  }
+  if (ipcRenderer) {
+    ipcRenderer.removeListener('confirm-close', onConfirmClose)
   }
 })
 </script>

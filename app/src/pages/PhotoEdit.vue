@@ -872,10 +872,6 @@ onMounted(() => {
   loadImages()
   loadPresets()
   window.addEventListener('keydown', handleKeydown)
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', true)
-  }
 
   // 初始化操作区域高度
   setTimeout(updateOperationAreaHeight, 100)
@@ -885,10 +881,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', false)
-  }
 })
 </script>
 

@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'ホーム',
     about: 'について',
-    leaveConfirm: 'このページを離れると、読み込んだ画像は失われます。続行しますか？'
+    leaveConfirm: 'このページを離れると、読み込んだ画像は失われます。続行しますか？',
+    closeConfirm: 'ウィンドウを閉じると保存していない変更が失われます。閉じてもよろしいですか？'
   },
   photoDirectory: {
     title: '写真の場所を選択',

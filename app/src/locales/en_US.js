@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'Home',
     about: 'About',
-    leaveConfirm: 'Leaving this page will discard the images you have loaded. Continue?'
+    leaveConfirm: 'Leaving this page will discard the images you have loaded. Continue?',
+    closeConfirm: 'Unsaved changes will be lost if you close the window. Close anyway?'
   },
   photoDirectory: {
     title: 'Select Photo Directory',

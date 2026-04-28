@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: '홈',
     about: '정보(情報)',
-    leaveConfirm: '이 페이지를 떠나면 불러온 사진 데이터가 삭제될 수 있습니다. 계속하시겠습니까?'
+    leaveConfirm: '이 페이지를 떠나면 불러온 사진 데이터가 삭제될 수 있습니다. 계속하시겠습니까?',
+    closeConfirm: '창을 닫으면 저장(貯藏)되지 않은 변경(變更) 사항이 손실(損失)됩니다. 그래도 닫으시겠습니까?'
   },
   photoDirectory: {
     title: '사진 폴더 선택',

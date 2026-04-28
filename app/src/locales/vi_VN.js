@@ -2,7 +2,8 @@ export default {
   navbar: {
     home: 'Trang chủ',
     about: 'Giới thiệu',
-    leaveConfirm: 'Rời khỏi trang này sẽ làm mất các hình ảnh đã tải. Tiếp tục?'
+    leaveConfirm: 'Rời khỏi trang này sẽ làm mất các hình ảnh đã tải. Tiếp tục?',
+    closeConfirm: 'Đóng cửa sổ sẽ làm mất các thay đổi chưa lưu. Vẫn đóng?'
   },
   photoDirectory: {
     title: 'Chọn thư mục ảnh',

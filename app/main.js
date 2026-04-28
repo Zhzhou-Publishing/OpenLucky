@@ -529,9 +529,9 @@ function createWindow() {
   // 创建浏览器窗口
   const win = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 1000,
     autoHideMenuBar: true,
-    resizable: false,
+    resizable: true,
     webPreferences: {
       devTools: true, // 开发环境启用开发者工具，生产环境禁用以提升性能
       spellCheck: false, // 极限节省性能：关闭拼写检查
@@ -544,6 +544,22 @@ function createWindow() {
 
   // 加载应用的 index.html
   win.loadFile('dist/index.html')
+
+  // Ask the renderer whether the close should be confirmed (e.g., unsaved
+  // images on PhotoGallery/PhotoEdit). The renderer replies with
+  // 'confirm-close-response' carrying a boolean.
+  let allowClose = false
+  win.on('close', (e) => {
+    if (allowClose) return
+    e.preventDefault()
+    win.webContents.send('confirm-close')
+  })
+  ipcMain.on('confirm-close-response', (_, allow) => {
+    if (allow) {
+      allowClose = true
+      win.close()
+    }
+  })
 
   // 只在开发模式下打开开发者工具
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
@@ -607,14 +623,6 @@ function createWindow() {
     } catch (error) {
       console.error('Error selecting directory:', error)
       win.webContents.send('directory-error', error.message)
-    }
-  })
-
-  // Handle set window resizable
-  ipcMain.on('set-window-resizable', (_, resizable) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) {
-      win.setResizable(resizable)
     }
   })
 
