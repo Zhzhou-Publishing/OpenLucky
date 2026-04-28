@@ -5,7 +5,7 @@
 ### build cli
 
 ```cmd
-python -m PyInstaller --onefile --name openlucky --distpath bin cmd/openlucky.py
+python -m PyInstaller --onefile --name openlucky --distpath ./bin cli/openlucky.py
 ```
 
 ### build desktop app
@@ -28,15 +28,15 @@ ISCC.exe OpenLucky.iss
 #### Standard build (slow startup)
 
 ```zsh
-python3 -m PyInstaller --onefile --name openlucky --distpath bin cmd/openlucky.py
+python3 -m PyInstaller --onefile --name openlucky --distpath bin cli/openlucky.py
 ```
 
 #### Optimized build (recommended - fast startup)
 
 ```zsh
 python3 -m PyInstaller --onedir --name openlucky \
---contents-directory lib \
---distpath bin cmd/openlucky.py
+--contents-directory cli/lib \
+--distpath bin cli/openlucky.py
 ```
 
 ### Build macOS desktop app and installer
@@ -47,8 +47,8 @@ Make sure to run this command from the **project root directory** before buildin
 
 ```cmd
 python3 -m PyInstaller --onedir --name openlucky \
---contents-directory lib \
---distpath bin cmd/openlucky.py
+--contents-directory cli/lib \
+--distpath bin cli/openlucky.py
 ```
 
 #### Step 2: Build the Electron app

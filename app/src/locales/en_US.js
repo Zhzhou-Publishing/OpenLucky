@@ -1,7 +1,9 @@
 export default {
   navbar: {
     home: 'Home',
-    about: 'About'
+    about: 'About',
+    leaveConfirm: 'Leaving this page will discard the images you have loaded. Continue?',
+    closeConfirm: 'Unsaved changes will be lost if you close the window. Close anyway?'
   },
   photoDirectory: {
     title: 'Select Photo Directory',
@@ -45,7 +47,20 @@ export default {
     advancedTab: 'Emulsion Concentration Correction',
     contrastR: 'Contrast R',
     contrastG: 'Contrast G',
-    contrastB: 'Contrast B'
+    contrastB: 'Contrast B',
+    contextMenu: {
+      copyParams: 'Copy Parameters',
+      pasteParams: 'Paste Parameters',
+      applyPreset: 'Apply Preset',
+      rotate: 'Rotate',
+      rotateClockwise: 'Clockwise 90°',
+      rotateCounterClockwise: 'Counter-clockwise 90°'
+    },
+    applyPresetModal: {
+      title: 'Select a Preset',
+      save: 'Apply',
+      cancel: 'Cancel'
+    }
   },
   bottomMenu: {
     preset: 'Preset:',
@@ -53,18 +68,17 @@ export default {
     applying: 'Applying...'
   },
   saveAllButton: {
-    saveAll: 'Save All'
+    saveAll: 'Save All',
+    unappliedTooltip: "Some images don't have parameters applied yet"
   },
   about: {
     title: 'About OpenLucky Desktop',
     version: 'Version Information',
     description: 'Description',
     descriptionText: 'OpenLucky Desktop is a powerful desktop application for film processing and batch operations. Built with Electron and Vue 3, it provides a modern and efficient user interface for managing your workflow.',
-    technologies: 'Technologies'
-  },
-  languageSwitcher: {
-    label: 'Language',
-    zh_Hans: '简体中文',
-    en_US: 'English (United States)'
+    homepage: 'Homepage',
+    license: 'License',
+    licenseSummary: 'Permits commercial use, modification, distribution, and private use; requires preserving the copyright notice and stating any significant changes; does not grant trademark rights and provides no warranty.',
+    language: 'Language'
   }
 }

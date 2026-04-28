@@ -5,37 +5,37 @@
       <select
         v-model="internalSelectedPreset"
         class="preset-select"
-        :disabled="isLoading || isApplyingPreset || isLoadingPresets || isSavingAll"
+        :disabled="isLoading || isApplyingPreset || isSavingAll"
       >
-        <option v-for="preset in internalPresets" :key="preset.value" :value="preset.value">
+        <option v-for="preset in presets" :key="preset.value" :value="preset.value">
           {{ preset.label }}
         </option>
       </select>
       <button
         @click="handleApplyPreset"
         class="apply-button"
-        :disabled="isLoading || isApplyingPreset || isLoadingPresets || isSavingAll"
+        :disabled="isLoading || isApplyingPreset || isSavingAll"
       >
         {{ applyButtonText }}
-        <span v-if="hasUnappliedChanges && !isLoadingPresets" class="red-dot"></span>
+        <span v-if="hasUnappliedChanges" class="red-dot"></span>
       </button>
       <button
         @click="handleSaveAll"
         class="save-all-button"
-        :disabled="isSavingAll"
-        title="Ctrl + S"
+        :disabled="isSavingAll || hasUnappliedImages"
+        :title="saveAllTitle"
       >
         {{ $t('saveAllButton.saveAll') }}
-        <span v-if="!isSaveAllClicked" class="red-dot"></span>
+        <span v-if="!isSaveAllClicked && !isSavingAll && !hasUnappliedImages" class="red-dot"></span>
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getCachedPresets, updateCachedPresets } from '../utils/presetCache'
+import { presets, fetchPresets } from '../utils/presetCache'
 import { globalState } from '../utils/globalState'
 
 const { t } = useI18n()
@@ -64,13 +64,14 @@ const props = defineProps({
   imagesCount: {
     type: Number,
     default: 0
+  },
+  hasUnappliedImages: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['update:selectedPreset', 'apply', 'presets-loaded', 'saveAll'])
-
-const internalPresets = ref([])
-const isLoadingPresets = ref(true)
+const emit = defineEmits(['update:selectedPreset', 'apply', 'saveAll'])
 
 const internalSelectedPreset = computed({
   get: () => props.selectedPreset,
@@ -85,6 +86,11 @@ const applyButtonText = computed(() => {
 
 const isSaveAllClicked = computed(() => globalState.isSaveAllClicked)
 
+const saveAllTitle = computed(() => {
+  if (props.hasUnappliedImages) return t('saveAllButton.unappliedTooltip')
+  return 'Ctrl + S'
+})
+
 const handleApplyPreset = () => {
   emit('apply')
 }
@@ -93,70 +99,9 @@ const handleSaveAll = () => {
   emit('saveAll')
 }
 
-const loadPresets = async () => {
-  try {
-    if (window.require) {
-      const ipcRenderer = window.require('electron').ipcRenderer
-
-      // 先尝试使用缓存
-      const cachedPresets = getCachedPresets()
-      if (cachedPresets && cachedPresets.length > 0) {
-        // 使用缓存数据，不显示加载状态
-        internalPresets.value = cachedPresets
-        isLoadingPresets.value = false
-        emit('presets-loaded', cachedPresets)
-      }
-
-      // 在后台静默更新缓存
-      ipcRenderer.send('get-presets')
-
-      ipcRenderer.once('presets-loaded', (_, result) => {
-        // 更新缓存
-        updateCachedPresets(result.presets)
-
-        // 如果结果与缓存不同，静默更新 presets
-        const currentPresets = JSON.stringify(internalPresets.value)
-        const newPresets = JSON.stringify(result.presets)
-        if (currentPresets !== newPresets) {
-          internalPresets.value = result.presets
-          emit('presets-loaded', result.presets)
-        }
-        isLoadingPresets.value = false
-      })
-
-      ipcRenderer.once('presets-error', (_, error) => {
-        console.error('Error loading presets:', error)
-        // 如果有缓存，继续使用缓存
-        if (!cachedPresets) {
-          isLoadingPresets.value = false
-        }
-      })
-    }
-  } catch (error) {
-    console.error('Error loading presets:', error)
-    isLoadingPresets.value = false
-  }
-}
-
-const setPresets = (presets) => {
-  internalPresets.value = presets
-  isLoadingPresets.value = false
-}
-
-const setIsLoadingPresets = (loading) => {
-  isLoadingPresets.value = loading
-}
-
-// 暴露方法给父组件
-defineExpose({
-  loadPresets,
-  setPresets,
-  setIsLoadingPresets
-})
-
-// 组件挂载时自动加载 presets
+// Silent refresh: re-fetch in background, never blocks the UI.
 onMounted(() => {
-  loadPresets()
+  fetchPresets().catch(() => {})
 })
 </script>
 

@@ -122,7 +122,7 @@ def read_image_safe(filepath):
                is_raw: 是否为RAW格式
     """
     try:
-        from cmd.constants.image_formats import RAW_EXTENSIONS
+        from cli.constants.image_formats import RAW_EXTENSIONS
     except ImportError:
         RAW_EXTENSIONS = {".cr2", ".arw", ".nef", ".dng", ".orf", ".raf"}
 

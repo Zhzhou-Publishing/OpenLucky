@@ -6,13 +6,13 @@ from pathlib import Path
 
 import yaml
 
-from lib.process_film import process_film_with_params, process_film_bytestream_with_params
-from lib.tiff_to_jpeg import convert_tiff_to_jpeg
-from lib.raw_to_tiff import raw_to_tiff
-from lib.tool.resize import resize_image
-from lib.tool.reshape import reshape_image, parse_point, parse_shape
-from lib.curve.levels import levels_clip
-from cmd.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
+from cli.lib.process_film import process_film_with_params, process_film_bytestream_with_params
+from cli.lib.tiff_to_jpeg import convert_tiff_to_jpeg
+from cli.lib.raw_to_tiff import raw_to_tiff
+from cli.lib.tool.resize import resize_image
+from cli.lib.tool.reshape import reshape_image, parse_point, parse_shape
+from cli.lib.curve.levels import levels_clip
+from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
 
 def save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label=None):

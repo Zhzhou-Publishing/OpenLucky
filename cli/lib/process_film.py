@@ -3,7 +3,7 @@ import rawpy
 import numpy as np
 import cv2
 
-from cmd.constants.image_formats import RAW_EXTENSIONS
+from cli.constants.image_formats import RAW_EXTENSIONS
 
 
 def process_film_bytestream_with_params(

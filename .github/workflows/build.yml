@@ -34,11 +34,11 @@ jobs:
 
       - name: Build CLI (Windows optimized)
         if: matrix.os == 'windows-latest'
-        run: python -m PyInstaller --onefile --name openlucky --distpath bin cmd/openlucky.py
+        run: python -m PyInstaller --onefile --name openlucky --distpath bin cli/openlucky.py
 
       - name: Build CLI (macOS optimized)
         if: matrix.os == 'macos-latest'
-        run: python3 -m PyInstaller --onedir --name openlucky --contents-directory lib --distpath bin cmd/openlucky.py
+        run: python3 -m PyInstaller --onedir --name openlucky --contents-directory cli/lib --distpath bin cli/openlucky.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

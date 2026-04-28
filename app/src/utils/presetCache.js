@@ -1,55 +1,31 @@
-// Preset 全局缓存模块
+import { ref } from 'vue'
 
-// 内存缓存
-let cache = {
-  presets: null,
-  timestamp: null
-}
+export const presets = ref([])
 
-// 缓存有效期（5分钟）
-const CACHE_DURATION = 5 * 60 * 1000
-
-/**
- * 获取缓存的预设列表
- * @returns {Array|null} 缓存的预设列表，如果不存在或已过期则返回 null
- */
-export function getCachedPresets() {
-  if (!cache.presets || !cache.timestamp) {
-    return null
-  }
-
-  const now = Date.now()
-  if (now - cache.timestamp > CACHE_DURATION) {
-    // 缓存已过期
-    cache.presets = null
-    cache.timestamp = null
-    return null
-  }
-
-  return cache.presets
-}
-
-/**
- * 更新缓存
- * @param {Array} presets - 预设列表
- */
-export function updateCachedPresets(presets) {
-  cache.presets = presets
-  cache.timestamp = Date.now()
-}
-
-/**
- * 清除缓存
- */
-export function clearCachedPresets() {
-  cache.presets = null
-  cache.timestamp = null
-}
-
-/**
- * 检查缓存是否存在且有效
- * @returns {boolean} 缓存是否有效
- */
-export function hasValidCache() {
-  return getCachedPresets() !== null
+export function fetchPresets() {
+  return new Promise((resolve, reject) => {
+    if (!window.require) {
+      resolve(presets.value)
+      return
+    }
+    try {
+      const ipcRenderer = window.require('electron').ipcRenderer
+      const onLoaded = (_, result) => {
+        ipcRenderer.removeListener('presets-error', onError)
+        presets.value = result.presets || []
+        resolve(presets.value)
+      }
+      const onError = (_, error) => {
+        ipcRenderer.removeListener('presets-loaded', onLoaded)
+        console.error('Error loading presets:', error)
+        reject(error)
+      }
+      ipcRenderer.once('presets-loaded', onLoaded)
+      ipcRenderer.once('presets-error', onError)
+      ipcRenderer.send('get-presets')
+    } catch (error) {
+      console.error('Error loading presets:', error)
+      reject(error)
+    }
+  })
 }

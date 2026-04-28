@@ -70,6 +70,55 @@ const checkExtension = (extensions, ext) => {
   return extensions.includes(ext.toLowerCase())
 }
 
+// Read .preset.json from a working directory. Returns {} if missing or
+// unparseable so callers can treat the result as a plain lookup.
+function readPresetJson(directoryPath) {
+  const presetsFile = path.join(directoryPath, '.preset.json')
+  if (!fs.existsSync(presetsFile)) return {}
+  try {
+    return JSON.parse(fs.readFileSync(presetsFile, 'utf-8'))
+  } catch (err) {
+    console.error('Error reading .preset.json:', err)
+    return {}
+  }
+}
+
+// Single source of truth for "which on-disk file represents this image":
+// prefer the preset-recorded output_dir if it points at an existing file,
+// otherwise the original under directoryPath. Used for both thumbnails
+// and the full-resolution viewer so they can never disagree.
+function resolveImagePath(directoryPath, filename, presets) {
+  const entry = presets && presets[filename]
+  if (entry && entry.output_dir && fs.existsSync(entry.output_dir)) {
+    return entry.output_dir
+  }
+  return path.join(directoryPath, filename)
+}
+
+// Build a thumbnail-ready descriptor for one image: its path, isRaw flag,
+// and a `file://` URL with cache-buster. TIFF files are transcoded to a
+// 300×200 JPEG inside the supplied tempDir. Used by get-images (batch)
+// and refresh-image (single, post-apply).
+async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, timestamp) {
+  const fullPath = resolveImagePath(directoryPath, filename, presets)
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+  const isRaw = checkExtension(RAW_EXTENSIONS, ext)
+  let url = `file://${fullPath}?t=${timestamp}`
+  if (checkExtension(TIFF_EXTENSIONS, ext)) {
+    try {
+      const thumbnailPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
+      await sharp(fullPath)
+        .resize(300, 200, { fit: 'cover' })
+        .jpeg({ quality: 80 })
+        .toFile(thumbnailPath)
+      url = `file://${thumbnailPath}?t=${timestamp}`
+    } catch (err) {
+      console.error('Error generating thumbnail for', filename, err)
+    }
+  }
+  return { name: filename, path: fullPath, url, isRaw }
+}
+
 // Update checker constants
 const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
@@ -529,9 +578,9 @@ function createWindow() {
   // 创建浏览器窗口
   const win = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 1000,
     autoHideMenuBar: true,
-    resizable: false,
+    resizable: true,
     webPreferences: {
       devTools: true, // 开发环境启用开发者工具，生产环境禁用以提升性能
       spellCheck: false, // 极限节省性能：关闭拼写检查
@@ -544,6 +593,22 @@ function createWindow() {
 
   // 加载应用的 index.html
   win.loadFile('dist/index.html')
+
+  // Ask the renderer whether the close should be confirmed (e.g., unsaved
+  // images on PhotoGallery/PhotoEdit). The renderer replies with
+  // 'confirm-close-response' carrying a boolean.
+  let allowClose = false
+  win.on('close', (e) => {
+    if (allowClose) return
+    e.preventDefault()
+    win.webContents.send('confirm-close')
+  })
+  ipcMain.on('confirm-close-response', (_, allow) => {
+    if (allow) {
+      allowClose = true
+      win.close()
+    }
+  })
 
   // 只在开发模式下打开开发者工具
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
@@ -610,11 +675,9 @@ function createWindow() {
     }
   })
 
-  // Handle set window resizable
-  ipcMain.on('set-window-resizable', (_, resizable) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) {
-      win.setResizable(resizable)
+  ipcMain.on('open-external', (_, url) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      shell.openExternal(url)
     }
   })
 
@@ -634,60 +697,14 @@ function createWindow() {
       const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-thumbnails_', unsafeCleanup: true })
       const tempDir = tempDirObj.name
 
-      // Read .preset.json from working directory
-      let presets = {}
-      const presetsFile = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetsFile)) {
-        try {
-          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
-          presets = JSON.parse(presetsContent)
-        } catch (err) {
-          console.error('Error reading .preset.json:', err)
-        }
-      }
+      const presets = readPresetJson(directoryPath)
 
       // Add timestamp to bypass caching
       const timestamp = Date.now()
 
-      // Process all image files
-      const images = await Promise.all(allImageFiles.map(async (file) => {
-        // Check if file has preset output_dir
-        let fullPath = path.join(directoryPath, file)
-
-        // If file exists in presets and has output_dir, use output path
-        if (presets[file] && presets[file].output_dir) {
-          const outputPath = presets[file].output_dir
-          if (fs.existsSync(outputPath)) {
-            fullPath = outputPath
-          }
-        }
-
-        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        const isRaw = checkExtension(RAW_EXTENSIONS, ext)
-
-        let imageUrl = `file://${fullPath}?t=${timestamp}`
-
-        // Generate thumbnail for tif/tiff files
-        if (checkExtension(TIFF_EXTENSIONS, ext)) {
-          try {
-            const thumbnailPath = path.join(tempDir, `${path.basename(file, ext)}.jpg`)
-            await sharp(fullPath)
-              .resize(300, 200, { fit: 'cover' })
-              .jpeg({ quality: 80 })
-              .toFile(thumbnailPath)
-            imageUrl = `file://${thumbnailPath}?t=${timestamp}`
-          } catch (err) {
-            console.error('Error generating thumbnail for', file, err)
-          }
-        }
-
-        return {
-          name: file,
-          path: fullPath,
-          url: imageUrl,
-          isRaw: isRaw
-        }
-      }))
+      const images = await Promise.all(
+        allImageFiles.map(file => buildThumbnailEntry(directoryPath, file, presets, tempDir, timestamp))
+      )
 
       win.webContents.send('images-loaded', {
         images: images
@@ -729,6 +746,7 @@ function createWindow() {
             const config = JSON.parse(output)
             // Convert preset keys to array format for frontend
             const presets = config.presets ? Object.keys(config.presets).map(key => ({
+              ...config.presets[key],
               value: key,
               label: config.presets[key].label || key
             })) : []
@@ -1010,26 +1028,8 @@ function createWindow() {
     try {
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
 
-      let fullPath = path.join(directoryPath, filename)
-
-      // Read .preset.json from working directory
-      const presetsFile = path.join(directoryPath, '.preset.json')
-      if (fs.existsSync(presetsFile)) {
-        try {
-          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
-          const presets = JSON.parse(presetsContent)
-
-          // If file exists in presets and has output_dir, use output path
-          if (presets[filename] && presets[filename].output_dir) {
-            const outputPath = presets[filename].output_dir
-            if (fs.existsSync(outputPath)) {
-              fullPath = outputPath
-            }
-          }
-        } catch (err) {
-          console.error('Error reading .preset.json:', err)
-        }
-      }
+      const presets = readPresetJson(directoryPath)
+      const fullPath = resolveImagePath(directoryPath, filename, presets)
 
       let imageUrl = `file://${fullPath}`
 
@@ -1059,20 +1059,31 @@ function createWindow() {
   // Handle read-preset-json request
   ipcMain.on('read-preset-json', async (event, directoryPath) => {
     try {
-      const presetsFile = path.join(directoryPath, '.preset.json')
-      let presets = {}
-      if (fs.existsSync(presetsFile)) {
-        try {
-          const presetsContent = fs.readFileSync(presetsFile, 'utf-8')
-          presets = JSON.parse(presetsContent)
-        } catch (err) {
-          console.error('Error reading .preset.json:', err)
-        }
-      }
-      event.sender.send('preset-json-loaded', { presets })
+      event.sender.send('preset-json-loaded', { presets: readPresetJson(directoryPath) })
     } catch (error) {
       console.error('Error reading preset json:', error)
       event.sender.send('preset-json-error', { error: error.message })
+    }
+  })
+
+  // Single-image refresh used by PhotoEdit after apply: rebuild the
+  // thumbnail entry (TIFF transcode included) so image.url points at the
+  // post-apply output, not the stale tmp file from the initial load.
+  ipcMain.on('refresh-image', async (event, { directoryPath, filename }) => {
+    try {
+      const presets = readPresetJson(directoryPath)
+      const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-thumbnail_', unsafeCleanup: true })
+      const entry = await buildThumbnailEntry(
+        directoryPath,
+        filename,
+        presets,
+        tempDirObj.name,
+        Date.now()
+      )
+      event.sender.send('image-refreshed', { filename, entry })
+    } catch (error) {
+      console.error('Error refreshing image:', error)
+      event.sender.send('image-refresh-error', { filename, error: error.message })
     }
   })
 

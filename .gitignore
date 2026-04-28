@@ -50,3 +50,6 @@ yarn-error.log*
 .env.local
 .env.*.local
 dist-electron/
+
+# Test outputs
+tests/output/

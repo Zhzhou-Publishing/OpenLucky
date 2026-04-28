@@ -30,7 +30,7 @@ def levels_clip(
     # 1. 读取与解码
     # ---------------------------------------------------------
     try:
-        from cmd.constants.image_formats import RAW_EXTENSIONS
+        from cli.constants.image_formats import RAW_EXTENSIONS
     except ImportError:
         RAW_EXTENSIONS = {".cr2", ".arw", ".nef", ".dng", ".orf", ".raf"}
 

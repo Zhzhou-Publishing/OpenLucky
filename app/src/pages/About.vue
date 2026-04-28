@@ -13,10 +13,27 @@
       </section>
 
       <section class="info-section">
-        <h2>{{ $t('about.technologies') }}</h2>
-        <ul class="tech-list">
-          <li v-for="tech in technologies" :key="tech">{{ tech }}</li>
-        </ul>
+        <h2>{{ $t('about.homepage') }}</h2>
+        <p>
+          <a class="repo-link" href="#" @click.prevent="openExternal(homepageUrl)">{{ homepageUrl }}</a>
+        </p>
+      </section>
+
+      <section class="info-section">
+        <h2>{{ $t('about.license') }}</h2>
+        <p>
+          <a class="repo-link" href="#" @click.prevent="openExternal(licenseUrl)">Apache License 2.0</a>
+        </p>
+        <p class="license-summary">{{ $t('about.licenseSummary') }}</p>
+      </section>
+
+      <section class="info-section">
+        <h2>{{ $t('about.language') }}</h2>
+        <LanguageSwitcher />
+        <p v-if="locale === 'bo_CN'" class="locale-note">
+          རྩོམ་པ་པོ་ནས་བོད་ཡིག་ངོ་མའི་སྐད་ཡིག་པས་ཡིག་ནོར་བཅོས་འདེབས་གནང་བར་ཐུགས་སྨོན་ཞུ་ཞིང་། ཐུགས་རྗེ་ཆེ། <a class="repo-link" href="#" @click.prevent="openExternal(issuesUrl)">issue</a><br />
+          作者诚恳地希望藏语母语者帮助勘误，谨致谢意。<a class="repo-link" href="#" @click.prevent="openExternal(issuesUrl)">issue</a>
+        </p>
       </section>
     </div>
   </div>
@@ -24,15 +41,22 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
+const { locale } = useI18n()
 const version = ref(__APP_VERSION__)
-const technologies = ref([
-  'Electron',
-  'Vue 3',
-  'Vue Router',
-  'Vite',
-  'JavaScript'
-])
+const homepageUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky'
+const licenseUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/blob/main/LICENSE'
+const issuesUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/issues'
+
+function openExternal(url) {
+  if (window.require) {
+    window.require('electron').ipcRenderer.send('open-external', url)
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
 </script>
 
 <style scoped>
@@ -64,19 +88,26 @@ h1 {
   color: #666;
 }
 
-.tech-list {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.repo-link {
+  color: #42b883;
+  text-decoration: none;
+  word-break: break-all;
 }
 
-.tech-list li {
-  background: #f5f5f5;
-  padding: 5px 15px;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #42b883;
+.repo-link:hover {
+  text-decoration: underline;
+}
+
+.license-summary {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #888;
+}
+
+.locale-note {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.7;
 }
 </style>

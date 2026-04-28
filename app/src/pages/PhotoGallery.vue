@@ -45,10 +45,10 @@
       :is-applying-preset="isApplyingPreset"
       :is-saving-all="isSavingAll"
       :images-count="images.length"
+      :has-unapplied-images="hasUnappliedImages"
       @update:selected-preset="selectedPreset = $event"
       @apply="applyPreset"
       @save-all="saveAll"
-      @presets-loaded="handlePresetsLoaded"
     />
 
     <!-- Image Modal -->
@@ -68,6 +68,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
+import { presets as globalPresets } from '../utils/presetCache'
 
 const router = useRouter()
 const route = useRoute()
@@ -90,6 +91,29 @@ const workingDirectory = ref('')
 const outputDirectory = ref('')
 const originalDirectoryPath = ref('')
 const originalWindowTitle = ref('OpenLucky Desktop App')
+const presetsData = ref({})
+const presetsDataLoaded = ref(false)
+
+// Block SaveAll until every image has an entry in .preset.json. Until we
+// finish reading the file we keep SaveAll disabled to be safe.
+const hasUnappliedImages = computed(() => {
+  if (!images.value.length) return false
+  if (!presetsDataLoaded.value) return true
+  return images.value.some(img => !presetsData.value[img.name])
+})
+
+const loadPresetJson = () => {
+  if (!workingDirectory.value || !window.require) return
+  const ipcRenderer = window.require('electron').ipcRenderer
+  ipcRenderer.send('read-preset-json', workingDirectory.value)
+  ipcRenderer.once('preset-json-loaded', (_, result) => {
+    presetsData.value = result.presets || {}
+    presetsDataLoaded.value = true
+  })
+  ipcRenderer.once('preset-json-error', () => {
+    presetsDataLoaded.value = true
+  })
+}
 
 const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
 
@@ -239,6 +263,7 @@ const loadImages = async () => {
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
         isLoading.value = false
+        loadPresetJson()
       })
 
       ipcRenderer.once('images-error', (_, error) => {
@@ -260,14 +285,19 @@ const handleRefresh = async () => {
   await loadImages()
 }
 
-const handlePresetsLoaded = (presets) => {
-  // Select first preset by default if available
-  if (presets && presets.length > 0 && !presets.find(p => p.value === selectedPreset.value)) {
-    selectedPreset.value = presets[0].value
+// Default the selected preset to the first available entry whenever the
+// global preset list changes, including the initial pre-load.
+watch(globalPresets, (list) => {
+  if (list && list.length > 0 && !list.find(p => p.value === selectedPreset.value)) {
+    selectedPreset.value = list[0].value
   }
-}
+}, { immediate: true })
 
 const saveAll = () => {
+  if (hasUnappliedImages.value) {
+    console.warn('SaveAll blocked: there are still images without applied parameters')
+    return
+  }
   if (!workingDirectory.value || !originalDirectoryPath.value) {
     console.error('No working directory or original directory')
     return
@@ -358,10 +388,8 @@ onMounted(() => {
   originalWindowTitle.value = t('windowTitle.baseTitle')
   document.title = originalWindowTitle.value
 
-  // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', true)
 
     // Check if working directory was provided by PhotoDirectory
     if (route.query.workingDirectory) {
@@ -410,12 +438,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // Make window non-resizable when leaving photo gallery
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', false)
-  }
-
   // Restore original window title
   document.title = originalWindowTitle.value
 

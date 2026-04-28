@@ -6,7 +6,7 @@
     :title="titleText"
   >
     {{ $t('saveAllButton.saveAll') }}
-    <span v-if="!isSaveAllClicked" class="red-dot"></span>
+    <span v-if="!isSaveAllClicked && !isDisabled" class="red-dot"></span>
   </button>
 </template>
 
@@ -21,12 +21,17 @@ const props = defineProps({
   isDisabled: {
     type: Boolean,
     default: false
+  },
+  hasUnappliedImages: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['click'])
 
 const titleText = computed(() => {
+  if (props.hasUnappliedImages) return t('saveAllButton.unappliedTooltip')
   return `${t('saveAllButton.saveAll')} (Ctrl + S)`
 })
 

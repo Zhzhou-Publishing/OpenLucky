@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-from cmd.constants.image_formats import RAW_EXTENSIONS
+from cli.constants.image_formats import RAW_EXTENSIONS
 
 # 支持的边选项
 EDGE_OPTIONS = {'width', 'height', 'long-edge', 'short-edge'}

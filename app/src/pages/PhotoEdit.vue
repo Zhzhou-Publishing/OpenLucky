@@ -2,8 +2,8 @@
   <div class="photo-edit-page">
     <div class="header">
       <button @click="goBack" class="back-button">{{ $t('photoEdit.back') }}</button>
-      <h1 class="page-title">{{ currentPageTitle }}</h1>
-      <div class="image-info">{{ currentFileName }}</div>
+      <h1 class="file-name">{{ currentFileName }}</h1>
+      <div class="directory-name">{{ currentDirectoryName }}</div>
     </div>
 
     <div v-if="isLoading" class="loading-state">
@@ -35,21 +35,10 @@
       <!-- Main Content Area - Right Side -->
       <div class="main-content">
         <!-- Large Image Display -->
-        <div class="image-display" :style="{ height: imageDisplayHeight }">
+        <div class="image-display" :style="{ height: imageDisplayHeight }" @contextmenu.prevent="onContextMenu">
           <div class="image-wrapper">
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
-            <!-- Rotate buttons -->
-            <div class="rotate-controls">
-              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate counter-clockwise">
-                ↺
-              </button>
-              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate clockwise">
-                ↻
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -98,22 +87,40 @@
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
               <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
                 $t('photoEdit.applyAll') }}</button>
-              <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
+              <SaveAllButton :is-disabled="isAllImagesAffected || hasUnappliedImages" :has-unapplied-images="hasUnappliedImages" @click="saveAll" />
             </div>
           </template>
         </Tabs>
       </div>
     </div>
+
+    <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
+
+    <Modal
+      v-model="presetModalOpen"
+      :title="$t('photoEdit.applyPresetModal.title')"
+      :save-label="$t('photoEdit.applyPresetModal.save')"
+      :cancel-label="$t('photoEdit.applyPresetModal.cancel')"
+      @save="applyPresetFromModal"
+    >
+      <select v-model="selectedModalPreset" class="preset-modal-select">
+        <option v-for="p in globalPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
+      </select>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import NumberInput from '../components/NumberInput.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
+import ContextMenu from '../components/ContextMenu.vue'
+import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
+import { presets as globalPresets } from '../utils/presetCache'
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
@@ -132,23 +139,105 @@ function debounce(fn, delay) {
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 const images = ref([])
 const isLoading = ref(true)
 const affectedImages = reactive(new Set())
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
-const input1 = ref(0)
-const input2 = ref(0)
-const input3 = ref(0)
-const input4 = ref(0)
-const input5 = ref(0)
+const input1 = ref(255)
+const input2 = ref(255)
+const input3 = ref(255)
+const input4 = ref(1)
+const input5 = ref(1)
 const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
 const presetsData = ref({})
+const presetsDataLoaded = ref(false)
 const operationAreaRef = ref(null)
 const operationAreaHeight = ref(80) // 默认值
+
+// 右键菜单
+const ctxMenuVisible = ref(false)
+const ctxMenuPos = ref({ x: 0, y: 0 })
+const paramClipboard = ref(null)
+
+function copyParams() {
+  paramClipboard.value = {
+    mask_r: input1.value,
+    mask_g: input2.value,
+    mask_b: input3.value,
+    gamma: input4.value,
+    contrast: input5.value,
+    contrast_r: contrastR.value,
+    contrast_g: contrastG.value,
+    contrast_b: contrastB.value
+  }
+}
+
+function pasteParams() {
+  const c = paramClipboard.value
+  if (!c) return
+  input1.value = c.mask_r
+  input2.value = c.mask_g
+  input3.value = c.mask_b
+  input4.value = c.gamma
+  input5.value = c.contrast
+  contrastR.value = c.contrast_r
+  contrastG.value = c.contrast_g
+  contrastB.value = c.contrast_b
+}
+
+const presetModalOpen = ref(false)
+const selectedModalPreset = ref('')
+
+function openPresetModal() {
+  if (globalPresets.value.length > 0) {
+    const stillExists = globalPresets.value.some(p => p.value === selectedModalPreset.value)
+    if (!stillExists) selectedModalPreset.value = globalPresets.value[0].value
+  }
+  presetModalOpen.value = true
+}
+
+function applyPresetFromModal() {
+  const preset = globalPresets.value.find(p => p.value === selectedModalPreset.value)
+  if (!preset) return
+  input1.value = preset.mask_r ?? 255
+  input2.value = preset.mask_g ?? 255
+  input3.value = preset.mask_b ?? 255
+  input4.value = preset.gamma ?? 1
+  input5.value = preset.contrast ?? 1
+  contrastR.value = preset.contrast_r ?? 1.0
+  contrastG.value = preset.contrast_g ?? 1.0
+  contrastB.value = preset.contrast_b ?? 1.0
+  presetModalOpen.value = false
+  apply()
+}
+
+const ctxMenuItems = computed(() => {
+  const busy = isAllImagesAffected.value || isCurrentImageAffected.value
+  return [
+    { label: t('photoEdit.contextMenu.copyParams'), action: copyParams, disabled: busy },
+    { label: t('photoEdit.contextMenu.pasteParams'), action: pasteParams, disabled: busy || !paramClipboard.value },
+    { label: t('photoEdit.contextMenu.applyPreset'), action: openPresetModal, disabled: busy || globalPresets.value.length === 0 },
+    { type: 'separator' },
+    {
+      label: t('photoEdit.contextMenu.rotate'),
+      disabled: busy,
+      children: [
+        { label: t('photoEdit.contextMenu.rotateClockwise'), action: rotateClockwiseBtn, disabled: busy },
+        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy }
+      ]
+    }
+  ]
+})
+
+function onContextMenu(e) {
+  ctxMenuPos.value = { x: e.clientX, y: e.clientY }
+  ctxMenuVisible.value = true
+}
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
 const rotateClockwiseMap = ref({}) // Store rotation for each image
@@ -188,7 +277,14 @@ const isAllImagesAffected = computed(() => {
   return images.value.length > 0 && images.value.every(img => affectedImages.has(img.name))
 })
 
-const currentPageTitle = computed(() => {
+// Images whose parameters are not yet recorded in .preset.json. Once even
+// one image is unapplied, SaveAll is blocked.
+const hasUnappliedImages = computed(() => {
+  if (!images.value.length || !presetsDataLoaded.value) return false
+  return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
+})
+
+const currentDirectoryName = computed(() => {
   if (originalDirectory.value) {
     const parts = originalDirectory.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Edit'
@@ -208,9 +304,10 @@ const updateOperationAreaHeight = () => {
 
 const handleTabChange = (tabId) => {
   console.log('Tab changed to:', tabId)
-  // 切换标签页后重新计算高度
-  setTimeout(updateOperationAreaHeight, 100)
+  // 高度变化由 ResizeObserver 自动捕获，这里无需手动触发
 }
+
+let operationAreaResizeObserver = null
 
 const goBack = () => {
   router.push({
@@ -277,14 +374,40 @@ const getImageUrlWithTimestamp = (image) => {
 }
 
 // Helper function to update image timestamp and trigger reactivity
-const updateImageTimestamp = (imageName) => {
+// After apply succeeds, the on-disk thumbnail/output for `imageName`
+// has changed. Ask main to rebuild the entry (so image.url points at
+// fresh content + bumps the timestamp) and patch our images array in
+// place. Both the thumbnail strip and the main pic re-render together.
+const refreshImage = (imageName) => {
   const imageIndex = images.value.findIndex(img => img.name === imageName)
-  if (imageIndex !== -1) {
-    // Update the specific image's timestamp
-    images.value[imageIndex].timestamp = Date.now()
-    // Trigger Vue's reactivity system
+  if (imageIndex === -1 || !window.require) return
+  const ipcRenderer = window.require('electron').ipcRenderer
+
+  const onRefreshed = (_, result) => {
+    if (result.filename !== imageName) return
+    cleanup()
+    const idx = images.value.findIndex(img => img.name === imageName)
+    if (idx === -1) return
+    const ts = Date.now()
+    images.value[idx] = { ...images.value[idx], ...result.entry, timestamp: ts }
     triggerImagesReactivity()
   }
+  const onError = (_, result) => {
+    if (result.filename !== imageName) return
+    cleanup()
+    console.error('Error refreshing image:', result.error)
+  }
+  const cleanup = () => {
+    ipcRenderer.removeListener('image-refreshed', onRefreshed)
+    ipcRenderer.removeListener('image-refresh-error', onError)
+  }
+
+  ipcRenderer.on('image-refreshed', onRefreshed)
+  ipcRenderer.on('image-refresh-error', onError)
+  ipcRenderer.send('refresh-image', {
+    directoryPath: workingDirectory.value,
+    filename: imageName
+  })
 }
 
 const apply = () => {
@@ -338,7 +461,7 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        updateImageTimestamp(imageName);
+        refreshImage(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -419,7 +542,7 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        updateImageTimestamp(imageName);
+        refreshImage(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -519,6 +642,10 @@ const applyAll = () => {
 }
 
 const saveAll = () => {
+  if (hasUnappliedImages.value) {
+    console.warn('SaveAll blocked: there are still images without applied parameters')
+    return
+  }
   if (!workingDirectory.value || !originalDirectory.value) {
     console.error('No working directory or original directory')
     return
@@ -605,8 +732,13 @@ const loadFullResImage = async () => {
         filename: currentImage.value.name
       })
 
+      // Reuse the per-image timestamp so the main pic's cache-buster is
+      // identical to the thumbnail's. After apply, refreshImage rebuilds
+      // image.url and bumps timestamp; both views flip together.
+      const ts = currentImage.value.timestamp || Date.now()
+
       ipcRenderer.once('full-res-image-loaded', (_, result) => {
-        fullResImageUrl.value = result.url + '?t=' + Date.now()
+        fullResImageUrl.value = result.url + '?t=' + ts
       })
 
       ipcRenderer.once('full-res-image-error', (_, error) => {
@@ -622,7 +754,7 @@ const loadFullResImage = async () => {
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
-          fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+          fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
         }
       })
     } catch (error) {
@@ -630,7 +762,7 @@ const loadFullResImage = async () => {
       fullResImageUrl.value = currentImage.value.url
     }
   } else {
-    fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+    fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
   }
 }
 
@@ -755,12 +887,14 @@ const loadPresets = async () => {
     ipcRenderer.send('read-preset-json', workingDirectory.value)
 
     ipcRenderer.once('preset-json-loaded', (_, result) => {
-      presetsData.value = result.presets
+      presetsData.value = result.presets || {}
+      presetsDataLoaded.value = true
       loadPresetForCurrentImage()
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
       console.error('Error loading preset json:', error)
+      presetsDataLoaded.value = true
     })
   } catch (error) {
     console.error('Error loading preset json:', error)
@@ -774,26 +908,33 @@ const loadPresetForCurrentImage = () => {
 
   const preset = presetsData.value[currentFileName.value]
   if (preset) {
-    input1.value = preset.mask_r || 0
-    input2.value = preset.mask_g || 0
-    input3.value = preset.mask_b || 0
-    input4.value = preset.gamma || 0
-    input5.value = preset.contrast || 0
-    contrastR.value = preset.contrast_r || 1.0
-    contrastG.value = preset.contrast_g || 1.0
-    contrastB.value = preset.contrast_b || 1.0
+    input1.value = preset.mask_r ?? 255
+    input2.value = preset.mask_g ?? 255
+    input3.value = preset.mask_b ?? 255
+    input4.value = preset.gamma ?? 1
+    input5.value = preset.contrast ?? 1
+    contrastR.value = preset.contrast_r ?? 1.0
+    contrastG.value = preset.contrast_g ?? 1.0
+    contrastB.value = preset.contrast_b ?? 1.0
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
-    input1.value = 0
-    input2.value = 0
-    input3.value = 0
-    input4.value = 0
-    input5.value = 0
+    input1.value = 255
+    input2.value = 255
+    input3.value = 255
+    input4.value = 1
+    input5.value = 1
     contrastR.value = 1.0
     contrastG.value = 1.0
     contrastB.value = 1.0
     rotateClockwiseMap.value[currentFileName.value] = 0
+
+    // Auto-prompt the apply-preset modal once we know .preset.json was
+    // actually read (so we don't flash it during initial mount races) and
+    // there's at least one preset to choose from.
+    if (presetsDataLoaded.value && globalPresets.value.length > 0 && !presetModalOpen.value) {
+      openPresetModal()
+    }
   }
 
   // Set presetLoaded to true after loading presets, enabling preview debounce
@@ -868,26 +1009,36 @@ inputsToWatch.forEach(input => {
   })
 })
 
+// 操作面板挂在 v-else 分支里，初次 onMounted 时 ref 还是 null。
+// 用 watch 跟踪 ref 的挂载时机，一出现就接上 ResizeObserver，
+// 之后元素重挂载也会自动重建。
+watch(operationAreaRef, (el) => {
+  if (operationAreaResizeObserver) {
+    operationAreaResizeObserver.disconnect()
+    operationAreaResizeObserver = null
+  }
+  if (el && typeof ResizeObserver !== 'undefined') {
+    operationAreaResizeObserver = new ResizeObserver(updateOperationAreaHeight)
+    operationAreaResizeObserver.observe(el)
+  }
+})
+
 onMounted(() => {
   loadImages()
   loadPresets()
   window.addEventListener('keydown', handleKeydown)
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', true)
+  // ResizeObserver 不可用的兜底：监听窗口尺寸变化。
+  if (typeof ResizeObserver === 'undefined') {
+    window.addEventListener('resize', updateOperationAreaHeight)
   }
-
-  // 初始化操作区域高度
-  setTimeout(updateOperationAreaHeight, 100)
-  window.addEventListener('resize', updateOperationAreaHeight)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.send('set-window-resizable', false)
+  if (operationAreaResizeObserver) {
+    operationAreaResizeObserver.disconnect()
+    operationAreaResizeObserver = null
   }
 })
 </script>
@@ -928,7 +1079,7 @@ onUnmounted(() => {
   background: #35a372;
 }
 
-.page-title {
+.file-name {
   font-size: 20px;
   color: #333;
   margin: 0;
@@ -936,7 +1087,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.image-info {
+.directory-name {
   font-size: 14px;
   color: #666;
   max-width: 300px;
@@ -1144,46 +1295,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.rotate-controls {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  display: flex;
-  gap: 8px;
-  z-index: 20;
-}
-
-.rotate-button {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
-  color: #333;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
-
-.rotate-button:hover:not(:disabled) {
-  background: #42b883;
-  color: white;
-  transform: scale(1.1);
-}
-
-.rotate-button:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-.rotate-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1194,6 +1305,23 @@ onUnmounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.preset-modal-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preset-modal-select:focus {
+  outline: none;
+  border-color: #42b883;
+  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.15);
 }
 
 /* Operation Area - Fixed at Page Bottom */

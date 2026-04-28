@@ -1,7 +1,9 @@
 export default {
   navbar: {
     home: '首页',
-    about: '关于'
+    about: '关于',
+    leaveConfirm: '离开当前页面将丢失已加载的图片，确定继续吗？',
+    closeConfirm: '关闭窗口将丢失尚未保存的修改，确定要关闭吗？'
   },
   photoDirectory: {
     title: '选择照片目录',
@@ -45,7 +47,20 @@ export default {
     advancedTab: '乳剂浓度校正',
     contrastR: '对比度 R',
     contrastG: '对比度 G',
-    contrastB: '对比度 B'
+    contrastB: '对比度 B',
+    contextMenu: {
+      copyParams: '复制参数',
+      pasteParams: '粘贴参数',
+      applyPreset: '套用预设值',
+      rotate: '旋转',
+      rotateClockwise: '顺时针 90°',
+      rotateCounterClockwise: '逆时针 90°'
+    },
+    applyPresetModal: {
+      title: '选择预设',
+      save: '套用',
+      cancel: '取消'
+    }
   },
   bottomMenu: {
     preset: '预设:',
@@ -53,18 +68,17 @@ export default {
     applying: '应用中...'
   },
   saveAllButton: {
-    saveAll: '全部保存'
+    saveAll: '全部保存',
+    unappliedTooltip: '尚有未套用参数的图片'
   },
   about: {
     title: '关于 OpenLucky 桌面版',
     version: '版本信息',
     description: '描述',
     descriptionText: 'OpenLucky 桌面版是一个用于胶片处理和批量操作的强大桌面应用程序。基于 Electron 和 Vue 3 构建，它为管理工作流程提供了现代高效的界面。',
-    technologies: '技术栈'
-  },
-  languageSwitcher: {
-    label: '语言',
-    zh_Hans: '简体中文',
-    en_US: 'English (United States)'
+    homepage: '项目首页',
+    license: '开源协议',
+    licenseSummary: '允许商业使用、修改、分发与私人使用；需保留版权声明并标明重大改动；不授予商标权，亦不提供任何担保。',
+    language: '语言 Language'
   }
 }

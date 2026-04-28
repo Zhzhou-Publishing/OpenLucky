@@ -5,27 +5,46 @@
       <span class="brand-name">OpenLucky</span>
     </div>
     <div class="navbar-menu">
-      <router-link
-        v-for="route in routes"
-        :key="route.path"
-        :to="route.path"
+      <a
+        v-for="r in routes"
+        :key="r.path"
+        href="#"
         class="nav-link"
-        active-class="active"
+        :class="{ active: currentPath === r.path }"
+        @click.prevent="navigate(r.path)"
       >
-        {{ $t(route.i18nKey) }}
-      </router-link>
-      <LanguageSwitcher />
+        {{ $t(r.i18nKey) }}
+      </a>
     </div>
   </nav>
 </template>
 
 <script setup>
-import LanguageSwitcher from './LanguageSwitcher.vue'
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const router = useRouter()
+const route = useRoute()
+const { t } = useI18n()
 
 const routes = [
   { path: '/', i18nKey: 'navbar.home' },
   { path: '/about', i18nKey: 'navbar.about' }
 ]
+
+// Routes that hold loaded image state and warrant a confirmation when leaving.
+const PROTECTED_PATHS = ['/photo-gallery', '/photo-edit']
+
+const currentPath = computed(() => route.path)
+
+function navigate(target) {
+  if (currentPath.value === target) return
+  if (PROTECTED_PATHS.includes(currentPath.value)) {
+    if (!window.confirm(t('navbar.leaveConfirm'))) return
+  }
+  router.push(target)
+}
 </script>
 
 <style scoped>
@@ -66,6 +85,7 @@ const routes = [
   border-radius: 6px;
   font-size: 14px;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .nav-link:hover {
