@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Sao chép tham số',
       pasteParams: 'Dán tham số',
+      applyPreset: 'Áp dụng preset',
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°'
+    },
+    applyPresetModal: {
+      title: 'Chọn preset',
+      save: 'Áp dụng',
+      cancel: 'Hủy'
     }
   },
   bottomMenu: {

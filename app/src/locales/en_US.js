@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Copy Parameters',
       pasteParams: 'Paste Parameters',
+      applyPreset: 'Apply Preset',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°'
+    },
+    applyPresetModal: {
+      title: 'Select a Preset',
+      save: 'Apply',
+      cancel: 'Cancel'
     }
   },
   bottomMenu: {

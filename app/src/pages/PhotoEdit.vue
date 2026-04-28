@@ -95,6 +95,18 @@
     </div>
 
     <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
+
+    <Modal
+      v-model="presetModalOpen"
+      :title="$t('photoEdit.applyPresetModal.title')"
+      :save-label="$t('photoEdit.applyPresetModal.save')"
+      :cancel-label="$t('photoEdit.applyPresetModal.cancel')"
+      @save="applyPresetFromModal"
+    >
+      <select v-model="selectedModalPreset" class="preset-modal-select">
+        <option v-for="p in globalPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
+      </select>
+    </Modal>
   </div>
 </template>
 
@@ -106,7 +118,9 @@ import NumberInput from '../components/NumberInput.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
+import { presets as globalPresets } from '../utils/presetCache'
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
@@ -175,11 +189,38 @@ function pasteParams() {
   contrastB.value = c.contrast_b
 }
 
+const presetModalOpen = ref(false)
+const selectedModalPreset = ref('')
+
+function openPresetModal() {
+  if (globalPresets.value.length > 0) {
+    const stillExists = globalPresets.value.some(p => p.value === selectedModalPreset.value)
+    if (!stillExists) selectedModalPreset.value = globalPresets.value[0].value
+  }
+  presetModalOpen.value = true
+}
+
+function applyPresetFromModal() {
+  const preset = globalPresets.value.find(p => p.value === selectedModalPreset.value)
+  if (!preset) return
+  input1.value = preset.mask_r ?? 255
+  input2.value = preset.mask_g ?? 255
+  input3.value = preset.mask_b ?? 255
+  input4.value = preset.gamma ?? 1
+  input5.value = preset.contrast ?? 1
+  contrastR.value = preset.contrast_r ?? 1.0
+  contrastG.value = preset.contrast_g ?? 1.0
+  contrastB.value = preset.contrast_b ?? 1.0
+  presetModalOpen.value = false
+  apply()
+}
+
 const ctxMenuItems = computed(() => {
   const busy = isAllImagesAffected.value || isCurrentImageAffected.value
   return [
     { label: t('photoEdit.contextMenu.copyParams'), action: copyParams, disabled: busy },
     { label: t('photoEdit.contextMenu.pasteParams'), action: pasteParams, disabled: busy || !paramClipboard.value },
+    { label: t('photoEdit.contextMenu.applyPreset'), action: openPresetModal, disabled: busy || globalPresets.value.length === 0 },
     { type: 'separator' },
     {
       label: t('photoEdit.contextMenu.rotate'),
@@ -1212,6 +1253,23 @@ onUnmounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.preset-modal-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preset-modal-select:focus {
+  outline: none;
+  border-color: #42b883;
+  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.15);
 }
 
 /* Operation Area - Fixed at Page Bottom */

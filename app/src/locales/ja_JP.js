@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'パラメータをコピー',
       pasteParams: 'パラメータを貼り付け',
+      applyPreset: 'プリセットを適用',
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°'
+    },
+    applyPresetModal: {
+      title: 'プリセットを選択',
+      save: '適用',
+      cancel: 'キャンセル'
     }
   },
   bottomMenu: {

@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Copier les paramètres',
       pasteParams: 'Coller les paramètres',
+      applyPreset: 'Appliquer un préréglage',
       rotate: 'Rotation',
       rotateClockwise: 'Sens horaire 90°',
       rotateCounterClockwise: 'Sens antihoraire 90°'
+    },
+    applyPresetModal: {
+      title: 'Sélectionner un préréglage',
+      save: 'Appliquer',
+      cancel: 'Annuler'
     }
   },
   bottomMenu: {

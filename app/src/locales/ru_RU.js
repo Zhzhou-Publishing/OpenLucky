@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Копировать параметры',
       pasteParams: 'Вставить параметры',
+      applyPreset: 'Применить пресет',
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°'
+    },
+    applyPresetModal: {
+      title: 'Выберите пресет',
+      save: 'Применить',
+      cancel: 'Отмена'
     }
   },
   bottomMenu: {

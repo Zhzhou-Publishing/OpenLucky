@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Copiar parámetros',
       pasteParams: 'Pegar parámetros',
+      applyPreset: 'Aplicar preset',
       rotate: 'Rotar',
       rotateClockwise: 'Sentido horario 90°',
       rotateCounterClockwise: 'Sentido antihorario 90°'
+    },
+    applyPresetModal: {
+      title: 'Seleccionar un preset',
+      save: 'Aplicar',
+      cancel: 'Cancelar'
     }
   },
   bottomMenu: {

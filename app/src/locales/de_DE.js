@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'Parameter kopieren',
       pasteParams: 'Parameter einfügen',
+      applyPreset: 'Voreinstellung anwenden',
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°'
+    },
+    applyPresetModal: {
+      title: 'Voreinstellung auswählen',
+      save: 'Anwenden',
+      cancel: 'Abbrechen'
     }
   },
   bottomMenu: {

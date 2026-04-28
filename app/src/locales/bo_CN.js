@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'ཚད་གཞི་འདྲ་ཕབ།',
       pasteParams: 'ཚད་གཞི་སྦྱར།',
+      applyPreset: 'སྔོན་སྒྲིག་སྦྱོར།',
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°'
+    },
+    applyPresetModal: {
+      title: 'སྔོན་སྒྲིག་འདེམས།',
+      save: 'སྦྱོར།',
+      cancel: 'མེད་པ།'
     }
   },
   bottomMenu: {

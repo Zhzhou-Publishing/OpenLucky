@@ -743,6 +743,7 @@ function createWindow() {
             const config = JSON.parse(output)
             // Convert preset keys to array format for frontend
             const presets = config.presets ? Object.keys(config.presets).map(key => ({
+              ...config.presets[key],
               value: key,
               label: config.presets[key].label || key
             })) : []

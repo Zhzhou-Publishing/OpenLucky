@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: '复制参数',
       pasteParams: '粘贴参数',
+      applyPreset: '套用预设值',
       rotate: '旋转',
       rotateClockwise: '顺时针 90°',
       rotateCounterClockwise: '逆时针 90°'
+    },
+    applyPresetModal: {
+      title: '选择预设',
+      save: '套用',
+      cancel: '取消'
     }
   },
   bottomMenu: {

@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: '매개변수(媒介變數) 복사',
       pasteParams: '매개변수(媒介變數) 붙여넣기',
+      applyPreset: '프리셋 적용(適用)',
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°'
+    },
+    applyPresetModal: {
+      title: '프리셋 선택(選擇)',
+      save: '적용(適用)',
+      cancel: '취소(取消)'
     }
   },
   bottomMenu: {

@@ -51,9 +51,15 @@ export default {
     contextMenu: {
       copyParams: 'पैरामीटर कॉपी करें',
       pasteParams: 'पैरामीटर पेस्ट करें',
+      applyPreset: 'प्रीसेट लागू करें',
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°'
+    },
+    applyPresetModal: {
+      title: 'प्रीसेट चुनें',
+      save: 'लागू करें',
+      cancel: 'रद्द करें'
     }
   },
   bottomMenu: {
