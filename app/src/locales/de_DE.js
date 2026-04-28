@@ -47,7 +47,14 @@ export default {
     advancedTab: 'Korrektur der Emulsionskonzentration',
     contrastR: 'Kontrast R',
     contrastG: 'Kontrast G',
-    contrastB: 'Kontrast B'
+    contrastB: 'Kontrast B',
+    contextMenu: {
+      copyParams: 'Parameter kopieren',
+      pasteParams: 'Parameter einfügen',
+      rotate: 'Drehen',
+      rotateClockwise: 'Im Uhrzeigersinn 90°',
+      rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°'
+    }
   },
   bottomMenu: {
     preset: 'Voreinstellung:',

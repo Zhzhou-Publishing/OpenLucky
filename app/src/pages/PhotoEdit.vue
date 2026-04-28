@@ -39,17 +39,6 @@
           <div class="image-wrapper">
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
-            <!-- Rotate buttons -->
-            <div class="rotate-controls">
-              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate counter-clockwise">
-                ↺
-              </button>
-              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate clockwise">
-                ↻
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -112,6 +101,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import NumberInput from '../components/NumberInput.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
@@ -135,17 +125,18 @@ function debounce(fn, delay) {
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 const images = ref([])
 const isLoading = ref(true)
 const affectedImages = reactive(new Set())
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
-const input1 = ref(0)
-const input2 = ref(0)
-const input3 = ref(0)
-const input4 = ref(0)
-const input5 = ref(0)
+const input1 = ref(1)
+const input2 = ref(1)
+const input3 = ref(1)
+const input4 = ref(1)
+const input5 = ref(1)
 const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
@@ -187,15 +178,15 @@ function pasteParams() {
 const ctxMenuItems = computed(() => {
   const busy = isAllImagesAffected.value || isCurrentImageAffected.value
   return [
-    { label: '复制参数', action: copyParams, disabled: busy },
-    { label: '粘贴参数', action: pasteParams, disabled: busy || !paramClipboard.value },
+    { label: t('photoEdit.contextMenu.copyParams'), action: copyParams, disabled: busy },
+    { label: t('photoEdit.contextMenu.pasteParams'), action: pasteParams, disabled: busy || !paramClipboard.value },
     { type: 'separator' },
     {
-      label: '旋转',
+      label: t('photoEdit.contextMenu.rotate'),
+      disabled: busy,
       children: [
-        { label: '顺时针 90°', action: () => console.log('[ctx] rotate cw') },
-        { label: '逆时针 90°', action: () => console.log('[ctx] rotate ccw') },
-        { label: '180°', action: () => console.log('[ctx] rotate 180') }
+        { label: t('photoEdit.contextMenu.rotateClockwise'), action: rotateClockwiseBtn, disabled: busy },
+        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy }
       ]
     }
   ]
@@ -831,22 +822,22 @@ const loadPresetForCurrentImage = () => {
 
   const preset = presetsData.value[currentFileName.value]
   if (preset) {
-    input1.value = preset.mask_r || 0
-    input2.value = preset.mask_g || 0
-    input3.value = preset.mask_b || 0
-    input4.value = preset.gamma || 0
-    input5.value = preset.contrast || 0
-    contrastR.value = preset.contrast_r || 1.0
-    contrastG.value = preset.contrast_g || 1.0
-    contrastB.value = preset.contrast_b || 1.0
+    input1.value = preset.mask_r ?? 1
+    input2.value = preset.mask_g ?? 1
+    input3.value = preset.mask_b ?? 1
+    input4.value = preset.gamma ?? 1
+    input5.value = preset.contrast ?? 1
+    contrastR.value = preset.contrast_r ?? 1.0
+    contrastG.value = preset.contrast_g ?? 1.0
+    contrastB.value = preset.contrast_b ?? 1.0
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
-    input1.value = 0
-    input2.value = 0
-    input3.value = 0
-    input4.value = 0
-    input5.value = 0
+    input1.value = 1
+    input2.value = 1
+    input3.value = 1
+    input4.value = 1
+    input5.value = 1
     contrastR.value = 1.0
     contrastG.value = 1.0
     contrastB.value = 1.0
@@ -1209,46 +1200,6 @@ onUnmounted(() => {
   z-index: 10;
   animation: fadeIn 0.3s ease;
   pointer-events: none;
-}
-
-.rotate-controls {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  display: flex;
-  gap: 8px;
-  z-index: 20;
-}
-
-.rotate-button {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
-  color: #333;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
-
-.rotate-button:hover:not(:disabled) {
-  background: #42b883;
-  color: white;
-  transform: scale(1.1);
-}
-
-.rotate-button:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-.rotate-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 @keyframes fadeIn {

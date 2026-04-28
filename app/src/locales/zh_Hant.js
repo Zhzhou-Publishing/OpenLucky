@@ -47,7 +47,14 @@ export default {
     advancedTab: '乳劑濃度校正',
     contrastR: '對比度 R',
     contrastG: '對比度 G',
-    contrastB: '對比度 B'
+    contrastB: '對比度 B',
+    contextMenu: {
+      copyParams: '複製參數',
+      pasteParams: '貼上參數',
+      rotate: '旋轉',
+      rotateClockwise: '順時針 90°',
+      rotateCounterClockwise: '逆時針 90°'
+    }
   },
   bottomMenu: {
     preset: '預設：',

@@ -47,7 +47,14 @@ export default {
     advancedTab: 'इमल्शन सांद्रता सुधार',
     contrastR: 'कंट्रास्ट R',
     contrastG: 'कंट्रास्ट G',
-    contrastB: 'कंट्रास्ट B'
+    contrastB: 'कंट्रास्ट B',
+    contextMenu: {
+      copyParams: 'पैरामीटर कॉपी करें',
+      pasteParams: 'पैरामीटर पेस्ट करें',
+      rotate: 'घुमाएं',
+      rotateClockwise: 'दक्षिणावर्त 90°',
+      rotateCounterClockwise: 'वामावर्त 90°'
+    }
   },
   bottomMenu: {
     preset: 'प्रीसेट:',

@@ -47,7 +47,14 @@ export default {
     advancedTab: 'Korekcja stężenia emulsji',
     contrastR: 'Kontrast R',
     contrastG: 'Kontrast G',
-    contrastB: 'Kontrast B'
+    contrastB: 'Kontrast B',
+    contextMenu: {
+      copyParams: 'Kopiuj parametry',
+      pasteParams: 'Wklej parametry',
+      rotate: 'Obróć',
+      rotateClockwise: 'Zgodnie z ruchem wskazówek zegara 90°',
+      rotateCounterClockwise: 'Przeciwnie do ruchu wskazówek zegara 90°'
+    }
   },
   bottomMenu: {
     preset: 'Ustawienie wstępne:',

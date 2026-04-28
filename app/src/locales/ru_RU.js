@@ -47,7 +47,14 @@ export default {
     advancedTab: 'Коррекция плотности эмульсии',
     contrastR: 'Контраст R',
     contrastG: 'Контраст G',
-    contrastB: 'Контраст B'
+    contrastB: 'Контраст B',
+    contextMenu: {
+      copyParams: 'Копировать параметры',
+      pasteParams: 'Вставить параметры',
+      rotate: 'Поворот',
+      rotateClockwise: 'По часовой 90°',
+      rotateCounterClockwise: 'Против часовой 90°'
+    }
   },
   bottomMenu: {
     preset: 'Предустановка:',

@@ -47,7 +47,14 @@ export default {
     advancedTab: 'Hiệu chỉnh nồng độ nhũ tương',
     contrastR: 'Độ tương phản R',
     contrastG: 'Độ tương phản G',
-    contrastB: 'Độ tương phản B'
+    contrastB: 'Độ tương phản B',
+    contextMenu: {
+      copyParams: 'Sao chép tham số',
+      pasteParams: 'Dán tham số',
+      rotate: 'Xoay',
+      rotateClockwise: 'Theo chiều kim đồng hồ 90°',
+      rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°'
+    }
   },
   bottomMenu: {
     preset: 'Cài đặt sẵn:',

@@ -47,7 +47,14 @@ export default {
     advancedTab: 'མཐོ་རིམ་སྒྲིག་བཀོད།',
     contrastR: 'ཁྲ་གསལ་ R',
     contrastG: 'ཁྲ་གསལ་ G',
-    contrastB: 'ཁྲ་གསལ་ B'
+    contrastB: 'ཁྲ་གསལ་ B',
+    contextMenu: {
+      copyParams: 'ཚད་གཞི་འདྲ་ཕབ།',
+      pasteParams: 'ཚད་གཞི་སྦྱར།',
+      rotate: 'བསྐོར་སྐྱོད།',
+      rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
+      rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°'
+    }
   },
   bottomMenu: {
     preset: 'སྔོན་སྒྲིག:',

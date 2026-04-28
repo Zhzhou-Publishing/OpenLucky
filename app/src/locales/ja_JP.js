@@ -47,7 +47,14 @@ export default {
     advancedTab: '乳剤濃度補正',
     contrastR: 'コントラスト R',
     contrastG: 'コントラスト G',
-    contrastB: 'コントラスト B'
+    contrastB: 'コントラスト B',
+    contextMenu: {
+      copyParams: 'パラメータをコピー',
+      pasteParams: 'パラメータを貼り付け',
+      rotate: '回転',
+      rotateClockwise: '時計回り 90°',
+      rotateCounterClockwise: '反時計回り 90°'
+    }
   },
   bottomMenu: {
     preset: 'プリセット：',

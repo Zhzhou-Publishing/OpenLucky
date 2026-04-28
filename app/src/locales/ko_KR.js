@@ -47,7 +47,14 @@ export default {
     advancedTab: '유제(乳劑) 농도(濃度) 보정(補正)',
     contrastR: '대비(對比) R',
     contrastG: '대비(對比) G',
-    contrastB: '대비(對比) B'
+    contrastB: '대비(對比) B',
+    contextMenu: {
+      copyParams: '매개변수(媒介變數) 복사',
+      pasteParams: '매개변수(媒介變數) 붙여넣기',
+      rotate: '회전(回轉)',
+      rotateClockwise: '시계 방향 90°',
+      rotateCounterClockwise: '반시계 방향 90°'
+    }
   },
   bottomMenu: {
     preset: '사전 설정(設定):',

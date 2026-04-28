@@ -47,7 +47,14 @@ export default {
     advancedTab: '乳剂浓度校正',
     contrastR: '对比度 R',
     contrastG: '对比度 G',
-    contrastB: '对比度 B'
+    contrastB: '对比度 B',
+    contextMenu: {
+      copyParams: '复制参数',
+      pasteParams: '粘贴参数',
+      rotate: '旋转',
+      rotateClockwise: '顺时针 90°',
+      rotateCounterClockwise: '逆时针 90°'
+    }
   },
   bottomMenu: {
     preset: '预设:',
