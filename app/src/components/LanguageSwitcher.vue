@@ -14,6 +14,7 @@
       <option value="ja_JP">日本語</option>
       <option value="vi_VN">Tiếng Việt</option>
       <option value="hi_IN">हिन्दी</option>
+      <option value="ko_KR">한국어</option>
     </select>
   </div>
 </template>

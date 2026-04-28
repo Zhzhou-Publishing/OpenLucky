@@ -12,10 +12,11 @@ import ja_JP from '../locales/ja_JP'
 import vi_VN from '../locales/vi_VN'
 import hi_IN from '../locales/hi_IN'
 import bo_CN from '../locales/bo_CN'
+import ko_KR from '../locales/ko_KR'
 
 const SUPPORTED = [
   'zh_Hans', 'zh_Hant', 'en_US', 'fr_FR', 'de_DE', 'pl_PL',
-  'ru_RU', 'es_ES', 'pt_PT', 'ja_JP', 'vi_VN', 'hi_IN', 'bo_CN'
+  'ru_RU', 'es_ES', 'pt_PT', 'ja_JP', 'vi_VN', 'hi_IN', 'bo_CN', 'ko_KR'
 ]
 
 function detectInitialLocale() {
@@ -50,6 +51,7 @@ function detectInitialLocale() {
     if (lower.startsWith('vi')) return 'vi_VN'
     if (lower.startsWith('hi')) return 'hi_IN'
     if (lower.startsWith('bo')) return 'bo_CN'
+    if (lower.startsWith('ko')) return 'ko_KR'
   }
 
   return 'en_US'
@@ -72,7 +74,8 @@ const i18n = createI18n({
     ja_JP,
     vi_VN,
     hi_IN,
-    bo_CN
+    bo_CN,
+    ko_KR
   }
 })
 
