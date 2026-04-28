@@ -30,6 +30,10 @@
       <section class="info-section">
         <h2>{{ $t('about.language') }}</h2>
         <LanguageSwitcher />
+        <p v-if="locale === 'bo_CN'" class="locale-note">
+          རྩོམ་པ་པོ་ནས་བོད་ཡིག་ངོ་མའི་སྐད་ཡིག་པས་ཡིག་ནོར་བཅོས་འདེབས་གནང་བར་ཐུགས་སྨོན་ཞུ་ཞིང་། ཐུགས་རྗེ་ཆེ། <a class="repo-link" href="#" @click.prevent="openExternal(issuesUrl)">issue</a><br />
+          作者诚恳地希望藏语母语者帮助勘误，谨致谢意。<a class="repo-link" href="#" @click.prevent="openExternal(issuesUrl)">issue</a>
+        </p>
       </section>
     </div>
   </div>
@@ -37,11 +41,14 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
+const { locale } = useI18n()
 const version = ref(__APP_VERSION__)
 const homepageUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky'
 const licenseUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/blob/main/LICENSE'
+const issuesUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/issues'
 
 function openExternal(url) {
   if (window.require) {
@@ -95,5 +102,12 @@ h1 {
   margin-top: 6px;
   font-size: 13px;
   color: #888;
+}
+
+.locale-note {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.7;
 }
 </style>
