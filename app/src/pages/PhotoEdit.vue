@@ -2,8 +2,8 @@
   <div class="photo-edit-page">
     <div class="header">
       <button @click="goBack" class="back-button">{{ $t('photoEdit.back') }}</button>
-      <h1 class="page-title">{{ currentPageTitle }}</h1>
-      <div class="image-info">{{ currentFileName }}</div>
+      <h1 class="file-name">{{ currentFileName }}</h1>
+      <div class="directory-name">{{ currentDirectoryName }}</div>
     </div>
 
     <div v-if="isLoading" class="loading-state">
@@ -284,7 +284,7 @@ const hasUnappliedImages = computed(() => {
   return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
 })
 
-const currentPageTitle = computed(() => {
+const currentDirectoryName = computed(() => {
   if (originalDirectory.value) {
     const parts = originalDirectory.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Edit'
@@ -1048,7 +1048,7 @@ onUnmounted(() => {
   background: #35a372;
 }
 
-.page-title {
+.file-name {
   font-size: 20px;
   color: #333;
   margin: 0;
@@ -1056,7 +1056,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.image-info {
+.directory-name {
   font-size: 14px;
   color: #666;
   max-width: 300px;
