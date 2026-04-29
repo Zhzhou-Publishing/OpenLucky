@@ -53,12 +53,17 @@ export default {
       pasteParams: 'パラメータを貼り付け',
       applyPreset: 'プリセットを適用',
       pickMaskColor: 'マスクの色を取得',
+      pickWhitePointArea: 'ホワイトポイント領域を選択',
+      clearWhitePointArea: 'ホワイトポイント領域をクリア',
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°'
     },
     eyedropper: {
       exitHint: 'スポイトモード — 画像をクリックして取得、ESC でキャンセル'
+    },
+    areaSelect: {
+      exitHint: '領域選択モード — 左上から右下へドラッグして領域を選択、ESC でキャンセル'
     },
     applyPresetModal: {
       title: 'プリセットを選択',

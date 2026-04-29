@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Paste Parameters',
       applyPreset: 'Apply Preset',
       pickMaskColor: 'Pick Mask Color',
+      pickWhitePointArea: 'Select White-Point Area',
+      clearWhitePointArea: 'Clear White-Point Area',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°'
     },
     eyedropper: {
       exitHint: 'Eyedropper active — click the image to pick, press ESC to cancel'
+    },
+    areaSelect: {
+      exitHint: 'Area-select active — drag from top-left to bottom-right, press ESC to cancel'
     },
     applyPresetModal: {
       title: 'Select a Preset',

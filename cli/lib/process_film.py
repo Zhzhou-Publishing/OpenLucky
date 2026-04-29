@@ -8,7 +8,7 @@ from cli.constants.image_formats import RAW_EXTENSIONS
 import matplotlib.pyplot as plt
 
 
-def get_white_point_manual(img, roi=None, percentile=99.0, debug=True):
+def get_white_point_manual(img, roi=None, percentile=99.0, debug=False):
     """
     手动设置 ROI 进行白点采样。
 

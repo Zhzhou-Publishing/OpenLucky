@@ -35,12 +35,29 @@
       <!-- Main Content Area - Right Side -->
       <div class="main-content">
         <!-- Large Image Display -->
-        <div class="image-display" :class="{ 'eyedropper-active': eyedropperActive }" :style="{ height: imageDisplayHeight }" @contextmenu.prevent="onContextMenu">
-          <div class="image-wrapper">
-            <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" @click="onImageClick" />
+        <div class="image-display"
+             :class="{ 'eyedropper-active': eyedropperActive, 'area-select-active': areaSelectActive }"
+             :style="{ height: imageDisplayHeight }"
+             @contextmenu.prevent="onContextMenu">
+          <div class="image-wrapper" @mouseenter="onWrapperEnter" @mouseleave="onWrapperLeave">
+            <img v-if="fullResImageUrl"
+                 ref="mainImgRef"
+                 :src="fullResImageUrl"
+                 :alt="currentImage.name"
+                 class="main-image"
+                 @click="onImageClick"
+                 @mousedown="onMainImageMouseDown"
+                 @load="onMainImageLoad" />
+            <!-- 框选模式：未拖拽时整张图被半透明灰色遮罩覆盖 -->
+            <div v-if="areaSelectActive && !liveSelectionDisplayRect" class="area-mask-full"></div>
+            <!-- 框选模式：拖拽中用 box-shadow 反向"挖洞"，露出选中矩形并加红框 -->
+            <div v-else-if="areaSelectActive && liveSelectionDisplayRect" class="area-cutout" :style="liveSelectionDisplayRect"></div>
+            <!-- 非框选模式时，hover 已选过的图片显示纯红框预览 -->
+            <div v-else-if="hoveringImage && storedSelectionDisplayRect" class="area-stored-preview" :style="storedSelectionDisplayRect"></div>
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
           </div>
           <div v-if="eyedropperActive" class="eyedropper-hint">{{ $t('photoEdit.eyedropper.exitHint') }}</div>
+          <div v-if="areaSelectActive" class="area-select-hint">{{ $t('photoEdit.areaSelect.exitHint') }}</div>
         </div>
       </div>
 
@@ -169,6 +186,199 @@ const paramClipboard = ref(null)
 // 吸管模式：激活后 cursor 变十字，点击主图取色填入 mask + gamma + contrast，点完或按 ESC 自动退出。
 const eyedropperActive = ref(false)
 
+// 框选模式：激活后整张图被半透明灰色遮罩覆盖，从左上向右下拖出选区，
+// 选区内用 box-shadow 反向挖洞露出原图并加红框；松开鼠标后按文件名落入 sessionStorage，
+// 此后非框选模式下 hover 已选过的图片仅显示红框轮廓。
+const areaSelectActive = ref(false)
+const areaSelectStart = ref(null)
+const areaSelectCurrent = ref(null)
+const hoveringImage = ref(false)
+const mainImgRef = ref(null)
+const currentImageNaturalDims = ref(null)
+const areaSelectionsByName = ref({})
+
+const AREA_SESSION_STORAGE_KEY = 'photoEditAreaSelections'
+
+function loadAreaSelections() {
+  try {
+    return JSON.parse(sessionStorage.getItem(AREA_SESSION_STORAGE_KEY) || '{}')
+  } catch (err) {
+    console.error('Failed to load area selections:', err)
+    return {}
+  }
+}
+
+// reactive 嵌套对象不能直接走 Electron structured clone（会被静默丢包），
+// 这里做一次手动展开，把四个整数复制到一个全新的 plain object 里。
+function unwrapArea(stored) {
+  if (!stored) return null
+  return {
+    x1: stored.x1,
+    y1: stored.y1,
+    x2: stored.x2,
+    y2: stored.y2,
+  }
+}
+
+function persistAreaSelections() {
+  try {
+    sessionStorage.setItem(AREA_SESSION_STORAGE_KEY, JSON.stringify(areaSelectionsByName.value))
+  } catch (err) {
+    console.error('Failed to persist area selections:', err)
+  }
+}
+
+function startAreaSelect() {
+  if (!currentImage.value || !fullResImageUrl.value) return
+  if (isAllImagesAffected.value || isCurrentImageAffected.value) return
+  if (eyedropperActive.value) eyedropperActive.value = false
+  areaSelectStart.value = null
+  areaSelectCurrent.value = null
+  areaSelectActive.value = true
+}
+
+function exitAreaSelect() {
+  areaSelectActive.value = false
+  areaSelectStart.value = null
+  areaSelectCurrent.value = null
+  window.removeEventListener('mousemove', onAreaMouseMoveWindow)
+  window.removeEventListener('mouseup', onAreaMouseUpWindow)
+}
+
+function clearAreaSelectionForCurrent() {
+  if (!currentImage.value) return
+  const next = { ...areaSelectionsByName.value }
+  delete next[currentImage.value.name]
+  areaSelectionsByName.value = next
+  persistAreaSelections()
+}
+
+function getMainImgRect() {
+  const img = mainImgRef.value
+  if (!img) return null
+  return img.getBoundingClientRect()
+}
+
+function onMainImageLoad(e) {
+  currentImageNaturalDims.value = {
+    w: e.target.naturalWidth,
+    h: e.target.naturalHeight,
+  }
+}
+
+function onWrapperEnter() {
+  hoveringImage.value = true
+}
+
+function onWrapperLeave() {
+  hoveringImage.value = false
+}
+
+function onMainImageMouseDown(e) {
+  if (eyedropperActive.value) return
+  if (!areaSelectActive.value) return
+  if (e.button !== 0) return
+  e.preventDefault()
+  const rect = getMainImgRect()
+  if (!rect || rect.width === 0 || rect.height === 0) return
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+  areaSelectStart.value = { x, y }
+  areaSelectCurrent.value = { x, y }
+  // mousemove / mouseup 走 window，避免拖出图片边界后失联
+  window.addEventListener('mousemove', onAreaMouseMoveWindow)
+  window.addEventListener('mouseup', onAreaMouseUpWindow)
+}
+
+function onAreaMouseMoveWindow(e) {
+  if (!areaSelectActive.value || !areaSelectStart.value) return
+  const rect = getMainImgRect()
+  if (!rect) return
+  const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left))
+  const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top))
+  areaSelectCurrent.value = { x, y }
+}
+
+function onAreaMouseUpWindow(e) {
+  window.removeEventListener('mousemove', onAreaMouseMoveWindow)
+  window.removeEventListener('mouseup', onAreaMouseUpWindow)
+  if (!areaSelectActive.value || !areaSelectStart.value) return
+
+  const rect = getMainImgRect()
+  const dims = currentImageNaturalDims.value
+  if (!rect || !dims || rect.width === 0 || rect.height === 0) {
+    exitAreaSelect()
+    return
+  }
+
+  const sx = areaSelectStart.value.x
+  const sy = areaSelectStart.value.y
+  const cx = areaSelectCurrent.value.x
+  const cy = areaSelectCurrent.value.y
+  const dx1 = Math.min(sx, cx)
+  const dy1 = Math.min(sy, cy)
+  const dx2 = Math.max(sx, cx)
+  const dy2 = Math.max(sy, cy)
+  if (dx2 - dx1 < 2 || dy2 - dy1 < 2) {
+    exitAreaSelect()
+    return
+  }
+
+  // 显示像素 → 自然像素，落到存储里都是真实像素坐标
+  const x1 = Math.max(0, Math.min(dims.w - 1, Math.round(dx1 * dims.w / rect.width)))
+  const y1 = Math.max(0, Math.min(dims.h - 1, Math.round(dy1 * dims.h / rect.height)))
+  const x2 = Math.max(0, Math.min(dims.w, Math.round(dx2 * dims.w / rect.width)))
+  const y2 = Math.max(0, Math.min(dims.h, Math.round(dy2 * dims.h / rect.height)))
+  if (x2 <= x1 || y2 <= y1) {
+    exitAreaSelect()
+    return
+  }
+
+  if (currentImage.value) {
+    areaSelectionsByName.value = {
+      ...areaSelectionsByName.value,
+      [currentImage.value.name]: { x1, y1, x2, y2 },
+    }
+    persistAreaSelections()
+  }
+  exitAreaSelect()
+}
+
+const liveSelectionDisplayRect = computed(() => {
+  if (!areaSelectActive.value) return null
+  const s = areaSelectStart.value
+  const c = areaSelectCurrent.value
+  if (!s || !c) return null
+  const left = Math.min(s.x, c.x)
+  const top = Math.min(s.y, c.y)
+  const width = Math.abs(c.x - s.x)
+  const height = Math.abs(c.y - s.y)
+  if (width < 2 || height < 2) return null
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+  }
+})
+
+const storedSelectionForCurrent = computed(() => {
+  if (!currentImage.value) return null
+  return areaSelectionsByName.value[currentImage.value.name] || null
+})
+
+const storedSelectionDisplayRect = computed(() => {
+  const stored = storedSelectionForCurrent.value
+  const dims = currentImageNaturalDims.value
+  if (!stored || !dims || !dims.w || !dims.h) return null
+  return {
+    left: `${(stored.x1 / dims.w) * 100}%`,
+    top: `${(stored.y1 / dims.h) * 100}%`,
+    width: `${((stored.x2 - stored.x1) / dims.w) * 100}%`,
+    height: `${((stored.y2 - stored.y1) / dims.h) * 100}%`,
+  }
+})
+
 function startEyedropper() {
   if (!currentImage.value || !fullResImageUrl.value) return
   if (isAllImagesAffected.value || isCurrentImageAffected.value) return
@@ -283,6 +493,8 @@ const ctxMenuItems = computed(() => {
     { label: t('photoEdit.contextMenu.pasteParams'), action: pasteParams, disabled: busy || !paramClipboard.value },
     { label: t('photoEdit.contextMenu.applyPreset'), action: openPresetModal, disabled: busy || globalPresets.value.length === 0 },
     { label: t('photoEdit.contextMenu.pickMaskColor'), action: startEyedropper, disabled: busy || !currentImage.value || !fullResImageUrl.value },
+    { label: t('photoEdit.contextMenu.pickWhitePointArea'), action: startAreaSelect, disabled: busy || !currentImage.value || !fullResImageUrl.value },
+    { label: t('photoEdit.contextMenu.clearWhitePointArea'), action: clearAreaSelectionForCurrent, disabled: busy || !storedSelectionForCurrent.value },
     { type: 'separator' },
     {
       label: t('photoEdit.contextMenu.rotate'),
@@ -497,12 +709,16 @@ const apply = () => {
     affectedImages.add(imageName)
 
     // Send request to main process
+    // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
+    // IPC 包根本到不了主进程。
+    const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
     ipcRenderer.send('apply-filmparam', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
       params: params,
-      rotateClockwise: currentRotateClockwise.value
+      rotateClockwise: currentRotateClockwise.value,
+      area: areaForIpc
     })
 
     // Handle response
@@ -578,12 +794,16 @@ const applyPreview = () => {
     affectedImages.add(imageName)
 
     // Send request to main process
+    // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
+    // IPC 包根本到不了主进程。
+    const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
     ipcRenderer.send('apply-filmparam', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
       params: params,
-      rotateClockwise: currentRotateClockwise.value
+      rotateClockwise: currentRotateClockwise.value,
+      area: areaForIpc
     })
 
     // Handle response
@@ -661,11 +881,15 @@ const applyAll = () => {
     ipcRenderer.removeAllListeners('filmparambatch-apply-error')
 
     // Send request to main process
+    // applyAll 走 filmparambatch，CLI 只能接一个 --area，这里复用当前图片的选区作为整批的取样窗口；
+    // 其它图各自的选区暂不生效（saveAll 那条原图通路里再统一处理）。
+    const areaForIpc = currentImage.value ? unwrapArea(areaSelectionsByName.value[currentImage.value.name]) : null
     ipcRenderer.send('apply-filmparambatch', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       params: params,
-      rotateClockwise: currentRotateClockwise.value
+      rotateClockwise: currentRotateClockwise.value,
+      area: areaForIpc
     })
 
     // Handle response
@@ -856,6 +1080,12 @@ function handleKeydown(event) {
     return
   }
 
+  if (event.key === 'Escape' && areaSelectActive.value) {
+    event.preventDefault()
+    exitAreaSelect()
+    return
+  }
+
   // Check if this is one of our navigation shortcuts
   const isNavigationShortcut = (event.key === 'ArrowUp' && event.ctrlKey) ||
     (event.key === 'ArrowDown' && event.ctrlKey) ||
@@ -1009,6 +1239,10 @@ const loadPresetForCurrentImage = () => {
 }
 
 watch(currentIndex, () => {
+  // 切图时强制退出框选模式，避免选区跨图错位；naturalDims 也清掉等新图 onload 重置
+  if (areaSelectActive.value) exitAreaSelect()
+  currentImageNaturalDims.value = null
+
   // Get current image dimensions before switching
   const img = new Image()
   img.onload = () => {
@@ -1093,6 +1327,7 @@ watch(operationAreaRef, (el) => {
 onMounted(() => {
   loadImages()
   loadPresets()
+  areaSelectionsByName.value = loadAreaSelections()
   window.addEventListener('keydown', handleKeydown)
   // ResizeObserver 不可用的兜底：监听窗口尺寸变化。
   if (typeof ResizeObserver === 'undefined') {
@@ -1103,6 +1338,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
+  // 防御：组件卸载时清掉拖拽期间挂在 window 上的临时监听器
+  window.removeEventListener('mousemove', onAreaMouseMoveWindow)
+  window.removeEventListener('mouseup', onAreaMouseUpWindow)
   if (operationAreaResizeObserver) {
     operationAreaResizeObserver.disconnect()
     operationAreaResizeObserver = null
@@ -1334,11 +1572,40 @@ onUnmounted(() => {
 }
 
 .image-display.eyedropper-active,
-.image-display.eyedropper-active .main-image {
+.image-display.eyedropper-active .main-image,
+.image-display.area-select-active,
+.image-display.area-select-active .main-image {
   cursor: crosshair;
 }
 
-.eyedropper-hint {
+.area-mask-full {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.area-cutout {
+  position: absolute;
+  border: 2px solid #ff0000;
+  box-sizing: border-box;
+  pointer-events: none;
+  /* 用 9999px 的 spread shadow 反向生成"挖洞"效果，外层 .image-wrapper overflow:hidden 会把它裁到图片边界 */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+
+.area-stored-preview {
+  position: absolute;
+  border: 2px solid #ff0000;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.eyedropper-hint,
+.area-select-hint {
   position: absolute;
   top: 16px;
   left: 50%;
@@ -1360,6 +1627,7 @@ onUnmounted(() => {
   display: inline-block;
   max-width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .main-image {

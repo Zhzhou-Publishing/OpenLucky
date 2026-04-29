@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Coller les paramètres',
       applyPreset: 'Appliquer un préréglage',
       pickMaskColor: 'Prélever la couleur du masque',
+      pickWhitePointArea: 'Sélectionner la zone du point blanc',
+      clearWhitePointArea: 'Effacer la zone du point blanc',
       rotate: 'Rotation',
       rotateClockwise: 'Sens horaire 90°',
       rotateCounterClockwise: 'Sens antihoraire 90°'
     },
     eyedropper: {
       exitHint: 'Pipette active — cliquez sur l\'image pour prélever, ÉCHAP pour annuler'
+    },
+    areaSelect: {
+      exitHint: 'Sélection de zone active — glissez du haut-gauche au bas-droit, ÉCHAP pour annuler'
     },
     applyPresetModal: {
       title: 'Sélectionner un préréglage',

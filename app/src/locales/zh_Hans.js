@@ -53,12 +53,17 @@ export default {
       pasteParams: '粘贴参数',
       applyPreset: '套用预设值',
       pickMaskColor: '吸取色罩颜色',
+      pickWhitePointArea: '框选白点采样区',
+      clearWhitePointArea: '清除白点采样区',
       rotate: '旋转',
       rotateClockwise: '顺时针 90°',
       rotateCounterClockwise: '逆时针 90°'
     },
     eyedropper: {
       exitHint: '吸管模式已激活，点击图片完成取色，按 ESC 退出'
+    },
+    areaSelect: {
+      exitHint: '框选模式已激活，按住鼠标从左上向右下拖出区域，按 ESC 取消'
     },
     applyPresetModal: {
       title: '选择预设',

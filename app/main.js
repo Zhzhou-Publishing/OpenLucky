@@ -1181,7 +1181,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0 }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -1192,6 +1192,9 @@ function createWindow() {
       // Construct the command
       const command = getOpenLuckyPath()
       const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+      }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
@@ -1276,11 +1279,14 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0 }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null }) => {
     try {
       // Construct the command
       const command = getOpenLuckyPath()
       const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+      }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })

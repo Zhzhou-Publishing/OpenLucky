@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Dán tham số',
       applyPreset: 'Áp dụng preset',
       pickMaskColor: 'Lấy màu mặt nạ',
+      pickWhitePointArea: 'Chọn vùng điểm trắng',
+      clearWhitePointArea: 'Xóa vùng điểm trắng',
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°'
     },
     eyedropper: {
       exitHint: 'Đang ở chế độ ống hút màu — bấm vào ảnh để lấy, nhấn ESC để hủy'
+    },
+    areaSelect: {
+      exitHint: 'Chế độ chọn vùng đang bật — kéo từ trên-trái xuống dưới-phải, nhấn ESC để hủy'
     },
     applyPresetModal: {
       title: 'Chọn preset',

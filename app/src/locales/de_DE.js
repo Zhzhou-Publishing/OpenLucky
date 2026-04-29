@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Parameter einfügen',
       applyPreset: 'Voreinstellung anwenden',
       pickMaskColor: 'Maskenfarbe aufnehmen',
+      pickWhitePointArea: 'Weißpunkt-Bereich auswählen',
+      clearWhitePointArea: 'Weißpunkt-Bereich löschen',
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°'
     },
     eyedropper: {
       exitHint: 'Pipette aktiv — Bild anklicken zum Aufnehmen, ESC zum Abbrechen'
+    },
+    areaSelect: {
+      exitHint: 'Bereichsauswahl aktiv — von oben-links nach unten-rechts ziehen, ESC zum Abbrechen'
     },
     applyPresetModal: {
       title: 'Voreinstellung auswählen',

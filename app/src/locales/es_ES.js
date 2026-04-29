@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Pegar parámetros',
       applyPreset: 'Aplicar preset',
       pickMaskColor: 'Tomar color de la máscara',
+      pickWhitePointArea: 'Seleccionar área de punto blanco',
+      clearWhitePointArea: 'Borrar área de punto blanco',
       rotate: 'Rotar',
       rotateClockwise: 'Sentido horario 90°',
       rotateCounterClockwise: 'Sentido antihorario 90°'
     },
     eyedropper: {
       exitHint: 'Cuentagotas activo — haz clic en la imagen para elegir, ESC para cancelar'
+    },
+    areaSelect: {
+      exitHint: 'Selección de área activa — arrastra desde arriba-izquierda hasta abajo-derecha, ESC para cancelar'
     },
     applyPresetModal: {
       title: 'Seleccionar un preset',

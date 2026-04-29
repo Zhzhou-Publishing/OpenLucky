@@ -53,12 +53,17 @@ export default {
       pasteParams: '매개변수(媒介變數) 붙여넣기',
       applyPreset: '프리셋 적용(適用)',
       pickMaskColor: '마스크 색상(色相) 추출(抽出)',
+      pickWhitePointArea: '화이트 포인트 영역(領域) 선택(選擇)',
+      clearWhitePointArea: '화이트 포인트 영역(領域) 지우기',
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°'
     },
     eyedropper: {
       exitHint: '스포이트 활성(活性) — 이미지를 클릭(click)하여 추출(抽出), ESC로 취소(取消)'
+    },
+    areaSelect: {
+      exitHint: '영역(領域) 선택(選擇) 활성(活性) — 좌상단(左上端)에서 우하단(右下端)으로 드래그, ESC로 취소(取消)'
     },
     applyPresetModal: {
       title: '프리셋 선택(選擇)',

@@ -53,12 +53,17 @@ export default {
       pasteParams: 'पैरामीटर पेस्ट करें',
       applyPreset: 'प्रीसेट लागू करें',
       pickMaskColor: 'मास्क रंग चुनें',
+      pickWhitePointArea: 'व्हाइट पॉइंट क्षेत्र चुनें',
+      clearWhitePointArea: 'व्हाइट पॉइंट क्षेत्र साफ़ करें',
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°'
     },
     eyedropper: {
       exitHint: 'ड्रॉपर सक्रिय — रंग चुनने के लिए छवि पर क्लिक करें, बाहर निकलने के लिए ESC दबाएं'
+    },
+    areaSelect: {
+      exitHint: 'क्षेत्र चयन सक्रिय — ऊपर-बाएं से नीचे-दाएं तक खींचें, रद्द करने के लिए ESC दबाएं'
     },
     applyPresetModal: {
       title: 'प्रीसेट चुनें',

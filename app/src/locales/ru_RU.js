@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Вставить параметры',
       applyPreset: 'Применить пресет',
       pickMaskColor: 'Взять цвет маски',
+      pickWhitePointArea: 'Выбрать область белой точки',
+      clearWhitePointArea: 'Очистить область белой точки',
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°'
     },
     eyedropper: {
       exitHint: 'Пипетка активна — кликните по изображению, ESC для отмены'
+    },
+    areaSelect: {
+      exitHint: 'Выбор области активен — перетащите от верхнего-левого к нижнему-правому углу, ESC для отмены'
     },
     applyPresetModal: {
       title: 'Выберите пресет',

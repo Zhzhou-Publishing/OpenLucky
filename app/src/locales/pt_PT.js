@@ -53,12 +53,17 @@ export default {
       pasteParams: 'Colar parâmetros',
       applyPreset: 'Aplicar predefinição',
       pickMaskColor: 'Escolher cor da máscara',
+      pickWhitePointArea: 'Selecionar área do ponto branco',
+      clearWhitePointArea: 'Limpar área do ponto branco',
       rotate: 'Rodar',
       rotateClockwise: 'Sentido horário 90°',
       rotateCounterClockwise: 'Sentido anti-horário 90°'
     },
     eyedropper: {
       exitHint: 'Conta-gotas ativo — clique na imagem para escolher, ESC para cancelar'
+    },
+    areaSelect: {
+      exitHint: 'Seleção de área ativa — arraste do canto superior-esquerdo ao inferior-direito, ESC para cancelar'
     },
     applyPresetModal: {
       title: 'Selecionar uma predefinição',
