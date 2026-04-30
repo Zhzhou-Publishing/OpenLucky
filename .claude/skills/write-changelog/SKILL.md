@@ -1,3 +1,8 @@
+---
+description: 比对当前分支与 main，写入用户友好的中英文 changelog，提交并打开 PR 页面
+disable-model-invocation: true
+---
+
 前提1：仅在用户在非 main 分支下、且当前分支已完全提交时，才执行这个 skill。
 前提2：如果 OpenLucky.iss 中的版本号与 app/package.json 的版本号不一致，请弹出警告告知用户并退出此 skill。
 

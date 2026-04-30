@@ -1,3 +1,8 @@
+---
+description: 在 main 分支基于 app/package.json 的版本创建并推送 tag，结束后切回原分支
+disable-model-invocation: true
+---
+
 1. 当前分支如果不是 main 分支，则先记录当前分支，然后切换到 main 分支。
 2. 更新 main 分支到最新版本。
 3. 查询 app/package.json 的 version 字段，询问用户是否使用这个值创建 tag，或者用户再重新输入一个值。注意如果 version 字段没有 v 前缀，请加上再将其当作 tag。

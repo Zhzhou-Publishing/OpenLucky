@@ -10,8 +10,14 @@ build/
 # Build Installer
 *Setup.exe
 
-# Claude Code
-.claude/
+# Claude Code: ignore all of .claude/ by default, but allow-list the
+# parts meant to be shared with the team (skills, slash commands,
+# project-wide settings). Personal overrides like settings.local.json
+# and any caches/state stay ignored.
+.claude/*
+!.claude/skills/
+!.claude/commands/
+!.claude/settings.json
 
 # Python
 __pycache__/
