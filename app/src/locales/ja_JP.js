@@ -45,6 +45,7 @@ export default {
     applyAll: 'すべてに適用',
     basicTab: '基本設定',
     advancedTab: '乳剤濃度補正',
+    exposureTab: '露出',
     contrastR: 'コントラスト R',
     contrastG: 'コントラスト G',
     contrastB: 'コントラスト B',

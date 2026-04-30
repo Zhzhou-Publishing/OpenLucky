@@ -1181,7 +1181,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -1199,6 +1199,9 @@ function createWindow() {
         if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
           args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
         }
+      }
+      if (typeof exposure === 'number' && Number.isFinite(exposure)) {
+        args.push('--exposure', exposure.toString())
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1284,7 +1287,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null }) => {
     try {
       // Construct the command
       const command = getOpenLuckyPath()
@@ -1294,6 +1297,9 @@ function createWindow() {
         if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
           args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
         }
+      }
+      if (typeof exposure === 'number' && Number.isFinite(exposure)) {
+        args.push('--exposure', exposure.toString())
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1558,6 +1564,10 @@ function createWindow() {
                 && presetBasis.w > 0 && presetBasis.h > 0) {
               args.push('--area-basis', `${presetBasis.w},${presetBasis.h}`)
             }
+          }
+          const presetExposure = presetParams.exposure_ev
+          if (typeof presetExposure === 'number' && Number.isFinite(presetExposure)) {
+            args.push('--exposure', presetExposure.toString())
           }
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

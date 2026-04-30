@@ -45,6 +45,7 @@ export default {
     applyAll: '全部應用',
     basicTab: '基礎參數',
     advancedTab: '乳劑濃度校正',
+    exposureTab: '曝光',
     contrastR: '對比度 R',
     contrastG: '對比度 G',
     contrastB: '對比度 B',

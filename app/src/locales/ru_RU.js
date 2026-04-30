@@ -45,6 +45,7 @@ export default {
     applyAll: 'Применить ко всем',
     basicTab: 'Основные параметры',
     advancedTab: 'Коррекция плотности эмульсии',
+    exposureTab: 'Экспозиция',
     contrastR: 'Контраст R',
     contrastG: 'Контраст G',
     contrastB: 'Контраст B',

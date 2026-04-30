@@ -45,6 +45,7 @@ export default {
     applyAll: 'Áp dụng tất cả',
     basicTab: 'Tham số cơ bản',
     advancedTab: 'Hiệu chỉnh nồng độ nhũ tương',
+    exposureTab: 'Phơi sáng',
     contrastR: 'Độ tương phản R',
     contrastG: 'Độ tương phản G',
     contrastB: 'Độ tương phản B',

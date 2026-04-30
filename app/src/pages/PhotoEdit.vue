@@ -65,7 +65,8 @@
       <div ref="operationAreaRef" class="operation-area">
         <Tabs :tabs="[
           { id: 'basic', label: $t('photoEdit.basicTab') },
-          { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') }
+          { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
+          { id: 'exposure', label: $t('photoEdit.exposureTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
             <!-- Basic Parameters Tab -->
@@ -97,6 +98,17 @@
                 :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
               <NumberInput :label="$t('photoEdit.contrastB')" v-model="contrastB" :max="2" :min="0.5" :step-value="0.01"
                 :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+            </div>
+
+            <!-- Exposure Tab -->
+            <div v-if="activeTab === 'exposure'" class="tab-content exposure-tab">
+              <div class="exposure-slider">
+                <Slider v-model="exposure" :min="-3.0" :max="3.0" :step="0.1"
+                  :disabled="isAllImagesAffected || isCurrentImageAffected" />
+              </div>
+              <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
+                :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
             </div>
 
             <!-- Common Action Buttons -->
@@ -134,6 +146,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NumberInput from '../components/NumberInput.vue'
+import Slider from '../components/Slider.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
 import ContextMenu from '../components/ContextMenu.vue'
@@ -173,6 +186,7 @@ const input5 = ref(1)
 const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
+const exposure = ref(0)
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
 const operationAreaRef = ref(null)
@@ -776,7 +790,8 @@ const apply = () => {
       params: params,
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
-      areaBasis: areaBasisForIpc
+      areaBasis: areaBasisForIpc,
+      exposure: exposure.value
     })
 
     // Handle response
@@ -863,7 +878,8 @@ const applyPreview = () => {
       params: params,
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
-      areaBasis: areaBasisForIpc
+      areaBasis: areaBasisForIpc,
+      exposure: exposure.value
     })
 
     // Handle response
@@ -951,7 +967,8 @@ const applyAll = () => {
       params: params,
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
-      areaBasis: areaBasisForIpc
+      areaBasis: areaBasisForIpc,
+      exposure: exposure.value
     })
 
     // Handle response
@@ -1763,6 +1780,16 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   padding: 4px 8px;
+}
+
+.tab-content.exposure-tab {
+  gap: 16px;
+}
+
+.exposure-slider {
+  flex: 1;
+  max-width: 480px;
+  min-width: 200px;
 }
 
 .action-buttons {

@@ -173,6 +173,11 @@ def main():
                              help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
     film_parser.add_argument('--area', '-a', required=False, default=None,
                              help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    film_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                             choices=['3ev', '5ev', '7ev'],
+                             help='Exposure curve mode (default: 3ev)')
+    film_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                             help='Exposure compensation in EV (default: 0.0)')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -185,6 +190,11 @@ def main():
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
     filmbatch_parser.add_argument('--area', '-a', required=False, default=None,
                                    help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmbatch_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                   choices=['3ev', '5ev', '7ev'],
+                                   help='Exposure curve mode (default: 3ev)')
+    filmbatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                   help='Exposure compensation in EV (default: 0.0)')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -198,6 +208,11 @@ def main():
                                    help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
     filmparam_parser.add_argument('--area-basis', '-b', required=False, default=None,
                                    help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
+    filmparam_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                   choices=['3ev', '5ev', '7ev'],
+                                   help='Exposure curve mode (default: 3ev)')
+    filmparam_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                   help='Exposure compensation in EV (default: 0.0)')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -211,6 +226,11 @@ def main():
                                          help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
     filmparambatch_parser.add_argument('--area-basis', '-b', required=False, default=None,
                                          help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
+    filmparambatch_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                         choices=['3ev', '5ev', '7ev'],
+                                         help='Exposure curve mode (default: 3ev)')
+    filmparambatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                         help='Exposure compensation in EV (default: 0.0)')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -375,6 +395,8 @@ def main():
             wp_roi_y1=roi[1] if roi else None,
             wp_roi_x2=roi[2] if roi else None,
             wp_roi_y2=roi[3] if roi else None,
+            exposure_ev_mode=args.exposure_mode,
+            exposure_ev=args.exposure,
             is_raw=is_raw
         )
 
@@ -500,6 +522,8 @@ def main():
                     wp_roi_y1=roi[1] if roi else None,
                     wp_roi_x2=roi[2] if roi else None,
                     wp_roi_y2=roi[3] if roi else None,
+                    exposure_ev_mode=args.exposure_mode,
+                    exposure_ev=args.exposure,
                 )
 
 
@@ -620,6 +644,8 @@ def main():
             wp_roi_y2=roi[3] if roi else None,
             area_basis_w=area_basis[0] if area_basis else None,
             area_basis_h=area_basis[1] if area_basis else None,
+            exposure_ev_mode=args.exposure_mode,
+            exposure_ev=args.exposure,
             is_raw=is_raw
         )
 
@@ -652,7 +678,9 @@ def main():
             "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
-            'rotate_clockwise': args.rotate_clockwise
+            'rotate_clockwise': args.rotate_clockwise,
+            'exposure_ev_mode': args.exposure_mode,
+            'exposure_ev': args.exposure,
         }
         # Persist white-point ROI + basis so a later batch save against the
         # original full-res file can replay the same sampling window.
@@ -741,7 +769,9 @@ def main():
             "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
-            'rotate_clockwise': args.rotate_clockwise
+            'rotate_clockwise': args.rotate_clockwise,
+            'exposure_ev_mode': args.exposure_mode,
+            'exposure_ev': args.exposure,
         }
         # Persist ROI + basis alongside the per-file preset so a later
         # batch save against the original full-res file can replay sampling.
@@ -781,6 +811,8 @@ def main():
                     wp_roi_y2=roi[3] if roi else None,
                     area_basis_w=area_basis[0] if area_basis else None,
                     area_basis_h=area_basis[1] if area_basis else None,
+                    exposure_ev_mode=args.exposure_mode,
+                    exposure_ev=args.exposure,
                 )
                 success_count += 1
 

@@ -45,6 +45,7 @@ export default {
     applyAll: 'ཡོད་ཚད་ལ་སྦྱོར།',
     basicTab: 'གཞི་རྩའི་ཚད།',
     advancedTab: 'མཐོ་རིམ་སྒྲིག་བཀོད།',
+    exposureTab: 'འོད་ཕོག།',
     contrastR: 'ཁྲ་གསལ་ R',
     contrastG: 'ཁྲ་གསལ་ G',
     contrastB: 'ཁྲ་གསལ་ B',

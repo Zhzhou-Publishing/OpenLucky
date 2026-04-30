@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
+from cli.lib.exposure import apply_exposure_3ev, apply_exposure_5ev, apply_exposure_7ev
 
 
 def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
@@ -116,6 +117,8 @@ def process_film_bytestream_with_params(
     area_basis_w=None,
     area_basis_h=None,
     white_balance="auto",
+    exposure_ev_mode="3ev",
+    exposure_ev=0.0,
     is_raw=False,
 ):
     """
@@ -177,8 +180,10 @@ def process_film_bytestream_with_params(
     # frame before sampling. Without basis we fall back to interpreting the
     # ROI as already in actual coords (legacy CLI behavior).
     roi_complete = (
-        wp_roi_x1 is not None and wp_roi_y1 is not None
-        and wp_roi_x2 is not None and wp_roi_y2 is not None
+        wp_roi_x1 is not None
+        and wp_roi_y1 is not None
+        and wp_roi_x2 is not None
+        and wp_roi_y2 is not None
     )
     if roi_complete and area_basis_w and area_basis_h:
         h_actual, w_actual = img.shape[:2]
@@ -207,37 +212,45 @@ def process_film_bytestream_with_params(
     # --- 3.2 白平衡与偏移逻辑 ---
     # 默认：no 白平衡 (仅拉满曝光，不改变比例)
     scaling_factor = np.max(white_point_vec)
-    gains = np.array([1.0/scaling_factor] * 3)
+    gains = np.array([1.0 / scaling_factor] * 3)
 
     if white_balance != "no":
         # 首先执行自动白平衡 (AWB) 的基础增益
         # 让 RGB 比例强制回归 1:1:1
         awb_gains = 1.0 / (white_point_vec + 1e-6)
-        
+
         if white_balance == "auto":
             gains = awb_gains
         elif isinstance(white_balance, (list, tuple)):
             # 处理 x, y 偏移逻辑
-            off_x, off_y = white_balance # 输入范围 [-50, 50]
-            
+            off_x, off_y = white_balance  # 输入范围 [-50, 50]
+
             # 将 50 映射为 0.5 (即 50% 的增益偏移)
             shift_x = off_x / 100.0
             shift_y = off_y / 100.0
-            
+
             # 应用偏移
-            gains[0] = awb_gains[0] * (1.0 + shift_x) # 红
-            gains[2] = awb_gains[2] * (1.0 - shift_x) # 蓝
-            gains[1] = awb_gains[1] * (1.0 + shift_y) # 绿
-            
+            gains[0] = awb_gains[0] * (1.0 + shift_x)  # 红
+            gains[2] = awb_gains[2] * (1.0 - shift_x)  # 蓝
+            gains[1] = awb_gains[1] * (1.0 + shift_y)  # 绿
+
     # --- 3.3 再次归一化 (防溢出) ---
     # 无论怎么调，确保最亮的那个通道在应用增益后刚好是 1.0
     # 这样可以维持曝光稳定，只改色调
     max_after_wb = np.max(white_point_vec * gains)
-    gains /= (max_after_wb + 1e-6)
+    gains /= max_after_wb + 1e-6
 
     # 应用增益
     img *= gains
     img = np.clip(img, 0, 1.0)
+
+    # 调整曝光
+    if exposure_ev_mode == "3ev":
+        img = apply_exposure_3ev(img, ev=exposure_ev)
+    elif exposure_ev_mode == "5ev":
+        img = apply_exposure_5ev(img, ev=exposure_ev)
+    elif exposure_ev_mode == "7ev":
+        img = apply_exposure_7ev(img, ev=exposure_ev)
 
     # 4. Gamma correction
     # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
@@ -307,6 +320,8 @@ def process_film_with_params(
     area_basis_w=None,
     area_basis_h=None,
     white_balance="auto",
+    exposure_ev_mode="3ev",
+    exposure_ev=0.0,
 ):
     # 1. Read input file as byte stream
     try:
@@ -339,6 +354,8 @@ def process_film_with_params(
         area_basis_w=area_basis_w,
         area_basis_h=area_basis_h,
         white_balance=white_balance,
+        exposure_ev_mode=exposure_ev_mode,
+        exposure_ev=exposure_ev,
     )
 
     # 3. Write output byte stream to file

@@ -45,6 +45,7 @@ export default {
     applyAll: 'सभी पर लागू करें',
     basicTab: 'मूलभूत पैरामीटर',
     advancedTab: 'इमल्शन सांद्रता सुधार',
+    exposureTab: 'एक्सपोज़र',
     contrastR: 'कंट्रास्ट R',
     contrastG: 'कंट्रास्ट G',
     contrastB: 'कंट्रास्ट B',

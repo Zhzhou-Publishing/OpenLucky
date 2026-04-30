@@ -45,6 +45,7 @@ export default {
     applyAll: 'Tout appliquer',
     basicTab: 'Paramètres de base',
     advancedTab: 'Correction de la concentration de l\'émulsion',
+    exposureTab: 'Exposition',
     contrastR: 'Contraste R',
     contrastG: 'Contraste G',
     contrastB: 'Contraste B',

@@ -45,6 +45,7 @@ export default {
     applyAll: '모두에 적용(適用)',
     basicTab: '기본 매개변수(媒介變數)',
     advancedTab: '유제(乳劑) 농도(濃度) 보정(補正)',
+    exposureTab: '노출(露出)',
     contrastR: '대비(對比) R',
     contrastG: '대비(對比) G',
     contrastB: '대비(對比) B',
