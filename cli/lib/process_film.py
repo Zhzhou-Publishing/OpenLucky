@@ -1,9 +1,65 @@
 import io
+import math
 import rawpy
 import numpy as np
 import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
+
+
+def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
+    """Map a basis-frame ROI back to the actual decoded image's coords.
+
+    The UI captures the ROI on a working-dir preview that is resized AND
+    already rotated. CLI reads the un-rotated original at full resolution,
+    so the ROI must be (a) un-rotated within the basis frame, then
+    (b) scaled to the actual image dims, before sampling.
+
+    roi: (x1, y1, x2, y2) in the basis frame.
+    basis_wh: (Wb, Hb) of the basis frame (post-rotation dims).
+    rotate_clockwise: 0/90/180/270, the rotation that produced the basis frame.
+    actual_wh: (W_actual, H_actual) of the un-rotated decoded image.
+
+    Returns an integer (x1, y1, x2, y2) clipped to actual image bounds and
+    guaranteed to satisfy x2>x1, y2>y1.
+    """
+    Wb, Hb = basis_wh
+    x1, y1, x2, y2 = roi
+
+    # Step 1: un-rotate inside the basis frame. Closed-form per angle.
+    if rotate_clockwise == 0:
+        Wu, Hu = Wb, Hb
+        ux1, uy1, ux2, uy2 = x1, y1, x2, y2
+    elif rotate_clockwise == 90:
+        Wu, Hu = Hb, Wb
+        ux1, uy1, ux2, uy2 = y1, Wb - x2, y2, Wb - x1
+    elif rotate_clockwise == 180:
+        Wu, Hu = Wb, Hb
+        ux1, uy1, ux2, uy2 = Wb - x2, Hb - y2, Wb - x1, Hb - y1
+    elif rotate_clockwise == 270:
+        Wu, Hu = Hb, Wb
+        ux1, uy1, ux2, uy2 = Hb - y2, x1, Hb - y1, x2
+    else:
+        raise ValueError(f"Unsupported rotate_clockwise: {rotate_clockwise}")
+
+    # Step 2: scale to actual image dims. floor on top-left, ceil on
+    # bottom-right so a thin slice doesn't collapse to an empty rect.
+    Wa, Ha = actual_wh
+    sx = Wa / Wu
+    sy = Ha / Hu
+    fx1 = math.floor(ux1 * sx)
+    fy1 = math.floor(uy1 * sy)
+    fx2 = math.ceil(ux2 * sx)
+    fy2 = math.ceil(uy2 * sy)
+
+    # Step 3: clip + degenerate guard. parse_area in the CLI rejects
+    # x2<=x1 / y2<=y1 up-front, but after scaling we can still wind up
+    # with a 0-pixel rect on tiny basis frames; nudge to ensure validity.
+    fx1 = max(0, min(Wa - 1, fx1))
+    fy1 = max(0, min(Ha - 1, fy1))
+    fx2 = max(fx1 + 1, min(Wa, fx2))
+    fy2 = max(fy1 + 1, min(Ha, fy2))
+    return fx1, fy1, fx2, fy2
 
 
 def get_white_point_manual(img, roi=None, percentile=99.0):
@@ -57,6 +113,8 @@ def process_film_bytestream_with_params(
     wp_roi_y1=None,
     wp_roi_x2=None,
     wp_roi_y2=None,
+    area_basis_w=None,
+    area_basis_h=None,
     white_balance="auto",
     is_raw=False,
 ):
@@ -113,6 +171,23 @@ def process_film_bytestream_with_params(
         max_val = 65535.0 if img_raw.dtype == np.uint16 else 255.0
         img /= max_val
         is_16bit_target = img_raw.dtype == np.uint16
+
+    # If a basis frame is supplied, the ROI is in that frame's (post-rotation,
+    # post-resize) coords; remap to the actual decoded image's un-rotated
+    # frame before sampling. Without basis we fall back to interpreting the
+    # ROI as already in actual coords (legacy CLI behavior).
+    roi_complete = (
+        wp_roi_x1 is not None and wp_roi_y1 is not None
+        and wp_roi_x2 is not None and wp_roi_y2 is not None
+    )
+    if roi_complete and area_basis_w and area_basis_h:
+        h_actual, w_actual = img.shape[:2]
+        wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2 = resolve_wp_roi_to_actual(
+            (wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
+            (int(area_basis_w), int(area_basis_h)),
+            rotate_clockwise,
+            (w_actual, h_actual),
+        )
 
     # 2. Remove color mask (operate in 0-1 space)
     # At this point, img is confirmed to be in RGB order
@@ -229,6 +304,8 @@ def process_film_with_params(
     wp_roi_y1=None,
     wp_roi_x2=None,
     wp_roi_y2=None,
+    area_basis_w=None,
+    area_basis_h=None,
     white_balance="auto",
 ):
     # 1. Read input file as byte stream
@@ -259,6 +336,8 @@ def process_film_with_params(
         wp_roi_y1=wp_roi_y1,
         wp_roi_x2=wp_roi_x2,
         wp_roi_y2=wp_roi_y2,
+        area_basis_w=area_basis_w,
+        area_basis_h=area_basis_h,
         white_balance=white_balance,
     )
 

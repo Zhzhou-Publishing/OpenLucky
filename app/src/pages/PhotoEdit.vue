@@ -223,6 +223,14 @@ function unwrapArea(stored) {
   }
 }
 
+// ROI 的测量帧尺寸（即用户看到的 working-dir 预览图的自然像素），CLI 用这个
+// 来反算原图坐标。没有 dims 时返回 null，main.js 会跳过 --area-basis 走兼容路径。
+function currentAreaBasisForIpc() {
+  const d = currentImageNaturalDims.value
+  if (!d || !d.w || !d.h) return null
+  return { w: d.w, h: d.h }
+}
+
 function persistAreaSelections() {
   try {
     sessionStorage.setItem(AREA_SESSION_STORAGE_KEY, JSON.stringify(areaSelectionsByName.value))
@@ -760,13 +768,15 @@ const apply = () => {
     // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
     // IPC 包根本到不了主进程。
     const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
+    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
     ipcRenderer.send('apply-filmparam', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
       params: params,
       rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc
+      area: areaForIpc,
+      areaBasis: areaBasisForIpc
     })
 
     // Handle response
@@ -845,13 +855,15 @@ const applyPreview = () => {
     // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
     // IPC 包根本到不了主进程。
     const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
+    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
     ipcRenderer.send('apply-filmparam', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
       params: params,
       rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc
+      area: areaForIpc,
+      areaBasis: areaBasisForIpc
     })
 
     // Handle response
@@ -932,12 +944,14 @@ const applyAll = () => {
     // applyAll 走 filmparambatch，CLI 只能接一个 --area，这里复用当前图片的选区作为整批的取样窗口；
     // 其它图各自的选区暂不生效（saveAll 那条原图通路里再统一处理）。
     const areaForIpc = currentImage.value ? unwrapArea(areaSelectionsByName.value[currentImage.value.name]) : null
+    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
     ipcRenderer.send('apply-filmparambatch', {
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       params: params,
       rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc
+      area: areaForIpc,
+      areaBasis: areaBasisForIpc
     })
 
     // Handle response

@@ -1181,7 +1181,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -1194,6 +1194,11 @@ function createWindow() {
       const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
         args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+        // basis is meaningful only alongside a valid area; CLI accepts area
+        // without basis (treated as actual-image coords) for backward compat.
+        if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
+          args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+        }
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1279,13 +1284,16 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null }) => {
     try {
       // Construct the command
       const command = getOpenLuckyPath()
       const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
         args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+        if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
+          args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+        }
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1535,6 +1543,22 @@ function createWindow() {
           // Construct command
           const command = getOpenLuckyPath()
           const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
+
+          // Replay the white-point ROI captured during apply against the
+          // full-res original. CLI rescales using --area-basis, so we pass
+          // the preview-frame coords + dims as-is.
+          const presetArea = presetParams.area
+          const presetBasis = presetParams.area_basis
+          if (presetArea
+              && Number.isInteger(presetArea.x1) && Number.isInteger(presetArea.y1)
+              && Number.isInteger(presetArea.x2) && Number.isInteger(presetArea.y2)) {
+            args.push('--area', `${presetArea.x1},${presetArea.y1},${presetArea.x2},${presetArea.y2}`)
+            if (presetBasis
+                && Number.isInteger(presetBasis.w) && Number.isInteger(presetBasis.h)
+                && presetBasis.w > 0 && presetBasis.h > 0) {
+              args.push('--area-basis', `${presetBasis.w},${presetBasis.h}`)
+            }
+          }
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           event.sender.send('preset-to-batch-progress', {

@@ -98,6 +98,34 @@ def parse_area(s):
     return (x1, y1, x2, y2)
 
 
+def parse_area_basis(s):
+    """Parse '--area-basis' argument 'w,h' into a 2-int tuple.
+
+    Used together with --area to declare what frame those ROI coords were
+    measured in (e.g. the resized + rotated working-dir preview the user
+    saw). The CLI rescales the ROI to the actual decoded image's frame
+    before sampling. Raises ValueError on malformed input.
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --area-basis format. Expected 'w,h', got: {s!r}"
+        )
+    try:
+        w, h = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --area-basis values. Both must be integers, got: {s!r}"
+        )
+    if w <= 0 or h <= 0:
+        raise ValueError(
+            f"Invalid --area-basis: w and h must be positive, got w={w}, h={h}"
+        )
+    return (w, h)
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -168,6 +196,8 @@ def main():
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
     filmparam_parser.add_argument('--area', '-a', required=False, default=None,
                                    help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmparam_parser.add_argument('--area-basis', '-b', required=False, default=None,
+                                   help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -179,6 +209,8 @@ def main():
                                          help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
     filmparambatch_parser.add_argument('--area', '-a', required=False, default=None,
                                          help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmparambatch_parser.add_argument('--area-basis', '-b', required=False, default=None,
+                                         help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -512,6 +544,7 @@ def main():
         # Validate optional ROI early so we fail before doing any I/O.
         try:
             roi = parse_area(args.area)
+            area_basis = parse_area_basis(args.area_basis)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -585,6 +618,8 @@ def main():
             wp_roi_y1=roi[1] if roi else None,
             wp_roi_x2=roi[2] if roi else None,
             wp_roi_y2=roi[3] if roi else None,
+            area_basis_w=area_basis[0] if area_basis else None,
+            area_basis_h=area_basis[1] if area_basis else None,
             is_raw=is_raw
         )
 
@@ -619,6 +654,16 @@ def main():
             'contrast': contrast,
             'rotate_clockwise': args.rotate_clockwise
         }
+        # Persist white-point ROI + basis so a later batch save against the
+        # original full-res file can replay the same sampling window.
+        if roi is not None:
+            preset_config['area'] = {
+                'x1': roi[0], 'y1': roi[1], 'x2': roi[2], 'y2': roi[3],
+            }
+            if area_basis is not None:
+                preset_config['area_basis'] = {
+                    'w': area_basis[0], 'h': area_basis[1],
+                }
         input_path_for_preset = Path(args.input) if args.input else None
         output_path_for_preset = Path(args.output) if args.output else None
         save_preset_to_json(input_path_for_preset, output_path_for_preset, preset_config, preset_name, preset_label)
@@ -627,6 +672,7 @@ def main():
         # Validate optional ROI early so we fail before walking the directory.
         try:
             roi = parse_area(args.area)
+            area_basis = parse_area_basis(args.area_basis)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -697,6 +743,16 @@ def main():
             'contrast': contrast,
             'rotate_clockwise': args.rotate_clockwise
         }
+        # Persist ROI + basis alongside the per-file preset so a later
+        # batch save against the original full-res file can replay sampling.
+        if roi is not None:
+            preset_config['area'] = {
+                'x1': roi[0], 'y1': roi[1], 'x2': roi[2], 'y2': roi[3],
+            }
+            if area_basis is not None:
+                preset_config['area_basis'] = {
+                    'w': area_basis[0], 'h': area_basis[1],
+                }
 
         # Batch processing - collect presets first
         success_count = 0
@@ -723,6 +779,8 @@ def main():
                     wp_roi_y1=roi[1] if roi else None,
                     wp_roi_x2=roi[2] if roi else None,
                     wp_roi_y2=roi[3] if roi else None,
+                    area_basis_w=area_basis[0] if area_basis else None,
+                    area_basis_h=area_basis[1] if area_basis else None,
                 )
                 success_count += 1
 
