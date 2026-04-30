@@ -45,6 +45,11 @@ export default {
     applyAll: 'すべてに適用',
     basicTab: '基本設定',
     advancedTab: '乳剤濃度補正',
+    exposureTab: '露出',
+    whiteBalanceTab: 'ホワイトバランス',
+    whiteBalanceAuto: '自動',
+    whiteBalanceTemp: '色温',
+    whiteBalanceTint: '色合い',
     contrastR: 'コントラスト R',
     contrastG: 'コントラスト G',
     contrastB: 'コントラスト B',
@@ -52,14 +57,23 @@ export default {
       copyParams: 'パラメータをコピー',
       pasteParams: 'パラメータを貼り付け',
       applyPreset: 'プリセットを適用',
+      pickMaskColor: 'マスクの色を取得',
+      pickWhitePointArea: 'ホワイトポイント領域を選択',
+      clearWhitePointArea: 'ホワイトポイント領域をクリア',
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°'
     },
+    eyedropper: {
+      exitHint: 'スポイトモード — 画像をクリックして取得、ESC でキャンセル'
+    },
+    areaSelect: {
+      exitHint: '領域選択モード — 左上から右下へドラッグして領域を選択、ESC でキャンセル'
+    },
     applyPresetModal: {
       title: 'プリセットを選択',
       save: '適用',
-      cancel: 'キャンセル'
+      pickColor: 'マスクの色を取得'
     }
   },
   bottomMenu: {

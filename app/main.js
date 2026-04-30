@@ -120,8 +120,20 @@ async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, ti
 }
 
 // Update checker constants
-const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
+const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
+
+// Tumbleweed channels: a release only nudges users on the same channel.
+// 'stable' (no suffix) → next stable
+// 'rc' / 'beta' / 'alpha' → next release in the same channel
+function getVersionChannel(version) {
+  if (!version) return 'stable'
+  const v = String(version).toLowerCase()
+  if (/-rc/i.test(v)) return 'rc'
+  if (/-beta/i.test(v)) return 'beta'
+  if (/-alpha/i.test(v)) return 'alpha'
+  return 'stable'
+}
 
 // Global variable to track if current version is recalled
 let recalled = false
@@ -401,21 +413,23 @@ async function checkVersionRecalled() {
 }
 
 /**
- * Fetch latest release info from GitHub API
+ * Fetch the most recent GitHub release whose version suffix matches the
+ * given channel. Returns the release object or null if no match found.
+ * GitHub's /releases endpoint lists releases newest-first, so the first
+ * channel match is the latest.
  */
-function fetchLatestRelease() {
+function fetchLatestReleaseForChannel(channel) {
   return new Promise((resolve, reject) => {
     const options = {
       headers: {
         'User-Agent': 'openlucky-desktop-updater'
       },
-      timeout: 10000 // 10 秒超时
+      timeout: 10000
     }
 
-    const req = https.get(GITHUB_API_URL, options, (res) => {
+    const req = https.get(GITHUB_RELEASES_URL, options, (res) => {
       let data = ''
 
-      // 检查 HTTP 状态码
       if (res.statusCode !== 200) {
         reject(new Error(`GitHub API returned status code: ${res.statusCode}`))
         return
@@ -427,8 +441,16 @@ function fetchLatestRelease() {
 
       res.on('end', () => {
         try {
-          const release = JSON.parse(data)
-          resolve(release)
+          const releases = JSON.parse(data)
+          if (!Array.isArray(releases)) {
+            reject(new Error('GitHub API did not return a release list'))
+            return
+          }
+          const match = releases.find(r =>
+            r && !r.draft && r.name &&
+            getVersionChannel(r.tag_name || r.name) === channel
+          )
+          resolve(match || null)
         } catch (e) {
           reject(new Error('Failed to parse GitHub API response'))
         }
@@ -489,18 +511,18 @@ async function checkForUpdates() {
 
     // Third, check for updates
     console.log('[UpdateChecker] Step 2: Checking for updates...')
-    const release = await fetchLatestRelease()
+    const currentVersion = getCurrentVersion()
+    const currentChannel = getVersionChannel(currentVersion)
+    console.log('[UpdateChecker] Current version:', currentVersion, 'channel:', currentChannel)
+
+    const release = await fetchLatestReleaseForChannel(currentChannel)
 
     if (!release || !release.name) {
-      console.error('[UpdateChecker] Invalid release data')
-      return null
+      console.log('[UpdateChecker] No matching release in channel:', currentChannel)
+      return { hasUpdate: false }
     }
 
-    // Get current version from package.json
-    const currentVersion = getCurrentVersion()
-
-    console.log('[UpdateChecker] Current version:', currentVersion)
-    console.log('[UpdateChecker] Latest version:', release.name)
+    console.log('[UpdateChecker] Latest version in channel:', release.name)
 
     // Save check time after successful API call (only if not recalled)
     if (!recalled) {
@@ -777,7 +799,7 @@ function createWindow() {
 
       // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
       // 统一所有图片的并发控制，防止非 RAW 文件过多时造成系统压力
-      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const concurrencyLimit = Math.max(1, Math.floor(os.cpus().length / 2))
       const limit = pLimit(concurrencyLimit)
 
       // Read files in the source directory
@@ -817,7 +839,7 @@ function createWindow() {
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
           const command = getOpenLuckyPath()
-          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '8000']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           const process = spawn(command, args, {
@@ -848,10 +870,19 @@ function createWindow() {
         })
       }
 
-      // Process all images (both RAW and non-RAW) using pLimit to control concurrency
+      // Process all images (both RAW and non-RAW) using pLimit to control concurrency.
+      // 进度计数：每张图轮到处理时计数器自增并广播，UI 显示 [n/total] 路径。
+      // 并发下次序与输入顺序未必一致，但计数单调递增，UI 看起来仍然连续。
+      const totalImages = imageFiles.length
+      let startedCount = 0
       const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
+
+        startedCount += 1
+        const progress = `[${startedCount}/${totalImages}] ${srcPath}`
+        event.sender.send('processing-progress-update', { progress })
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
 
         if (await needsResize(srcPath)) {
           // Resize image to 800px long edge
@@ -891,9 +922,13 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-error', { error: error.message })
     }
   })
@@ -906,7 +941,7 @@ function createWindow() {
       const workingDirectory = workingDirObj.name
 
       // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
-      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const concurrencyLimit = Math.max(1, Math.floor(os.cpus().length / 2))
       const limit = pLimit(concurrencyLimit)
 
       // Read files in the source directory
@@ -947,7 +982,7 @@ function createWindow() {
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
           const command = getOpenLuckyPath()
-          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '8000']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           const process = spawn(command, args, {
@@ -975,10 +1010,18 @@ function createWindow() {
         })
       }
 
-      // Process all images using pLimit for concurrency control
+      // Process all images using pLimit for concurrency control.
+      // 进度计数：每张图轮到处理时计数器自增并广播，UI 显示 [n/total] 路径。
+      const totalImages = imageFiles.length
+      let startedCount = 0
       const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
+
+        startedCount += 1
+        const progress = `[${startedCount}/${totalImages}] ${srcPath}`
+        event.sender.send('processing-progress-update', { progress })
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
 
         if (await needsResize(srcPath)) {
           const result = await resizeImage(srcPath, destPath)
@@ -1016,9 +1059,13 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-from-selected-error', { error: error.message })
     }
   })
@@ -1134,7 +1181,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0 }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -1145,6 +1192,20 @@ function createWindow() {
       // Construct the command
       const command = getOpenLuckyPath()
       const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+        // basis is meaningful only alongside a valid area; CLI accepts area
+        // without basis (treated as actual-image coords) for backward compat.
+        if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
+          args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+        }
+      }
+      if (typeof exposure === 'number' && Number.isFinite(exposure)) {
+        args.push('--exposure', exposure.toString())
+      }
+      if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
+        args.push('--white-balance', whiteBalance)
+      }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
@@ -1185,12 +1246,67 @@ function createWindow() {
     }
   })
 
+  // Handle pick-color request — eyedropper picks pixel from source TIFF/RAW
+  // (not from JPEG preview) so the returned RGB matches the file's truth.
+  // Promise-based so callers can `await ipcRenderer.invoke('pick-color', ...)`.
+  ipcMain.handle('pick-color', async (_event, { filePath, x, y, format = '8' }) => {
+    return new Promise((resolve, reject) => {
+      const command = getOpenLuckyPath()
+      const args = [
+        'tool', 'pick',
+        '-i', filePath,
+        '-x', String(x),
+        '-y', String(y),
+        '-f', String(format),
+      ]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+      const child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (data) => { stdout += data.toString() })
+      child.stderr.on('data', (data) => { stderr += data.toString() })
+
+      child.on('error', (err) => {
+        reject(new Error(`Failed to spawn pick: ${err.message}`))
+      })
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr.trim() || `pick exited with code ${code}`))
+          return
+        }
+        try {
+          resolve(JSON.parse(stdout))
+        } catch (e) {
+          reject(new Error(`Failed to parse pick output: ${e.message}`))
+        }
+      })
+    })
+  })
+
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0 }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
     try {
       // Construct the command
       const command = getOpenLuckyPath()
       const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+        if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
+          args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+        }
+      }
+      if (typeof exposure === 'number' && Number.isFinite(exposure)) {
+        args.push('--exposure', exposure.toString())
+      }
+      if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
+        args.push('--white-balance', whiteBalance)
+      }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
@@ -1439,6 +1555,30 @@ function createWindow() {
           // Construct command
           const command = getOpenLuckyPath()
           const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
+
+          // Replay the white-point ROI captured during apply against the
+          // full-res original. CLI rescales using --area-basis, so we pass
+          // the preview-frame coords + dims as-is.
+          const presetArea = presetParams.area
+          const presetBasis = presetParams.area_basis
+          if (presetArea
+              && Number.isInteger(presetArea.x1) && Number.isInteger(presetArea.y1)
+              && Number.isInteger(presetArea.x2) && Number.isInteger(presetArea.y2)) {
+            args.push('--area', `${presetArea.x1},${presetArea.y1},${presetArea.x2},${presetArea.y2}`)
+            if (presetBasis
+                && Number.isInteger(presetBasis.w) && Number.isInteger(presetBasis.h)
+                && presetBasis.w > 0 && presetBasis.h > 0) {
+              args.push('--area-basis', `${presetBasis.w},${presetBasis.h}`)
+            }
+          }
+          const presetExposure = presetParams.exposure_ev
+          if (typeof presetExposure === 'number' && Number.isFinite(presetExposure)) {
+            args.push('--exposure', presetExposure.toString())
+          }
+          const presetWhiteBalance = presetParams.white_balance
+          if (typeof presetWhiteBalance === 'string' && presetWhiteBalance.length > 0) {
+            args.push('--white-balance', presetWhiteBalance)
+          }
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           event.sender.send('preset-to-batch-progress', {
@@ -1561,7 +1701,8 @@ app.whenReady().then(async () => {
   if (updateInfo && updateInfo.recalled) {
     console.log('[App] Version is recalled, fetching latest release info...')
     try {
-      const latestRelease = await fetchLatestRelease()
+      const currentChannel = getVersionChannel(getCurrentVersion())
+      const latestRelease = await fetchLatestReleaseForChannel(currentChannel)
       if (latestRelease && latestRelease.name && latestRelease.html_url) {
         const win = BrowserWindow.getAllWindows()[0]
         if (win && !win.isDestroyed()) {

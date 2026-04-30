@@ -45,6 +45,11 @@ export default {
     applyAll: 'Tout appliquer',
     basicTab: 'Paramètres de base',
     advancedTab: 'Correction de la concentration de l\'émulsion',
+    exposureTab: 'Exposition',
+    whiteBalanceTab: 'Balance des blancs',
+    whiteBalanceAuto: 'Automatique',
+    whiteBalanceTemp: 'Température',
+    whiteBalanceTint: 'Teinte',
     contrastR: 'Contraste R',
     contrastG: 'Contraste G',
     contrastB: 'Contraste B',
@@ -52,14 +57,23 @@ export default {
       copyParams: 'Copier les paramètres',
       pasteParams: 'Coller les paramètres',
       applyPreset: 'Appliquer un préréglage',
+      pickMaskColor: 'Prélever la couleur du masque',
+      pickWhitePointArea: 'Sélectionner la zone du point blanc',
+      clearWhitePointArea: 'Effacer la zone du point blanc',
       rotate: 'Rotation',
       rotateClockwise: 'Sens horaire 90°',
       rotateCounterClockwise: 'Sens antihoraire 90°'
     },
+    eyedropper: {
+      exitHint: 'Pipette active — cliquez sur l\'image pour prélever, ÉCHAP pour annuler'
+    },
+    areaSelect: {
+      exitHint: 'Sélection de zone active — glissez du haut-gauche au bas-droit, ÉCHAP pour annuler'
+    },
     applyPresetModal: {
       title: 'Sélectionner un préréglage',
       save: 'Appliquer',
-      cancel: 'Annuler'
+      pickColor: 'Prélever la couleur du masque'
     }
   },
   bottomMenu: {

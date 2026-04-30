@@ -45,6 +45,11 @@ export default {
     applyAll: 'ཡོད་ཚད་ལ་སྦྱོར།',
     basicTab: 'གཞི་རྩའི་ཚད།',
     advancedTab: 'མཐོ་རིམ་སྒྲིག་བཀོད།',
+    exposureTab: 'འོད་ཕོག།',
+    whiteBalanceTab: 'དཀར་པོའི་ཁ་སྙོམས།',
+    whiteBalanceAuto: 'རང་འགུལ།',
+    whiteBalanceTemp: 'ཁ་དོག་གི་དྲོ་ཚད།',
+    whiteBalanceTint: 'ཁ་དོག།',
     contrastR: 'ཁྲ་གསལ་ R',
     contrastG: 'ཁྲ་གསལ་ G',
     contrastB: 'ཁྲ་གསལ་ B',
@@ -52,14 +57,23 @@ export default {
       copyParams: 'ཚད་གཞི་འདྲ་ཕབ།',
       pasteParams: 'ཚད་གཞི་སྦྱར།',
       applyPreset: 'སྔོན་སྒྲིག་སྦྱོར།',
+      pickMaskColor: 'གདོས་མཐོང་གི་ཁ་དོག་ལེན།',
+      pickWhitePointArea: 'དཀར་ཚེག་གི་ས་ཁྱོན་འདེམས།',
+      clearWhitePointArea: 'དཀར་ཚེག་གི་ས་ཁྱོན་སུབ།',
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°'
     },
+    eyedropper: {
+      exitHint: 'ཁ་དོག་ལེན་ཐབས་འགོ་འཛུགས། ཨང་པར་ལ་ཨེབ་ཞིང་ལེན། ESC བཙིར་ནས་ཕྱིར་འཐེན།'
+    },
+    areaSelect: {
+      exitHint: 'ས་ཁྱོན་འདེམས་ཐབས་འགོ་འཛུགས། སྟེང་གཡོན་ནས་འོག་གཡས་སུ་འདྲུད། ESC བཙིར་ནས་ཕྱིར་འཐེན།'
+    },
     applyPresetModal: {
       title: 'སྔོན་སྒྲིག་འདེམས།',
       save: 'སྦྱོར།',
-      cancel: 'མེད་པ།'
+      pickColor: 'གདོས་མཐོང་གི་ཁ་དོག་ལེན།'
     }
   },
   bottomMenu: {

@@ -45,6 +45,11 @@ export default {
     applyAll: '全部應用',
     basicTab: '基礎參數',
     advancedTab: '乳劑濃度校正',
+    exposureTab: '曝光',
+    whiteBalanceTab: '白平衡',
+    whiteBalanceAuto: '自動',
+    whiteBalanceTemp: '色溫',
+    whiteBalanceTint: '色調',
     contrastR: '對比度 R',
     contrastG: '對比度 G',
     contrastB: '對比度 B',
@@ -52,14 +57,23 @@ export default {
       copyParams: '複製參數',
       pasteParams: '貼上參數',
       applyPreset: '套用預設值',
+      pickMaskColor: '吸取色罩顏色',
+      pickWhitePointArea: '框選白點取樣區',
+      clearWhitePointArea: '清除白點取樣區',
       rotate: '旋轉',
       rotateClockwise: '順時針 90°',
       rotateCounterClockwise: '逆時針 90°'
     },
+    eyedropper: {
+      exitHint: '吸管模式已啟用，點擊圖片完成取色，按 ESC 退出'
+    },
+    areaSelect: {
+      exitHint: '框選模式已啟用，按住滑鼠從左上向右下拖出區域，按 ESC 取消'
+    },
     applyPresetModal: {
       title: '選擇預設',
       save: '套用',
-      cancel: '取消'
+      pickColor: '吸管色罩'
     }
   },
   bottomMenu: {

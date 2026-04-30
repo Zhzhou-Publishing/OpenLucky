@@ -11,6 +11,8 @@ from cli.lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from cli.lib.raw_to_tiff import raw_to_tiff
 from cli.lib.tool.resize import resize_image
 from cli.lib.tool.reshape import reshape_image, parse_point, parse_shape
+from cli.lib.tool.histogram import compute_histogram
+from cli.lib.tool.pick import pick_color
 from cli.lib.curve.levels import levels_clip
 from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -69,6 +71,103 @@ def get_preset_config(config_path, preset_name="kodak_ultramax_400"):
         return
 
 
+def parse_area(s):
+    """Parse '--area' argument 'x1,y1,x2,y2' into a 4-int tuple.
+
+    Strictly requires x2 > x1 and y2 > y1 (degenerate or inverted boxes
+    are rejected up-front so we don't push garbage into the white-point
+    sampler downstream). Raises ValueError on any malformed input.
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 4:
+        raise ValueError(
+            f"Invalid --area format. Expected 'x1,y1,x2,y2', got: {s!r}"
+        )
+    try:
+        x1, y1, x2, y2 = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --area values. All four coordinates must be integers, got: {s!r}"
+        )
+    if x2 <= x1 or y2 <= y1:
+        raise ValueError(
+            f"Invalid --area: must satisfy x2>x1 and y2>y1, got x1={x1}, y1={y1}, x2={x2}, y2={y2}"
+        )
+    return (x1, y1, x2, y2)
+
+
+def parse_area_basis(s):
+    """Parse '--area-basis' argument 'w,h' into a 2-int tuple.
+
+    Used together with --area to declare what frame those ROI coords were
+    measured in (e.g. the resized + rotated working-dir preview the user
+    saw). The CLI rescales the ROI to the actual decoded image's frame
+    before sampling. Raises ValueError on malformed input.
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --area-basis format. Expected 'w,h', got: {s!r}"
+        )
+    try:
+        w, h = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --area-basis values. Both must be integers, got: {s!r}"
+        )
+    if w <= 0 or h <= 0:
+        raise ValueError(
+            f"Invalid --area-basis: w and h must be positive, got w={w}, h={h}"
+        )
+    return (w, h)
+
+
+def parse_white_balance(s):
+    """Parse '--white-balance' into the value process_film expects.
+
+    Accepts:
+      - 'none'           → 'none'   (no white-balance correction)
+      - 'auto'           → 'auto'   (full AWB pulling RGB to neutral)
+      - 'x,y' integers in [-50, 50] → (x, y) tuple (AWB then offset)
+
+    Raises ValueError on malformed input.
+    """
+    if s is None:
+        return 'auto'
+    s = s.strip()
+    if s in ('none', 'auto'):
+        return s
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --white-balance: expected 'none', 'auto', or 'x,y', got: {s!r}"
+        )
+    try:
+        x, y = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --white-balance values. x and y must be integers, got: {s!r}"
+        )
+    if not (-50 <= x <= 50 and -50 <= y <= 50):
+        raise ValueError(
+            f"Invalid --white-balance: x and y must be in [-50, 50], got x={x}, y={y}"
+        )
+    return (x, y)
+
+
+def serialize_white_balance(wb):
+    """Round-trip the parsed --white-balance value back to its CLI string form
+    so it can be persisted in .preset.json and replayed verbatim by SaveAll.
+    """
+    if isinstance(wb, (list, tuple)):
+        return f"{wb[0]},{wb[1]}"
+    return wb
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -114,6 +213,15 @@ def main():
                              help='Preset name to use (default: kodak_ultramax_400)')
     film_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
                              help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    film_parser.add_argument('--area', '-a', required=False, default=None,
+                             help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    film_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                             choices=['3ev', '5ev', '7ev'],
+                             help='Exposure curve mode (default: 3ev)')
+    film_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                             help='Exposure compensation in EV (default: 0.0)')
+    film_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                             help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -124,6 +232,15 @@ def main():
                                    help='Preset name to use (default: kodak_ultramax_400)')
     filmbatch_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmbatch_parser.add_argument('--area', '-a', required=False, default=None,
+                                   help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmbatch_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                   choices=['3ev', '5ev', '7ev'],
+                                   help='Exposure curve mode (default: 3ev)')
+    filmbatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                   help='Exposure compensation in EV (default: 0.0)')
+    filmbatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                   help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -133,6 +250,17 @@ def main():
                                    help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
     filmparam_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmparam_parser.add_argument('--area', '-a', required=False, default=None,
+                                   help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmparam_parser.add_argument('--area-basis', '-b', required=False, default=None,
+                                   help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
+    filmparam_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                   choices=['3ev', '5ev', '7ev'],
+                                   help='Exposure curve mode (default: 3ev)')
+    filmparam_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                   help='Exposure compensation in EV (default: 0.0)')
+    filmparam_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                   help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -142,6 +270,17 @@ def main():
                                          help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
     filmparambatch_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
                                          help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmparambatch_parser.add_argument('--area', '-a', required=False, default=None,
+                                         help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
+    filmparambatch_parser.add_argument('--area-basis', '-b', required=False, default=None,
+                                         help='Frame dimensions the --area coords were measured in, format "w,h" (the rotated post-resize preview). When set, CLI un-rotates and rescales the ROI to the actual decoded image. Leave empty to interpret --area as actual-image pixels.')
+    filmparambatch_parser.add_argument('--exposure-mode', required=False, default='3ev',
+                                         choices=['3ev', '5ev', '7ev'],
+                                         help='Exposure curve mode (default: 3ev)')
+    filmparambatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
+                                         help='Exposure compensation in EV (default: 0.0)')
+    filmparambatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                         help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -179,6 +318,31 @@ def main():
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
 
+    # tool pick subcommand
+    pick_parser = tool_subparsers.add_parser('pick', help='Pick a single pixel color (JSON output to stdout)')
+    pick_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    pick_parser.add_argument('--x', '-x', type=int, required=True, help='X pixel coordinate (0-indexed)')
+    pick_parser.add_argument('--y', '-y', type=int, required=True, help='Y pixel coordinate (0-indexed)')
+    pick_parser.add_argument('--format', '-f', default='8',
+                             choices=['8', '16'],
+                             help='Output bit depth (default: 8)')
+
+    # tool histogram subcommand
+    histogram_parser = tool_subparsers.add_parser('histogram', help='Compute image histogram (JSON output to stdout)')
+    histogram_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    histogram_parser.add_argument('--type', '-t', default='rgbl',
+                                  choices=['rgbl'],
+                                  help='Histogram type. rgbl = R/G/B/luminance (BT.601). Default: rgbl')
+    histogram_parser.add_argument('--gamma', '-g', type=float, default=1.0,
+                                  help='Gamma applied before histogramming (default: 1.0; suggest 2.2 for RAW)')
+    histogram_parser.add_argument('--mode', '-m', default='log',
+                                  choices=['log', 'linear'],
+                                  help='Y-axis normalization mode (default: log). Ignored when --normalization is unset.')
+    histogram_parser.add_argument('--normalization', '-n', type=int, default=None,
+                                  help='Y-axis normalization target (e.g., 256). Leave unset to output raw counts.')
+    histogram_parser.add_argument('--downsampling', '-d', type=int, default=None,
+                                  help='X-axis bin count after downsampling. Power of 2 in [256, 65536]. Leave unset to keep native bit depth.')
+
     # tool reshape subcommand
     reshape_parser = tool_subparsers.add_parser('reshape', help='Four-point perspective correction')
     reshape_parser.add_argument('--input', '-i', required=True, help='Input image file path')
@@ -211,6 +375,14 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'film':
+        # Validate optional ROI early so we fail before doing any I/O.
+        try:
+            roi = parse_area(args.area)
+            white_balance = parse_white_balance(args.white_balance)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         # Read input from file or stdin
         if args.input is not None:
             input_file = Path(args.input)
@@ -270,6 +442,13 @@ def main():
             preset_gamma=preset.get('gamma', 1.0),
             preset_contrast=preset.get('contrast', 1.0),
             rotate_clockwise=args.rotate_clockwise,
+            wp_roi_x1=roi[0] if roi else None,
+            wp_roi_y1=roi[1] if roi else None,
+            wp_roi_x2=roi[2] if roi else None,
+            wp_roi_y2=roi[3] if roi else None,
+            exposure_ev_mode=args.exposure_mode,
+            exposure_ev=args.exposure,
+            white_balance=white_balance,
             is_raw=is_raw
         )
 
@@ -298,6 +477,7 @@ def main():
                 if preset_config:
                     # Add rotate_clockwise to preset_config
                     preset_config['rotate_clockwise'] = args.rotate_clockwise
+                    preset_config['white_balance'] = serialize_white_balance(white_balance)
                     # Use forward slashes in path to avoid double backslashes in JSON
                     if args.output is not None:
                         output_path_for_preset = Path(args.output)
@@ -306,6 +486,14 @@ def main():
                     save_preset_to_json(Path(args.input) if args.input else None, output_path_for_preset, preset_config, args.preset, preset_config.get('label'))
 
     elif args.command == 'filmbatch':
+        # Validate optional ROI early so we fail before walking the directory.
+        try:
+            roi = parse_area(args.area)
+            white_balance = parse_white_balance(args.white_balance)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         input_dir = Path(args.input)
         output_dir = Path(args.output) if args.output else input_dir / 'output'
 
@@ -383,7 +571,14 @@ def main():
                     preset_contrast_b=preset.get('contrast_b', 1.0),
                     preset_gamma=preset.get('gamma', 1.0),
                     preset_contrast=preset.get('contrast', 1.0),
-                    rotate_clockwise=args.rotate_clockwise
+                    rotate_clockwise=args.rotate_clockwise,
+                    wp_roi_x1=roi[0] if roi else None,
+                    wp_roi_y1=roi[1] if roi else None,
+                    wp_roi_x2=roi[2] if roi else None,
+                    wp_roi_y2=roi[3] if roi else None,
+                    exposure_ev_mode=args.exposure_mode,
+                    exposure_ev=args.exposure,
+                    white_balance=white_balance,
                 )
 
 
@@ -402,6 +597,7 @@ def main():
                         presets_by_dir[dir_key][input_file.name][key] = value
                 # Add rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['rotate_clockwise'] = args.rotate_clockwise
+                presets_by_dir[dir_key][input_file.name]['white_balance'] = serialize_white_balance(white_balance)
             except Exception as e:
                 print(e)
                 fail_count += 1
@@ -425,6 +621,15 @@ def main():
             print(f"Saved {len(presets)} preset(s) to {preset_file}")
 
     elif args.command == 'filmparam':
+        # Validate optional ROI early so we fail before doing any I/O.
+        try:
+            roi = parse_area(args.area)
+            area_basis = parse_area_basis(args.area_basis)
+            white_balance = parse_white_balance(args.white_balance)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         # Parse parameters
         if args.param is None:
             print("Error: --param is required for filmparam command")
@@ -490,6 +695,15 @@ def main():
             preset_gamma=gamma,
             preset_contrast=contrast,
             rotate_clockwise=args.rotate_clockwise,
+            wp_roi_x1=roi[0] if roi else None,
+            wp_roi_y1=roi[1] if roi else None,
+            wp_roi_x2=roi[2] if roi else None,
+            wp_roi_y2=roi[3] if roi else None,
+            area_basis_w=area_basis[0] if area_basis else None,
+            area_basis_h=area_basis[1] if area_basis else None,
+            exposure_ev_mode=args.exposure_mode,
+            exposure_ev=args.exposure,
+            white_balance=white_balance,
             is_raw=is_raw
         )
 
@@ -522,13 +736,35 @@ def main():
             "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
-            'rotate_clockwise': args.rotate_clockwise
+            'rotate_clockwise': args.rotate_clockwise,
+            'exposure_ev_mode': args.exposure_mode,
+            'exposure_ev': args.exposure,
+            'white_balance': serialize_white_balance(white_balance),
         }
+        # Persist white-point ROI + basis so a later batch save against the
+        # original full-res file can replay the same sampling window.
+        if roi is not None:
+            preset_config['area'] = {
+                'x1': roi[0], 'y1': roi[1], 'x2': roi[2], 'y2': roi[3],
+            }
+            if area_basis is not None:
+                preset_config['area_basis'] = {
+                    'w': area_basis[0], 'h': area_basis[1],
+                }
         input_path_for_preset = Path(args.input) if args.input else None
         output_path_for_preset = Path(args.output) if args.output else None
         save_preset_to_json(input_path_for_preset, output_path_for_preset, preset_config, preset_name, preset_label)
 
     elif args.command == 'filmparambatch':
+        # Validate optional ROI early so we fail before walking the directory.
+        try:
+            roi = parse_area(args.area)
+            area_basis = parse_area_basis(args.area_basis)
+            white_balance = parse_white_balance(args.white_balance)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         input_dir = Path(args.input)
         output_dir = Path(args.output) if args.output else input_dir / 'output'
 
@@ -593,8 +829,21 @@ def main():
             "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
-            'rotate_clockwise': args.rotate_clockwise
+            'rotate_clockwise': args.rotate_clockwise,
+            'exposure_ev_mode': args.exposure_mode,
+            'exposure_ev': args.exposure,
+            'white_balance': serialize_white_balance(white_balance),
         }
+        # Persist ROI + basis alongside the per-file preset so a later
+        # batch save against the original full-res file can replay sampling.
+        if roi is not None:
+            preset_config['area'] = {
+                'x1': roi[0], 'y1': roi[1], 'x2': roi[2], 'y2': roi[3],
+            }
+            if area_basis is not None:
+                preset_config['area_basis'] = {
+                    'w': area_basis[0], 'h': area_basis[1],
+                }
 
         # Batch processing - collect presets first
         success_count = 0
@@ -616,7 +865,16 @@ def main():
                     preset_contrast_b=contrast_b,
                     preset_gamma=gamma,
                     preset_contrast=contrast,
-                    rotate_clockwise=args.rotate_clockwise
+                    rotate_clockwise=args.rotate_clockwise,
+                    wp_roi_x1=roi[0] if roi else None,
+                    wp_roi_y1=roi[1] if roi else None,
+                    wp_roi_x2=roi[2] if roi else None,
+                    wp_roi_y2=roi[3] if roi else None,
+                    area_basis_w=area_basis[0] if area_basis else None,
+                    area_basis_h=area_basis[1] if area_basis else None,
+                    exposure_ev_mode=args.exposure_mode,
+                    exposure_ev=args.exposure,
+                    white_balance=white_balance,
                 )
                 success_count += 1
 
@@ -759,6 +1017,36 @@ def main():
 
             if not success:
                 sys.exit(1)
+        elif args.tool_command == 'pick':
+            try:
+                result = pick_color(
+                    input_path=args.input,
+                    x=args.x,
+                    y=args.y,
+                    output_format=args.format,
+                )
+            except (FileNotFoundError, ValueError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            sys.stdout.write(json.dumps(result))
+            sys.stdout.write("\n")
+        elif args.tool_command == 'histogram':
+            try:
+                hist = compute_histogram(
+                    input_path=args.input,
+                    hist_type=args.type,
+                    gamma=args.gamma,
+                    mode=args.mode,
+                    normalization=args.normalization,
+                    downsampling=args.downsampling,
+                )
+            except (FileNotFoundError, ValueError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            sys.stdout.write(json.dumps(hist))
+            sys.stdout.write("\n")
         else:
             tool_parser.print_help()
             sys.exit(1)

@@ -45,6 +45,11 @@ export default {
     applyAll: 'Zastosuj do wszystkich',
     basicTab: 'Parametry podstawowe',
     advancedTab: 'Korekcja stężenia emulsji',
+    exposureTab: 'Ekspozycja',
+    whiteBalanceTab: 'Balans bieli',
+    whiteBalanceAuto: 'Automatyczny',
+    whiteBalanceTemp: 'Temperatura',
+    whiteBalanceTint: 'Odcień',
     contrastR: 'Kontrast R',
     contrastG: 'Kontrast G',
     contrastB: 'Kontrast B',
@@ -52,14 +57,23 @@ export default {
       copyParams: 'Kopiuj parametry',
       pasteParams: 'Wklej parametry',
       applyPreset: 'Zastosuj preset',
+      pickMaskColor: 'Pobierz kolor maski',
+      pickWhitePointArea: 'Wybierz obszar punktu bieli',
+      clearWhitePointArea: 'Wyczyść obszar punktu bieli',
       rotate: 'Obróć',
       rotateClockwise: 'Zgodnie z ruchem wskazówek zegara 90°',
       rotateCounterClockwise: 'Przeciwnie do ruchu wskazówek zegara 90°'
     },
+    eyedropper: {
+      exitHint: 'Pipeta aktywna — kliknij obraz, aby pobrać, ESC aby anulować'
+    },
+    areaSelect: {
+      exitHint: 'Wybór obszaru aktywny — przeciągnij od lewego górnego do prawego dolnego rogu, ESC aby anulować'
+    },
     applyPresetModal: {
       title: 'Wybierz preset',
       save: 'Zastosuj',
-      cancel: 'Anuluj'
+      pickColor: 'Pobierz kolor maski'
     }
   },
   bottomMenu: {

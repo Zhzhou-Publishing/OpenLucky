@@ -1,14 +1,14 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="modelValue" class="modal-overlay" @click.self="onCancel">
+      <div v-if="modelValue" class="modal-overlay" @click.self="onCancel('overlay')">
         <div class="modal-box" role="dialog" aria-modal="true">
           <h3 v-if="title" class="modal-title">{{ title }}</h3>
           <div class="modal-body">
             <slot />
           </div>
           <div class="modal-actions">
-            <button class="modal-cancel" @click="onCancel">{{ cancelLabel }}</button>
+            <button class="modal-cancel" @click="onCancel('button')">{{ cancelLabel }}</button>
             <button class="modal-save" :disabled="saveDisabled" @click="onSave">{{ saveLabel }}</button>
           </div>
         </div>
@@ -30,8 +30,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'save', 'cancel'])
 
-function onCancel() {
-  emit('cancel')
+function onCancel(source = 'button') {
+  emit('cancel', source)
   emit('update:modelValue', false)
 }
 
@@ -41,7 +41,7 @@ function onSave() {
 }
 
 function onKey(e) {
-  if (e.key === 'Escape') onCancel()
+  if (e.key === 'Escape') onCancel('esc')
 }
 
 watch(() => props.modelValue, (open) => {

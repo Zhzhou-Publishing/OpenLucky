@@ -45,6 +45,11 @@ export default {
     applyAll: 'Apply All',
     basicTab: 'Basic Parameters',
     advancedTab: 'Emulsion Concentration Correction',
+    exposureTab: 'Exposure',
+    whiteBalanceTab: 'White Balance',
+    whiteBalanceAuto: 'Auto',
+    whiteBalanceTemp: 'Temperature',
+    whiteBalanceTint: 'Tint',
     contrastR: 'Contrast R',
     contrastG: 'Contrast G',
     contrastB: 'Contrast B',
@@ -52,14 +57,23 @@ export default {
       copyParams: 'Copy Parameters',
       pasteParams: 'Paste Parameters',
       applyPreset: 'Apply Preset',
+      pickMaskColor: 'Pick Mask Color',
+      pickWhitePointArea: 'Select White-Point Area',
+      clearWhitePointArea: 'Clear White-Point Area',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°'
     },
+    eyedropper: {
+      exitHint: 'Eyedropper active — click the image to pick, press ESC to cancel'
+    },
+    areaSelect: {
+      exitHint: 'Area-select active — drag from top-left to bottom-right, press ESC to cancel'
+    },
     applyPresetModal: {
       title: 'Select a Preset',
       save: 'Apply',
-      cancel: 'Cancel'
+      pickColor: 'Pick Mask Color'
     }
   },
   bottomMenu: {
