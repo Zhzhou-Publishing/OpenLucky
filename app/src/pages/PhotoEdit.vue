@@ -536,7 +536,7 @@ async function onImageClick(e) {
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
     const result = await ipcRenderer.invoke('pick-color', {
-      filePath: currentImage.value.path,
+      filePath: path.join(workingDirectory.value, currentImage.value.name),
       x: pixelX,
       y: pixelY,
       format: '8',
