@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'དཀར་ཚེག་གི་ས་ཁྱོན་སུབ།',
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
-      rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°'
+      rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'ཁ་དོག་ལེན་ཐབས་འགོ་འཛུགས། ཨང་པར་ལ་ཨེབ་ཞིང་ལེན། ESC བཙིར་ནས་ཕྱིར་འཐེན།'

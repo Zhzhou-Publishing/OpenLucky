@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'व्हाइट पॉइंट क्षेत्र साफ़ करें',
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
-      rotateCounterClockwise: 'वामावर्त 90°'
+      rotateCounterClockwise: 'वामावर्त 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'ड्रॉपर सक्रिय — रंग चुनने के लिए छवि पर क्लिक करें, बाहर निकलने के लिए ESC दबाएं'

@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Очистить область белой точки',
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
-      rotateCounterClockwise: 'Против часовой 90°'
+      rotateCounterClockwise: 'Против часовой 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'Пипетка активна — кликните по изображению, ESC для отмены'

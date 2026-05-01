@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Clear White-Point Area',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
-      rotateCounterClockwise: 'Counter-clockwise 90°'
+      rotateCounterClockwise: 'Counter-clockwise 90°',
+      resetImage: 'Reset Image'
     },
     eyedropper: {
       exitHint: 'Eyedropper active — click the image to pick, press ESC to cancel'

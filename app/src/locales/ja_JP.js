@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'ホワイトポイント領域をクリア',
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
-      rotateCounterClockwise: '反時計回り 90°'
+      rotateCounterClockwise: '反時計回り 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'スポイトモード — 画像をクリックして取得、ESC でキャンセル'

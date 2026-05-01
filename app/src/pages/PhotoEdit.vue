@@ -636,7 +636,9 @@ const ctxMenuItems = computed(() => {
         { label: t('photoEdit.contextMenu.rotateClockwise'), action: rotateClockwiseBtn, disabled: busy },
         { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy }
       ]
-    }
+    },
+    { type: 'separator' },
+    { label: t('photoEdit.contextMenu.resetImage'), action: resetImage, disabled: busy }
   ]
 })
 
@@ -803,6 +805,54 @@ const getImageUrlWithTimestamp = (image) => {
 }
 
 // Helper function to update image timestamp and trigger reactivity
+// Reset current image: remove preset entry, delete output file, restore
+// all UI parameters to defaults, and refresh the display.
+const resetImage = () => {
+  if (!currentImage.value || !workingDirectory.value) return
+  if (!window.require) return
+
+  const ipcRenderer = window.require('electron').ipcRenderer
+  const imageName = currentImage.value.name
+
+  ipcRenderer.once('image-reset', (_, result) => {
+    if (result.filename !== imageName) return
+    // Reset UI parameters
+    input1.value = 255
+    input2.value = 255
+    input3.value = 255
+    input4.value = 1
+    input5.value = 1
+    contrastR.value = 1.0
+    contrastG.value = 1.0
+    contrastB.value = 1.0
+    exposure.value = 0
+    whiteBalanceAuto.value = true
+    whiteBalanceTemp.value = 0
+    whiteBalanceTint.value = 0
+    rotateClockwiseMap.value[imageName] = 0
+    // Clear area selection
+    const next = { ...areaSelectionsByName.value }
+    delete next[imageName]
+    areaSelectionsByName.value = next
+    persistAreaSelections()
+    // Refresh display
+    refreshImage(imageName)
+    loadFullResImage()
+    loadPresets()
+  })
+
+  ipcRenderer.once('image-reset-error', (_, result) => {
+    if (result.filename !== imageName) return
+    console.error('Error resetting image:', result.error)
+  })
+
+  ipcRenderer.send('reset-image', {
+    workingDirectory: workingDirectory.value,
+    outputDirectory: outputDirectory.value,
+    filename: imageName
+  })
+}
+
 // After apply succeeds, the on-disk thumbnail/output for `imageName`
 // has changed. Ask main to rebuild the entry (so image.url points at
 // fresh content + bumps the timestamp) and patch our images array in

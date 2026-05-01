@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Limpar área do ponto branco',
       rotate: 'Rodar',
       rotateClockwise: 'Sentido horário 90°',
-      rotateCounterClockwise: 'Sentido anti-horário 90°'
+      rotateCounterClockwise: 'Sentido anti-horário 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'Conta-gotas ativo — clique na imagem para escolher, ESC para cancelar'

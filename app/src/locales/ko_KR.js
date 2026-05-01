@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: '화이트 포인트 영역(領域) 지우기',
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
-      rotateCounterClockwise: '반시계 방향 90°'
+      rotateCounterClockwise: '반시계 방향 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: '스포이트 활성(活性) — 이미지를 클릭(click)하여 추출(抽出), ESC로 취소(取消)'

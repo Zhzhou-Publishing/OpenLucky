@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Borrar área de punto blanco',
       rotate: 'Rotar',
       rotateClockwise: 'Sentido horario 90°',
-      rotateCounterClockwise: 'Sentido antihorario 90°'
+      rotateCounterClockwise: 'Sentido antihorario 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'Cuentagotas activo — haz clic en la imagen para elegir, ESC para cancelar'

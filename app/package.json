@@ -47,6 +47,8 @@
     },
     "files": [
       "main.js",
+      "ipc/**/*",
+      "shared/**/*",
       "dist/**/*",
       "build-resources/emoji/**/*"
     ],

@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Effacer la zone du point blanc',
       rotate: 'Rotation',
       rotateClockwise: 'Sens horaire 90°',
-      rotateCounterClockwise: 'Sens antihoraire 90°'
+      rotateCounterClockwise: 'Sens antihoraire 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'Pipette active — cliquez sur l\'image pour prélever, ÉCHAP pour annuler'

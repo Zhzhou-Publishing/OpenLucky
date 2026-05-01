@@ -25,6 +25,7 @@ const ipcApplyFilmparambatch = require('./ipc/apply-filmparambatch')
 const ipcCopyPresetJson = require('./ipc/copy-preset-json')
 const ipcApplyPresetToFile = require('./ipc/apply-preset-to-file')
 const ipcApplyPresetToBatch = require('./ipc/apply-preset-to-batch')
+const ipcResetImage = require('./ipc/reset-image')
 
 // ── Update checker constants ────────────────────────────────────────────────
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
@@ -517,6 +518,7 @@ function createWindow() {
     ipcCopyPresetJson.register()
     ipcApplyPresetToFile.register()
     ipcApplyPresetToBatch.register()
+    ipcResetImage.register()
     ipcHandlersRegistered = true
   }
 

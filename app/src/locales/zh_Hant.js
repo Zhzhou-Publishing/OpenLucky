@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: '清除白點取樣區',
       rotate: '旋轉',
       rotateClockwise: '順時針 90°',
-      rotateCounterClockwise: '逆時針 90°'
+      rotateCounterClockwise: '逆時針 90°',
+      resetImage: '重置圖片',
     },
     eyedropper: {
       exitHint: '吸管模式已啟用，點擊圖片完成取色，按 ESC 退出'

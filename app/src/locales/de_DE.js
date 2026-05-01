@@ -62,7 +62,8 @@ export default {
       clearWhitePointArea: 'Weißpunkt-Bereich löschen',
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
-      rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°'
+      rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°',
+      resetImage: 'Reset Image',
     },
     eyedropper: {
       exitHint: 'Pipette aktiv — Bild anklicken zum Aufnehmen, ESC zum Abbrechen'
