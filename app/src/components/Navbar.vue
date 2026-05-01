@@ -53,8 +53,8 @@ function navigate(target) {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-surface);
+  box-shadow: 0 2px 4px var(--shadow);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -66,7 +66,7 @@ function navigate(target) {
   gap: 8px;
   font-size: 20px;
   font-weight: 600;
-  color: #42b883;
+  color: var(--accent);
 }
 
 .brand-icon {
@@ -81,7 +81,7 @@ function navigate(target) {
 .nav-link {
   padding: 8px 16px;
   text-decoration: none;
-  color: #666;
+  color: var(--text-secondary);
   border-radius: 6px;
   font-size: 14px;
   transition: all 0.2s;
@@ -89,12 +89,12 @@ function navigate(target) {
 }
 
 .nav-link:hover {
-  background: #f5f5f5;
-  color: #42b883;
+  background: var(--bg-surface-hover);
+  color: var(--accent);
 }
 
 .nav-link.active {
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 </style>

@@ -124,13 +124,13 @@ onBeforeUnmount(() => {
   position: fixed;
   z-index: 1000;
   min-width: 200px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 18px var(--shadow);
   padding: 4px 0;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary);
   user-select: none;
 }
 
@@ -146,28 +146,28 @@ onBeforeUnmount(() => {
 
 .ctx-row:hover:not(.ctx-disabled),
 .ctx-row.ctx-active:not(.ctx-disabled) {
-  background: #f0f9f4;
-  color: #2d8a5f;
+  background: var(--bg-surface-hover);
+  color: var(--accent);
 }
 
 .ctx-row.ctx-disabled {
-  color: #bbb;
+  color: var(--text-tertiary);
   cursor: default;
 }
 
 .ctx-arrow {
   font-size: 11px;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .ctx-row.ctx-active .ctx-arrow,
 .ctx-row:hover:not(.ctx-disabled) .ctx-arrow {
-  color: #2d8a5f;
+  color: var(--accent);
 }
 
 .ctx-separator {
   height: 1px;
-  background: #eee;
+  background: var(--border-color);
   margin: 4px 0;
 }
 

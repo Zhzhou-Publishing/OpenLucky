@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import Navbar from './components/Navbar.vue'
 import twemoji from '@twemoji/api'
 import { globalState } from './utils/globalState'
+import './utils/theme' // 初始化主题系统（读 localStorage → 设置 dark class）
 
 const route = useRoute()
 const { t } = useI18n()
@@ -79,6 +80,52 @@ onUnmounted(() => {
 @import '@fontsource/noto-sans-sc/500.css';
 @import '@fontsource/noto-sans-sc/600.css';
 
+:root {
+  /* 浅色主题（默认） */
+  --bg-page: #f5f5f5;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f0f0f0;
+  --bg-input: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-on-accent: #ffffff;
+  --border-color: #e0e0e0;
+  --border-light: #dddddd;
+  --accent: #42b883;
+  --accent-hover: #35a372;
+  --btn-save-bg: #42a5f5;
+  --btn-save-hover: #2196f3;
+  --btn-save-disabled: #90caf9;
+  --btn-disabled-bg: #cccccc;
+  --btn-disabled-text: #999999;
+  --danger: #ff4444;
+  --shadow: rgba(0, 0, 0, 0.1);
+}
+
+:root.dark {
+  /* 深色主题 */
+  --bg-page: #323232;
+  --bg-surface: #3c3c3c;
+  --bg-surface-hover: #4a4a4a;
+  --bg-input: #3c3c3c;
+  --text-primary: #bdbdbd;
+  --text-secondary: #888888;
+  --text-tertiary: #666666;
+  --text-on-accent: #ffffff;
+  --border-color: #4a4a4a;
+  --border-light: #3c3c3c;
+  --accent: #42b883;
+  --accent-hover: #35a372;
+  --btn-save-bg: #42a5f5;
+  --btn-save-hover: #2196f3;
+  --btn-save-disabled: #555555;
+  --btn-disabled-bg: #555555;
+  --btn-disabled-text: #888888;
+  --danger: #ff4444;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -87,7 +134,8 @@ onUnmounted(() => {
 
 body {
   font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
+  background: var(--bg-page);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
@@ -105,7 +153,7 @@ body {
 }
 
 .main-container {
-  background: #f5f5f5;
+  background: var(--bg-page);
   height: calc(100vh - 64px);
   overflow: hidden;
 }

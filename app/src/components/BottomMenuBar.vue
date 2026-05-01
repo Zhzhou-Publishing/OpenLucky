@@ -111,9 +111,9 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -2px 8px var(--shadow);
   padding: 16px 20px;
   display: flex;
   justify-content: center;
@@ -141,29 +141,29 @@ onMounted(() => {
 
 .menu-label {
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .preset-select {
   padding: 8px 12px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 14px;
-  color: #333;
-  background: white;
+  color: var(--text-primary);
+  background: var(--bg-surface);
   cursor: pointer;
   transition: border-color 0.2s ease;
   min-width: 400px;
 }
 
 .preset-select:hover {
-  border-color: #42b883;
+  border-color: var(--accent);
 }
 
 .preset-select:focus {
   outline: none;
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
 }
 
@@ -174,8 +174,8 @@ onMounted(() => {
 
 .apply-button {
   padding: 8px 16px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   font-size: 14px;
@@ -188,7 +188,7 @@ onMounted(() => {
 }
 
 .apply-button:hover:not(:disabled) {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .apply-button:disabled {
@@ -202,15 +202,15 @@ onMounted(() => {
   right: -4px;
   width: 12px;
   height: 12px;
-  background: #ff4444;
+  background: var(--danger);
   border-radius: 50%;
   border: 2px solid white;
 }
 
 .save-all-button {
   padding: 8px 20px;
-  background: #42a5f5;
-  color: white;
+  background: var(--btn-save-bg);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -223,7 +223,7 @@ onMounted(() => {
 }
 
 .save-all-button:hover:not(:disabled) {
-  background: #2196f3;
+  background: var(--btn-save-hover);
 }
 
 .save-all-button:active:not(:disabled) {
@@ -231,7 +231,7 @@ onMounted(() => {
 }
 
 .save-all-button:disabled {
-  background: #90caf9;
+  background: var(--btn-save-disabled);
   cursor: not-allowed;
   opacity: 0.6;
 }

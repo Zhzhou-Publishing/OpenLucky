@@ -94,6 +94,9 @@ export default {
     homepage: 'Homepage',
     license: 'License',
     licenseSummary: 'Permits commercial use, modification, distribution, and private use; requires preserving the copyright notice and stating any significant changes; does not grant trademark rights and provides no warranty.',
-    language: 'Language'
+    language: 'Language',
+    theme: 'Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark'
   }
 }

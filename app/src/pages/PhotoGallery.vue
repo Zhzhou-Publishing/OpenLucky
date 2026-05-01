@@ -452,7 +452,7 @@ onUnmounted(() => {
 <style scoped>
 .photo-gallery-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-page);
   padding: 20px;
   padding-bottom: 140px;
   overflow-y: auto;
@@ -465,15 +465,15 @@ onUnmounted(() => {
   justify-content: space-between;
   margin-bottom: 30px;
   padding: 20px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .back-button {
   padding: 10px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -482,13 +482,13 @@ onUnmounted(() => {
 }
 
 .back-button:hover {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .refresh-button {
   padding: 10px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -498,7 +498,7 @@ onUnmounted(() => {
 }
 
 .refresh-button:hover:not(:disabled) {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .refresh-button:disabled {
@@ -508,7 +508,7 @@ onUnmounted(() => {
 
 .page-title {
   font-size: 24px;
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
   text-align: center;
@@ -516,8 +516,8 @@ onUnmounted(() => {
 
 .count-badge {
   padding: 6px 12px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
@@ -529,14 +529,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #42b883;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -568,13 +568,13 @@ onUnmounted(() => {
 
 .empty-state h2 {
   font-size: 24px;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .empty-state p {
   font-size: 16px;
-  color: #666;
+  color: var(--text-secondary);
   max-width: 400px;
 }
 
@@ -585,17 +585,17 @@ onUnmounted(() => {
 }
 
 .image-item {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .image-item:hover:not(.applying) {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 16px var(--shadow);
 }
 
 .image-item.applying {
@@ -620,7 +620,7 @@ onUnmounted(() => {
 
 .image-name {
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -662,7 +662,7 @@ onUnmounted(() => {
   top: -40px;
   right: 0;
   background: transparent;
-  color: white;
+  color: var(--text-on-accent);
   border: none;
   font-size: 36px;
   cursor: pointer;
@@ -681,7 +681,7 @@ onUnmounted(() => {
 
 .modal-filename {
   margin-top: 15px;
-  color: white;
+  color: var(--text-on-accent);
   text-align: center;
   font-size: 14px;
 }

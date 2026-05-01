@@ -52,7 +52,7 @@ watch(() => props.defaultTab, (newDefault) => {
 
 .tabs-header {
   display: flex;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--border-color);
   margin-bottom: 8px;
 }
 
@@ -62,7 +62,7 @@ watch(() => props.defaultTab, (newDefault) => {
   background: transparent;
   font-size: 14px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   position: relative;
   transition: color 0.2s ease;
@@ -70,11 +70,11 @@ watch(() => props.defaultTab, (newDefault) => {
 }
 
 .tab-button:hover {
-  color: #42b883;
+  color: var(--accent);
 }
 
 .tab-button-active {
-  color: #42b883;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -85,7 +85,7 @@ watch(() => props.defaultTab, (newDefault) => {
   left: 0;
   right: 0;
   height: 2px;
-  background: #42b883;
+  background: var(--accent);
   border-radius: 2px 2px 0 0;
 }
 

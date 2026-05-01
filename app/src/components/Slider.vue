@@ -114,7 +114,7 @@ onUnmounted(() => {
 
 .slider-label {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
   text-align: center;
 }
@@ -140,7 +140,7 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   height: 4px;
-  background: #ddd;
+  background: var(--border-light);
   border-radius: 2px;
 }
 
@@ -150,9 +150,9 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #42b883;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 1px 3px var(--shadow);
   transform: translate(-50%, -50%);
   cursor: grab;
 }
@@ -163,6 +163,6 @@ onUnmounted(() => {
 
 .slider-track.disabled .slider-thumb {
   cursor: not-allowed;
-  background: #aaa;
+  background: var(--btn-disabled-bg);
 }
 </style>

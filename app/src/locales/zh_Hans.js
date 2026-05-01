@@ -94,6 +94,9 @@ export default {
     homepage: '项目首页',
     license: '开源协议',
     licenseSummary: '允许商业使用、修改、分发与私人使用；需保留版权声明并标明重大改动；不授予商标权，亦不提供任何担保。',
-    language: '语言 Language'
+    language: '语言 Language',
+    theme: '主题',
+    themeLight: '浅色',
+    themeDark: '深色'
   }
 }

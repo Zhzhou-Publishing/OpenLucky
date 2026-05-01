@@ -1280,8 +1280,8 @@ const loadFullResImage = async () => {
           const width = previousImageDimensions.value.width
           const height = previousImageDimensions.value.height
           const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="${width}" height="${height}" fill="#cccccc"/>
-            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
+            <rect width="${width}" height="${height}" fill="#3c3c3c"/>
+            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">RAW file converting...</text>
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
@@ -1499,7 +1499,7 @@ watch(currentIndex, () => {
   // Set placeholder image before loading new one
   const width = previousImageDimensions.value.width
   const height = previousImageDimensions.value.height
-  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="white"/></svg>`
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="#3c3c3c"/></svg>`
   fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
 
   // Reset presetLoaded state when switching images
@@ -1615,7 +1615,7 @@ onUnmounted(() => {
 <style scoped>
 .photo-edit-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-page);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1626,8 +1626,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   z-index: 10;
@@ -1635,8 +1635,8 @@ onUnmounted(() => {
 
 .back-button {
   padding: 10px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1645,12 +1645,12 @@ onUnmounted(() => {
 }
 
 .back-button:hover {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .file-name {
   font-size: 20px;
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
   text-align: center;
@@ -1658,7 +1658,7 @@ onUnmounted(() => {
 
 .directory-name {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1671,14 +1671,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #42b883;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -1710,13 +1710,13 @@ onUnmounted(() => {
 
 .empty-state h2 {
   font-size: 24px;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .empty-state p {
   font-size: 16px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .content {
@@ -1730,8 +1730,8 @@ onUnmounted(() => {
 .thumbnails-container {
   width: 100px;
   height: calc(100vh - 64px - 80px);
-  background: white;
-  border-right: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
   overflow-y: scroll;
   overflow-x: hidden;
   flex-shrink: 0;
@@ -1742,12 +1742,12 @@ onUnmounted(() => {
 }
 
 .thumbnails-container::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--btn-disabled-bg);
   border-radius: 3px;
 }
 
 .thumbnails-container::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--btn-disabled-bg);
 }
 
 .thumbnails-wrapper {
@@ -1775,7 +1775,7 @@ onUnmounted(() => {
 }
 
 .thumbnail-item.active {
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(66, 184, 131, 0.3);
 }
 
@@ -1804,7 +1804,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top: 3px solid #fff;
+  border-top: 3px solid var(--bg-surface);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1875,7 +1875,7 @@ onUnmounted(() => {
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.78);
-  color: #fff;
+  color: var(--text-on-accent);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -1907,7 +1907,7 @@ onUnmounted(() => {
   bottom: 5%;
   right: 5%;
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: var(--text-on-accent);
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 12px;
@@ -1932,17 +1932,17 @@ onUnmounted(() => {
 .preset-modal-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 14px;
-  color: #333;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-input);
   cursor: pointer;
 }
 
 .preset-modal-select:focus {
   outline: none;
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.15);
 }
 
@@ -1953,8 +1953,8 @@ onUnmounted(() => {
   left: 100px;
   right: 0;
   padding: 8px 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
   z-index: 100;
   box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1987,7 +1987,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #444;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -2032,8 +2032,8 @@ onUnmounted(() => {
 .apply-button,
 .apply-all-button {
   padding: 8px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -2045,7 +2045,7 @@ onUnmounted(() => {
 
 .apply-button:hover:not(:disabled),
 .apply-all-button:hover:not(:disabled) {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .apply-button:active:not(:disabled),
@@ -2055,7 +2055,7 @@ onUnmounted(() => {
 
 .apply-button:disabled,
 .apply-all-button:disabled {
-  background: #ccc;
+  background: var(--btn-disabled-bg);
   cursor: not-allowed;
   opacity: 0.6;
 }

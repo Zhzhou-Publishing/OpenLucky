@@ -28,6 +28,14 @@
       </section>
 
       <section class="info-section">
+        <h2>{{ $t('about.theme') }}</h2>
+        <select v-model="currentTheme" class="theme-select" @change="changeTheme">
+          <option value="dark">{{ $t('about.themeDark') }}</option>
+          <option value="light">{{ $t('about.themeLight') }}</option>
+        </select>
+      </section>
+
+      <section class="info-section">
         <h2>{{ $t('about.language') }}</h2>
         <LanguageSwitcher />
         <p v-if="locale === 'bo_CN'" class="locale-note">
@@ -42,9 +50,16 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useTheme } from '../utils/theme'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
 const { locale } = useI18n()
+const { theme, setTheme } = useTheme()
+const currentTheme = ref(theme.value)
+
+function changeTheme() {
+  setTheme(currentTheme.value)
+}
 const version = ref(__APP_VERSION__)
 const homepageUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky'
 const licenseUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/blob/main/LICENSE'
@@ -64,10 +79,31 @@ function openExternal(url) {
   padding: 20px;
   max-width: 800px;
   margin: 0 auto;
+  height: 100%;
+  overflow-y: scroll;
+}
+
+.about-page::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 6px;
+}
+
+.about-page::-webkit-scrollbar-track {
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 3px;
+}
+
+.about-page::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.about-page::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 h1 {
-  color: #42b883;
+  color: var(--accent);
   margin-bottom: 30px;
 }
 
@@ -79,17 +115,17 @@ h1 {
 
 .info-section h2 {
   font-size: 18px;
-  color: #35495e;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .info-section p {
   line-height: 1.6;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .repo-link {
-  color: #42b883;
+  color: var(--accent);
   text-decoration: none;
   word-break: break-all;
 }
@@ -101,13 +137,34 @@ h1 {
 .license-summary {
   margin-top: 6px;
   font-size: 13px;
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 .locale-note {
   margin-top: 10px;
   font-size: 13px;
-  color: #888;
+  color: var(--text-tertiary);
   line-height: 1.7;
+}
+
+.theme-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.theme-select:hover {
+  border-color: var(--accent);
+}
+
+.theme-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
 }
 </style>

@@ -66,9 +66,9 @@ onBeforeUnmount(() => {
 }
 
 .modal-box {
-  background: #fff;
+  background: var(--bg-surface);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 32px var(--shadow);
   padding: 24px 28px;
   min-width: 360px;
   max-width: 90vw;
@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 16px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -101,25 +101,25 @@ onBeforeUnmount(() => {
 }
 
 .modal-cancel {
-  background: #f0f0f0;
-  color: #444;
-  border: 1px solid #ddd;
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
 }
 
 .modal-cancel:hover {
-  background: #e6e6e6;
+  background: var(--bg-input);
 }
 
 .modal-save {
-  background: #42b883;
-  color: #fff;
-  border: 1px solid #42b883;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: 1px solid var(--accent);
   font-weight: 600;
 }
 
 .modal-save:hover:not(:disabled) {
-  background: #35a372;
-  border-color: #35a372;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .modal-save:disabled {

@@ -45,22 +45,22 @@ watch(locale, (newLocale) => {
 
 .language-select {
   padding: 6px 12px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 14px;
-  color: #333;
-  background: white;
+  color: var(--text-primary);
+  background: var(--bg-input);
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
 
 .language-select:hover {
-  border-color: #42b883;
+  border-color: var(--accent);
 }
 
 .language-select:focus {
   outline: none;
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
 }
 </style>

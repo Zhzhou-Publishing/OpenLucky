@@ -46,24 +46,24 @@ const handleTabChange = (tabId) => {
 }
 
 .tabs-example h2 {
-  color: #35495e;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
 .tab-content {
   padding: 20px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .tab-content h3 {
-  color: #42b883;
+  color: var(--accent);
   margin-top: 0;
 }
 
 .tab-content p {
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 </style>

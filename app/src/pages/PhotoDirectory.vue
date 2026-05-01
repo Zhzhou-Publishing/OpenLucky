@@ -197,13 +197,13 @@ const selectDirectory = async () => {
 
 .page-title {
   font-size: 32px;
-  color: #42b883;
+  color: var(--accent);
   margin-bottom: 10px;
 }
 
 .page-description {
   font-size: 16px;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 40px;
 }
 
@@ -215,7 +215,7 @@ const selectDirectory = async () => {
   border-radius: 8px;
   margin-bottom: 30px;
   font-size: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .select-button {
@@ -223,23 +223,23 @@ const selectDirectory = async () => {
   padding: 80px 40px;
   font-size: 24px;
   font-weight: 600;
-  color: white;
+  color: var(--text-on-accent);
   background: linear-gradient(135deg, #42b883 0%, #35495e 100%);
   border: none;
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px var(--shadow);
 }
 
 .select-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 12px var(--shadow);
 }
 
 .select-button:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .select-button:disabled {
@@ -250,20 +250,20 @@ const selectDirectory = async () => {
 .selected-info {
   margin-top: 40px;
   padding: 20px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .path-label {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .path-text {
   font-size: 16px;
-  color: #42b883;
+  color: var(--accent);
   font-family: monospace;
   word-break: break-all;
 }
@@ -271,14 +271,14 @@ const selectDirectory = async () => {
 .files-info {
   margin-top: 20px;
   padding: 20px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
 .files-count {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
@@ -291,8 +291,8 @@ const selectDirectory = async () => {
 .file-item {
   padding: 8px 12px;
   font-size: 14px;
-  color: #333;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .file-item:last-child {
@@ -300,7 +300,7 @@ const selectDirectory = async () => {
 }
 
 .file-item.more-files {
-  color: #999;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 </style>

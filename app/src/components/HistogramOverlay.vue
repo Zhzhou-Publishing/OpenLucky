@@ -172,7 +172,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top: 3px solid #fff;
+  border-top: 3px solid var(--text-on-accent);
   border-radius: 50%;
   animation: hist-spin 1s linear infinite;
 }

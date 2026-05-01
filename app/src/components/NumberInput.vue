@@ -211,14 +211,14 @@ onUnmounted(() => {
 
 .number-label {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .number-input {
   display: flex;
   align-items: stretch;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   overflow: hidden;
   width: fit-content;
@@ -231,6 +231,8 @@ onUnmounted(() => {
   outline: none;
   font-size: 14px;
   text-align: center;
+  background: var(--bg-input);
+  color: var(--text-primary);
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: textfield;
@@ -246,7 +248,7 @@ onUnmounted(() => {
 .buttons {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #ddd;
+  border-left: 1px solid var(--border-light);
 }
 
 .up-btn,
@@ -254,20 +256,20 @@ onUnmounted(() => {
   width: 32px;
   height: 20px;
   border: none;
-  background: #f5f5f5;
+  background: var(--bg-input);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: #666;
+  color: var(--text-secondary);
   transition: background 0.2s;
   padding: 0;
 }
 
 .up-btn:hover:not(:disabled),
 .down-btn:hover:not(:disabled) {
-  background: #e0e0e0;
+  background: var(--bg-surface-hover);
 }
 
 .up-btn:disabled,
@@ -277,7 +279,7 @@ onUnmounted(() => {
 }
 
 .up-btn {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .down-btn {

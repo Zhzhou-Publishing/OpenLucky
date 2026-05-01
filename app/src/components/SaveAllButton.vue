@@ -45,8 +45,8 @@ const handleClick = () => {
 <style scoped>
 .save-all-button {
   padding: 8px 20px;
-  background: #42a5f5;
-  color: white;
+  background: var(--btn-save-bg);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -57,7 +57,7 @@ const handleClick = () => {
 }
 
 .save-all-button:hover:not(:disabled) {
-  background: #2196f3;
+  background: var(--btn-save-hover);
 }
 
 .save-all-button:active:not(:disabled) {
@@ -65,7 +65,7 @@ const handleClick = () => {
 }
 
 .save-all-button:disabled {
-  background: #90caf9;
+  background: var(--btn-save-disabled);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -76,7 +76,7 @@ const handleClick = () => {
   right: -4px;
   width: 12px;
   height: 12px;
-  background: #ff4444;
+  background: var(--danger);
   border-radius: 50%;
   border: 2px solid white;
 }
