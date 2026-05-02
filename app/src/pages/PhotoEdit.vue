@@ -81,31 +81,31 @@
             <div v-if="activeTab === 'basic'" class="tab-content">
               <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q"
                 decrease-key="A" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W"
                 decrease-key="S" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E"
                 decrease-key="D" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R"
                 decrease-key="F" :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
                 large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T"
                 decrease-key="G" :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
                 large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
             </div>
 
             <!-- Advanced Parameters Tab -->
             <div v-if="activeTab === 'dye_concentration_correction'" class="tab-content">
               <NumberInput :label="$t('photoEdit.contrastR')" v-model="contrastR" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
               <NumberInput :label="$t('photoEdit.contrastG')" v-model="contrastG" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
               <NumberInput :label="$t('photoEdit.contrastB')" v-model="contrastB" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
             </div>
 
             <!-- Exposure Tab -->
@@ -116,7 +116,7 @@
               </div>
               <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
                 :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
             </div>
 
             <!-- White Balance Tab -->
@@ -134,7 +134,7 @@
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="whiteBalanceTemp" :max="50" :min="-50" :step-value="1"
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
-                    @keydown="handleInputKeydown" />
+                    />
                 </div>
                 <div class="wb-row">
                   <Slider class="wb-row-slider" :label="$t('photoEdit.whiteBalanceTint')"
@@ -143,14 +143,14 @@
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="whiteBalanceTint" :max="50" :min="-50" :step-value="1"
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
-                    @keydown="handleInputKeydown" />
+                    />
                 </div>
               </div>
             </div>
 
             <!-- Common Action Buttons -->
             <div class="action-buttons">
-              <button @click="apply" class="apply-button" title="Enter" style="display: none;"
+              <button @click="apply" class="apply-button" title="Enter"
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
               <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
                 $t('photoEdit.applyAll') }}</button>
@@ -196,18 +196,6 @@ import { presets as globalPresets } from '../utils/presetCache'
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
-
-// Debounce utility function
-function debounce(fn, delay) {
-  let timer = null
-  return function (...args) {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      fn.apply(this, args)
-      timer = null
-    }, delay)
-  }
-}
 
 const router = useRouter()
 const route = useRoute()
@@ -1595,7 +1583,6 @@ const loadPresetForCurrentImage = () => {
     }
   }
 
-  // Set presetLoaded to true after loading presets, enabling preview debounce
   presetLoaded.value = true
 }
 
@@ -1670,39 +1657,6 @@ watch(isCurrentImageApplied, (applied) => {
   }
 })
 
-// Create debounced version of applyPreview
-const debouncedApplyPreview = debounce(() => {
-  if (!presetLoaded.value) {
-    return
-  }
-  applyPreview()
-}, 5000)
-
-// Handle keydown events in input fields for preview
-function handleInputKeydown(event) {
-  // Only process if target is an input field and preset is loaded
-  if (event.target.tagName !== 'INPUT' || !presetLoaded.value) {
-    return
-  }
-
-  // Apply debounced preview
-  debouncedApplyPreview()
-}
-
-// Watch for input value changes to restart debounce (only if user has already started typing)
-const inputsToWatch = [input1, input2, input3, input4, input5, contrastR, contrastG, contrastB]
-inputsToWatch.forEach(input => {
-  watch(input, () => {
-    // Only restart debounce if preset is loaded and current image is affected
-    // This ensures we don't start previewing automatically after mounted
-    if (!presetLoaded.value || !isCurrentImageAffected.value) {
-      return
-    }
-
-    // Apply debounced preview (this will restart the timer)
-    debouncedApplyPreview()
-  })
-})
 
 // 操作面板挂在 v-else 分支里，初次 onMounted 时 ref 还是 null。
 // 用 watch 跟踪 ref 的挂载时机，一出现就接上 ResizeObserver，
