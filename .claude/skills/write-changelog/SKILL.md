@@ -17,6 +17,7 @@ disable-model-invocation: true
     英文版文件名：CHANGELOG.en_US.<tag_version>.md
     中文版文件名：CHANGELOG.zh_Hans.<tag_version>.md
     <tag_version> 从 app/package.json 中读取 .version 字段，如果 .version 字段值不带前缀 v，则加上前缀 v 当作 <tag_version>。
+    如你提取到 v1.2.3-rc.4.md，那么请生成 `CHANGELOG.en_US.v1.2.3-rc.4.md` 和 `CHANGELOG.zh_Hans.v1.2.3-rc.4.md`。
 
 动作3：增加新的 CHANGELOG 过后，提交当前分支，并推送远程，推送完毕后用浏览器打开当前分支到 main 分支的 Pull Request 页面。
 
