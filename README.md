@@ -1,153 +1,195 @@
 # OpenLucky
 
-基于 OpenCV 的胶片负片转正处理工具，支持多种胶片预设去色罩。
+[English](README.md) | [简体中文](README.zh_Hans.md)
 
-## 功能特点
+![Version](https://img.shields.io/badge/version-1.4.3--rc.5-4e8cff)
+![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen)
+![Electron](https://img.shields.io/badge/Electron-41-47848f?logo=electron&logoColor=white)
+![Vue](https://img.shields.io/badge/Vue-3.5-4fc08d?logo=vuedotjs&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
 
-- 🔬 **去色罩处理** - 自动移除胶片片基色罩
-- 🎨 **多胶片预设** - 内置 Kodak、Fuji、Agfa 等多种胶片预设
-- ⚙️ **可自定义配置** - 支持通过 YAML 配置文件创建和编辑自定义预设
-- 📊 **高精度处理** - 支持 16-bit TIFF 文件处理，保留更多细节
-- 🖼️ **图像增强** - 自动色阶、对比度、Gamma 修正
-- 📁 **批量处理** - 支持批量处理目录中的所有图片
+An OpenCV-based film negative conversion tool that removes color masks using built-in film presets. Available as both a command-line tool and a desktop application.
 
-## 安装
+## Desktop App
 
-### Windows 安装程序
-下载安装包进行安装。
+OpenLucky Desktop is an Electron + Vue 3 application that provides an intuitive graphical interface for browsing, adjusting, and batch-processing film negatives.
 
-## 快速开始
+### Photo Directory
 
-### 处理负片
+Select a local folder containing your photos. The app loads all images in the directory and generates thumbnail previews.
+
+- Compress preview mode for faster loading of large photo sets
+- Cancel loading at any time
+- Supports common image formats (JPG, PNG, TIFF, WebP, and major camera RAW formats)
+
+### Photo Edit
+
+The core negative processing workspace, with a thumbnail strip on the left and a main image viewer plus parameter controls on the right.
+
+#### Parameter Controls
+
+- **Basic Parameters**: Mask RGB channels (Mask-R / Mask-G / Mask-B), Gamma, Contrast
+- **Emulsion Concentration Correction**: Per-channel contrast (Contrast R / G / B) for fine-tuning tonality
+- **Exposure**: Exposure compensation adjustment
+- **White Balance**: Auto white balance or manual temperature and tint control
+- All parameters support precise numeric input and step adjustment
+
+#### Image Operations
+
+- Main image zoom and pan (Ctrl+scroll, pinch gestures, keyboard shortcuts)
+- Right-click context menu:
+  - Copy / Paste parameters
+  - Apply preset
+  - Pick mask color
+  - Select white-point area
+  - Rotate (clockwise 90°, counter-clockwise 90°, 180°)
+  - Reset image
+- Real-time histogram preview
+
+#### Batch Processing
+
+- **Apply**: Apply current parameters to the displayed image
+- **Apply All**: Batch-apply basic parameters to all images in the directory
+- **Save All**: Export all images with applied parameters
+
+### Languages & Theme
+
+- 14 interface languages
+- Dark and light theme, synced with system appearance
+
+---
+
+## Command-Line Tool (CLI)
+
+### Process a Single Negative
 
 ```powershell
 openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
 ```
 
-### 批量处理负片
-
-批量处理目录中的所有图片：
+### Batch Process Negatives
 
 ```powershell
-# 输出到 input/output 目录
+# Output to input/output directory
 openlucky.exe filmbatch -i ./input
 
-# 指定输出目录
+# Specify output directory
 openlucky.exe filmbatch -i ./input -o ./output
 
-# 使用自定义配置和预设
+# Use custom config and preset
 openlucky.exe filmbatch -i ./input -o ./output -c config.yaml -p kodak_ultramax_400
 ```
 
-### 转换 TIFF 到 JPEG
-
-如果需要先将 TIFF 文件转换为 JPEG：
+### Format Conversion
 
 ```powershell
 openlucky.exe tiff2jpeg -i input.tif -o output.jpg
 ```
 
-## 命令行参数
+### CLI Arguments
 
-### openlucky.py film
+#### openlucky.py film
 
-胶片负片转正处理（Kodak UltraMax 400 优化）
+Process a single film negative.
 
-| 参数 | 简写 | 必需 | 说明 |
-|------|------|------|------|
-| `--input` | `-i` | ✅ | 输入负片文件路径（支持 .tif, .tiff, .jpg） |
-| `--output` | `-o` | ✅ | 输出文件保存路径 |
-| `--config` | `-c` | ✅ | 预设配置文件（YAML）路径 |
-| `--preset` | `-p` | ❌ | 使用的预设名称（默认：kodak_ultramax_400） |
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--input` | `-i` | Yes | Input negative file path (.tif, .tiff, .jpg) |
+| `--output` | `-o` | Yes | Output file path |
+| `--config` | `-c` | Yes | Preset config file (YAML) path |
+| `--preset` | `-p` | No | Preset name (default: kodak_ultramax_400) |
 
-### openlucky.py filmbatch
+#### openlucky.py filmbatch
 
-批量处理胶片负片
+Batch process film negatives.
 
-| 参数 | 简写 | 必需 | 说明 |
-|------|------|------|------|
-| `--input` | `-i` | ✅ | 输入图片目录 |
-| `--output` | `-o` | ❌ | 输出图片目录（默认：输入目录下的 output 子目录） |
-| `--config` | `-c` | ❌ | 预设配置文件（YAML）路径（留空则自动查找） |
-| `--preset` | `-p` | ❌ | 使用的预设名称（默认：kodak_ultramax_400） |
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--input` | `-i` | Yes | Input image directory |
+| `--output` | `-o` | No | Output directory (default: `output` subdirectory under input) |
+| `--config` | `-c` | No | Preset config file (YAML) path (auto-detected if omitted) |
+| `--preset` | `-p` | No | Preset name (default: kodak_ultramax_400) |
 
-**支持的图片格式：** `.jpg`、`.jpeg`、`.png`、`.tif`、`.tiff`、`.bmp`
+Supported formats: `.jpg`, `.jpeg`, `.png`, `.tif`, `.tiff`, `.bmp`
 
-### openlucky.py tiff2jpeg
+#### openlucky.py tiff2jpeg
 
-TIFF 转 JPEG 格式转换
+Convert TIFF to JPEG.
 
-| 参数 | 简写 | 必需 | 说明 |
-|------|------|------|------|
-| `--input` | `-i` | ✅ | 输入 TIFF 文件路径 |
-| `--output` | `-o` | ✅ | 输出 JPEG 文件路径 |
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--input` | `-i` | Yes | Input TIFF file path |
+| `--output` | `-o` | Yes | Output JPEG file path |
 
-## 配置文件说明
+---
 
-配置文件 `config.yaml` 使用 YAML 格式，每个预设包含以下参数：
+## Configuration
+
+The `config.yaml` file uses YAML format. Each preset contains the following parameters:
 
 ```yaml
 presets:
   preset_name:
-    mask_r: 215      # 片基红色通道参考值 (0-255)
-    mask_g: 145      # 片基绿色通道参考值 (0-255)
-    mask_b: 95       # 片基蓝色通道参考值 (0-255)
-    contrast: 1.15   # 对比度微调（建议范围：1.0-1.5）
-    gamma: 0.45      # Gamma 修正值（建议范围：0.4-2.2）
+    mask_r: 215      # Film base red channel reference (0-255)
+    mask_g: 145      # Film base green channel reference (0-255)
+    mask_b: 95       # Film base blue channel reference (0-255)
+    contrast: 1.15   # Contrast fine-tuning (recommended: 1.0-1.5)
+    gamma: 0.45      # Gamma correction (recommended: 0.4-2.2)
 ```
 
-### 参数详解
+### Parameter Details
 
-- **mask_r/mask_g/mask_b**: 色罩各通道的参考值，用于除法归一化
-- **contrast**: 对比度系数，1.0 表示无调整
-- **gamma**: Gamma 修正，<1.0 提亮暗部，>1.0 加深暗部
+- **mask_r/mask_g/mask_b**: Reference values for each color mask channel, used for normalization
+- **contrast**: Contrast coefficient, 1.0 means no adjustment
+- **gamma**: Gamma correction, <1.0 brightens shadows, >1.0 darkens shadows
 
-## 内置预设
+## Built-in Presets
 
-| 预设名称 | 胶片类型 | 特点 |
-|----------|----------|------|
-| `kodak_gold_200` | Kodak Gold 200 | 民用卷，色彩温暖 |
-| `fuji_c200` | Fuji C200 | 民用卷，色彩偏冷 |
-| `kodak_ultramax_400` | Kodak UltraMax 400 | 高感民用卷，色彩鲜艳 |
-| `fujifilm_c400` | Fujifilm C400 | 民用高感卷，肤色偏粉 |
-| `vision3_50d_5203` | Kodak Vision3 50D | 日光电影卷，颗粒极细 |
-| `vision3_250d_5207` | Kodak Vision3 250D | 日光电影卷，全能型 |
-| `vision3_200t_5213` | Kodak Vision3 200T | 灯光电影卷 |
-| `vision3_500t_5219` | Kodak Vision3 500T | 高感灯光电影卷 |
-| `agfa_turia_100s_xx1` | Agfa Turia 100S | 民用卷，对比度高 |
+| Preset Name | Film Type | Characteristics |
+|-------------|-----------|-----------------|
+| `kodak_gold_200` | Kodak Gold 200 | Consumer film, warm tones |
+| `fuji_c200` | Fuji C200 | Consumer film, cool tones |
+| `kodak_ultramax_400` | Kodak UltraMax 400 | High-speed consumer film, vivid colors |
+| `fujifilm_c400` | Fujifilm C400 | Consumer high-speed film, pinkish skin tones |
+| `vision3_50d_5203` | Kodak Vision3 50D | Daylight cinema film, ultra-fine grain |
+| `vision3_250d_5207` | Kodak Vision3 250D | Daylight cinema film, all-purpose |
+| `vision3_200t_5213` | Kodak Vision3 200T | Tungsten cinema film |
+| `vision3_500t_5219` | Kodak Vision3 500T | High-speed tungsten cinema film |
+| `agfa_turia_100s_xx1` | Agfa Turia 100S | Consumer film, high contrast |
 
-## 自定义预设
+## Custom Presets
 
-在 `config.yaml` 中添加自己的预设：
+Add your own presets in `config.yaml`:
 
 ```yaml
 presets:
   my_custom_film:
-    mask_r: 200      # 根据实际扫描调整
+    mask_r: 200
     mask_g: 140
     mask_b: 100
     contrast: 1.1
     gamma: 0.5
 ```
 
-使用自定义预设：
+Use custom presets:
 
 ```powershell
-# 单张处理
+# Single image
 openlucky.exe film -i input.tif -o output.jpg -c config.yaml -p my_custom_film
 
-# 批量处理
+# Batch processing
 openlucky.exe filmbatch -i ./input -o ./output -c config.yaml -p my_custom_film
 ```
 
-## 技术原理
+## How It Works
 
-1. **色罩去除** - 根据预设的 mask 值对各通道进行归一化除法
-2. **颜色反转** - 将负片图像转换为正片
-3. **Gamma 修正** - 调整明暗曲线，使暗部细节更自然
-4. **自动色阶** - 根据直方图统计自动调整黑场和白场
-5. **对比度调整** - 微调图像对比度
+1. **Color Mask Removal** - Normalize each channel using preset mask values
+2. **Color Inversion** - Convert the negative image to a positive
+3. **Gamma Correction** - Adjust the tone curve for natural shadow detail
+4. **Auto Levels** - Adjust black and white points based on histogram statistics
+5. **Contrast Adjustment** - Fine-tune image contrast
 
-## 许可证
+## License
 
-本项目采用 Apache License 2.0 - 详见 LICENSE 文件
+Apache License 2.0 — see the LICENSE file for details
