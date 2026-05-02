@@ -154,7 +154,7 @@
       </div>
     </div>
 
-    <HistogramOverlay v-if="showHistogram" :histogram="histogramData" :loading="isHistogramLoading" />
+    <HistogramOverlay v-if="isHistogramDisplay" :histogram="histogramData" :loading="isHistogramLoading" />
 
     <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
 
@@ -244,6 +244,9 @@ const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
+// apply 成功后 affectedImages 被同步清除但 loadPresets 是异步的，
+// 桥接这个间隙保持 isHistogramDisplay 不闪烁。
+const pendingApplyImage = ref(null)
 function histogramCacheKey(directoryPath, filename, area) {
   const areaKey = area ? `${area.x1},${area.y1},${area.x2},${area.y2}` : 'full'
   return `histogram:${directoryPath}:${filename}:${areaKey}`
@@ -283,6 +286,13 @@ function clearHistogramCache() {
 
 async function fetchHistogramFor(directoryPath, filename, area) {
   if (!directoryPath || !filename || !window.require) {
+    histogramData.value = null
+    return
+  }
+  // 只对有 output_dir 的图片采样。apply 进行中不采样——此时 .preset.json
+  // 还没有 output_dir，compute-histogram 会退回底片路径。
+  const entry = presetsData.value?.[filename]
+  if (!entry || !entry.output_dir) {
     histogramData.value = null
     return
   }
@@ -743,14 +753,21 @@ const isCurrentImageApplied = computed(() => {
   return !!presetsData.value[currentFileName.value]
 })
 
-const showHistogram = computed(() => {
-  if (!isCurrentImageApplied.value && !isCurrentImageAffected.value) return false
+// 浮层显示：已 apply（有 output_dir）或正在 apply 或刚完成 apply 等待 presets 刷新。
+const isHistogramDisplay = computed(() => {
+  if (!currentImage.value) return false
   if (isCurrentImageAffected.value) return true
-  return !!histogramData.value
+  if (isCurrentImageApplied.value) return true
+  if (pendingApplyImage.value === currentImage.value.name) return true
+  return false
 })
 
+// 转圈：正在 apply、等待首次采样、或图片未 apply（等待用户操作）。
 const isHistogramLoading = computed(() => {
-  return isCurrentImageAffected.value
+  if (isCurrentImageAffected.value) return true
+  if (!isCurrentImageApplied.value) return true
+  if (!histogramData.value) return true
+  return false
 })
 
 const currentDirectoryName = computed(() => {
@@ -1009,6 +1026,7 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        pendingApplyImage.value = imageName
         clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
@@ -1099,6 +1117,7 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        pendingApplyImage.value = imageName
         clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
@@ -1195,6 +1214,7 @@ const applyAll = () => {
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
       console.log(result.message)
+      pendingApplyImage.value = currentImage.value?.name || null
       clearHistogramCache()
       // Update all image timestamps to refresh display without reloading page
       images.value.forEach(img => {
@@ -1578,12 +1598,27 @@ const currentImageArea = computed(() => {
 
 // 主图刷新（切图、apply 完成）或白点选区改动时重算直方图。
 // fullResImageUrl 处理图片身份/时间戳变化，currentImageArea 处理选区变化。
+// fetchHistogramFor 内部会判断图片是否已 apply，避免对底片做无意义的采样。
 watch([fullResImageUrl, currentImageArea], () => {
   const filename = currentImage.value?.name
   if (filename && workingDirectory.value) {
     fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
   } else {
     histogramData.value = null
+  }
+})
+
+// apply 成功后 loadFullResImage（触发上方 watcher）和 loadPresets（更新 presetsData）
+// 是并发异步的。如果 loadPresets 晚于 loadFullResImage 完成，上方 watcher 触发时
+// presetsData 尚未更新，守卫会阻止采样。这里兜底：一旦 presetsData 就绪且当前图片
+// 已 apply 但还没有直方图数据，补一次采样。
+watch(isCurrentImageApplied, (applied) => {
+  if (applied) {
+    pendingApplyImage.value = null
+    const filename = currentImage.value?.name
+    if (filename && workingDirectory.value && !histogramData.value) {
+      fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
+    }
   }
 })
 
