@@ -1,6 +1,7 @@
 import rawpy
 import cv2
 import numpy as np
+import shutil
 from pathlib import Path
 
 from cli.constants.image_formats import RAW_EXTENSIONS
@@ -180,16 +181,20 @@ def calculate_new_dimensions(original_width, original_height, edge, mode, value)
     return new_width, new_height
 
 
-def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', value=100):
+def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', value=None):
     """
     调整图片大小
+
+    当 value 为 None 时，不执行缩放：
+    - 非RAW图片：直接复制到输出路径
+    - RAW图片：转换为TIFF放入输出路径
 
     Args:
         input_path: 输入文件路径
         output_path: 输出文件路径
         edge: 缩放依据的边，默认 long-edge
         mode: 缩放模式，默认 fixed-value
-        value: 缩放值，默认 100
+        value: 缩放值，None 表示不缩放
 
     Returns:
         bool: 成功返回True，失败返回False
@@ -207,6 +212,48 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
         # 确定是否为RAW格式
         input_ext = input_path.suffix.lower()
         is_raw = input_ext in RAW_EXTENSIONS
+
+        # 无缩放模式：非RAW直接复制，RAW转TIFF
+        if value is None:
+            if is_raw:
+                # RAW格式：照常做demosaic后转TIFF放入工作目录
+                with rawpy.imread(str(input_path)) as raw:
+                    img = raw.postprocess(
+                        demosaic_algorithm=(
+                            rawpy.DemosaicAlgorithm.DHT if input_ext == '.raf'
+                            else rawpy.DemosaicAlgorithm.AAHD
+                        ),
+                        fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
+                        gamma=(1, 1),
+                        no_auto_bright=True,
+                        output_bps=16,
+                        use_camera_wb=True,
+                        bright=1.0,
+                    )
+
+                output_path = output_path.with_suffix('.tif')
+                # RGB → BGR for cv2.imencode
+                if len(img.shape) == 3 and img.shape[2] == 3:
+                    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                else:
+                    img_bgr = img
+
+                success, encoded_img = cv2.imencode('.tif', img_bgr)
+                if not success:
+                    print(f"Error: Failed to encode TIFF to '{output_path}'")
+                    return False
+
+                if not write_image_safe(str(output_path), encoded_img):
+                    return False
+
+                print(f"RAW converted to TIFF (no resize): {output_path}")
+                return True
+            else:
+                # 非RAW格式：直接复制到工作目录
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(str(input_path), str(output_path))
+                print(f"Copied (no resize): {output_path}")
+                return True
 
         # 读取图片
         if is_raw:

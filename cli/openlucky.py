@@ -315,8 +315,9 @@ def main():
     resize_parser.add_argument('--mode', '-m', default='fixed-value',
                                choices=['ratio', 'fixed-value'],
                                help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
-    resize_parser.add_argument('--value', '-v', required=True,
-                               help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
+    resize_parser.add_argument('--value', '-v', required=False, default=None,
+                               help='Resize value: ratio (0-1 float) or fixed-value (positive integer). '
+                                    'If not provided, no resize is performed (non-RAW copied directly, RAW converted to TIFF).')
 
     # tool pick subcommand
     pick_parser = tool_subparsers.add_parser('pick', help='Pick a single pixel color (JSON output to stdout)')
@@ -963,19 +964,21 @@ def main():
 
     elif args.command == 'tool':
         if args.tool_command == 'resize':
-            # Parse value based on mode
-            if args.mode == 'ratio':
-                try:
-                    value = float(args.value)
-                except ValueError:
-                    print(f"Error: Invalid value for ratio mode. Expected float in (0, 1], got '{args.value}'")
-                    sys.exit(1)
-            elif args.mode == 'fixed-value':
-                try:
-                    value = int(args.value)
-                except ValueError:
-                    print(f"Error: Invalid value for fixed-value mode. Expected positive integer, got '{args.value}'")
-                    sys.exit(1)
+            # Parse value based on mode (only if --value is provided)
+            value = None
+            if args.value is not None:
+                if args.mode == 'ratio':
+                    try:
+                        value = float(args.value)
+                    except ValueError:
+                        print(f"Error: Invalid value for ratio mode. Expected float in (0, 1], got '{args.value}'")
+                        sys.exit(1)
+                elif args.mode == 'fixed-value':
+                    try:
+                        value = int(args.value)
+                    except ValueError:
+                        print(f"Error: Invalid value for fixed-value mode. Expected positive integer, got '{args.value}'")
+                        sys.exit(1)
 
             # Perform resize
             success = resize_image(

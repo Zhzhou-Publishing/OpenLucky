@@ -138,3 +138,34 @@ def test_resize_invalid_choices(run_cli, output_dir, tmp_path, extra):
         *extra,
     )
     assert res.returncode != 0
+
+
+@pytest.mark.slow
+def test_resize_no_value_non_raw_copy(run_cli, random_none_raw_input, output_dir):
+    """Without -v, non-RAW images should be directly copied to output."""
+    out = output_dir / random_none_raw_input.name
+    res = run_cli(
+        "tool", "resize",
+        "-i", str(random_none_raw_input),
+        "-o", str(out),
+    )
+    assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
+    assert out.exists()
+    # File should be identical to input (direct copy)
+    assert out.read_bytes() == random_none_raw_input.read_bytes()
+
+
+@pytest.mark.slow
+def test_resize_no_value_raw_convert_to_tiff(run_cli, random_raw_input, output_dir):
+    """Without -v, RAW images should be converted to TIFF without resize."""
+    out = output_dir / (random_raw_input.name + ".tif")
+    res = run_cli(
+        "tool", "resize",
+        "-i", str(random_raw_input),
+        "-o", str(out),
+    )
+    assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
+    # resize_image forces .tif suffix for RAW output
+    actual_out = out if out.suffix == '.tif' else out.with_suffix('.tif')
+    assert actual_out.exists() and actual_out.stat().st_size > 0
+    assert "no resize" in (res.stdout + res.stderr)

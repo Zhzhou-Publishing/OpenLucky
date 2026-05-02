@@ -4,13 +4,13 @@
       <h1 class="page-title">{{ $t('photoDirectory.title') }}</h1>
       <p class="page-description">{{ $t('photoDirectory.description') }}</p>
 
-      <!-- OpenLucky installation error -->
-      <div v-if="!openluckyAvailable" class="installation-error">
+      <!-- OpenLucky installation error (always occupies space) -->
+      <div class="installation-error" :class="{ hidden: openluckyAvailable }">
         {{ $t('photoDirectory.installationError') }}
       </div>
 
-      <!-- Electron environment indicator -->
-      <div v-if="!isElectron" class="warning-box">
+      <!-- Electron environment indicator (always occupies space) -->
+      <div class="warning-box" :class="{ hidden: isElectron }">
         {{ $t('photoDirectory.electronWarning') }}
       </div>
 
@@ -23,7 +23,7 @@
         <span v-else>{{ $t('photoDirectory.loading') }}</span>
       </button>
 
-      <div v-if="selectedPath || processingProgress" class="selected-info">
+      <div class="selected-info" :class="{ hidden: !selectedPath && !processingProgress }">
         <p class="path-label">{{ processingProgress ? $t('photoDirectory.processingProgress') : $t('photoDirectory.selectedPath') }}</p>
         <p class="path-text">{{ processingProgress || selectedPath }}</p>
       </div>
@@ -182,10 +182,9 @@ const selectDirectory = async () => {
 
 <style scoped>
 .photo-directory-page {
-  padding: 40px 20px;
+  padding: 30vh 20px 40px;
   display: flex;
   justify-content: center;
-  align-items: center;
   min-height: 100vh;
 }
 
@@ -204,7 +203,7 @@ const selectDirectory = async () => {
 .page-description {
   font-size: 16px;
   color: var(--text-secondary);
-  margin-bottom: 40px;
+  margin-bottom: 16px;
 }
 
 .installation-error {
@@ -218,9 +217,36 @@ const selectDirectory = async () => {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
+.installation-error.hidden {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.warning-box {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  font-size: 15px;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.warning-box.hidden {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 0;
+  overflow: hidden;
+}
+
 .select-button {
   width: 100%;
-  padding: 80px 40px;
+  padding: 40px;
   font-size: 24px;
   font-weight: 600;
   color: var(--text-on-accent);
@@ -253,6 +279,14 @@ const selectDirectory = async () => {
   background: var(--bg-surface);
   border-radius: 8px;
   box-shadow: 0 2px 4px var(--shadow);
+}
+
+.selected-info.hidden {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 0;
+  overflow: hidden;
 }
 
 .path-label {
