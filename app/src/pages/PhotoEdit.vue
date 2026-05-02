@@ -1135,12 +1135,16 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        pendingApplyImage.value = imageName
-        clearHistogramCache();
-        refreshImage(imageName);
-        loadFullResImage();
-        loadPresets();
         affectedImages.delete(imageName);
+
+        // 只有当前展示的图片才刷新主图和直方图
+        if (currentImage.value && currentImage.value.name === imageName) {
+          pendingApplyImage.value = imageName
+          clearHistogramCache();
+          refreshImage(imageName);
+          loadFullResImage();
+          loadPresets();
+        }
 
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
@@ -1226,17 +1230,21 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        pendingApplyImage.value = imageName
-        clearHistogramCache();
-        refreshImage(imageName);
-        loadFullResImage();
-        loadPresets();
         affectedImages.delete(imageName);
 
         // 旋转操作：IPC 成功后旋转白点选区坐标
         if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
           rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
           pendingRotation.value = null
+        }
+
+        // 只有当前展示的图片才刷新主图和直方图
+        if (currentImage.value && currentImage.value.name === imageName) {
+          pendingApplyImage.value = imageName
+          clearHistogramCache();
+          refreshImage(imageName);
+          loadFullResImage();
+          loadPresets();
         }
 
         // 处理完自己的事情后，移除这个特定的监听器
