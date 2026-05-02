@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 選擇目錄',
     loading: '載入中...',
     selectedPath: '已選擇路徑：',
-    processingProgress: '正在準備預覽'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← 返回',

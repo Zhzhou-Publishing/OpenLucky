@@ -23,6 +23,13 @@
         <span v-else>{{ $t('photoDirectory.loading') }}</span>
       </button>
 
+      <!-- Compress preview toggle -->
+      <div class="compress-toggle">
+        <CapsuleSwitch v-model="compressPreview" :disabled="isLoading" />
+        <span class="compress-label">{{ $t('photoDirectory.compressPreview') }}</span>
+        <Popover :text="$t('photoDirectory.compressPreviewTip')" />
+      </div>
+
       <div class="selected-info" :class="{ hidden: !selectedPath && !processingProgress }">
         <p class="path-label">{{ processingProgress ? $t('photoDirectory.processingProgress') : $t('photoDirectory.selectedPath') }}</p>
         <p class="path-text">{{ processingProgress || selectedPath }}</p>
@@ -35,6 +42,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchPresets } from '../utils/presetCache'
+import CapsuleSwitch from '../components/CapsuleSwitch.vue'
+import Popover from '../components/Popover.vue'
 
 const router = useRouter()
 
@@ -88,6 +97,7 @@ const checkOpenLucky = () => {
 const selectedPath = ref('')
 const isLoading = ref(false)
 const processingProgress = ref('')
+const compressPreview = ref(false)
 
 const selectDirectory = async () => {
   try {
@@ -113,7 +123,7 @@ const selectDirectory = async () => {
 
       // Prepare working directory from selected directory
       isLoading.value = true
-      ipcRenderer.send('prepare-working-directory-from-selected', result.path)
+      ipcRenderer.send('prepare-working-directory-from-selected', result.path, { compressPreview: compressPreview.value })
     })
 
     // Handle working directory preparation success
@@ -129,7 +139,8 @@ const selectDirectory = async () => {
         query: {
           workingDirectory: result.workingDirectory,
           outputDirectory: result.outputDirectory,
-          originalDirectory: result.originalDirectory
+          originalDirectory: result.originalDirectory,
+          compressPreview: compressPreview.value ? '1' : ''
         }
       })
     })
@@ -242,6 +253,19 @@ const selectDirectory = async () => {
   border: none;
   max-height: 0;
   overflow: hidden;
+}
+
+.compress-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.compress-label {
+  font-size: 15px;
+  color: var(--text-primary);
 }
 
 .select-button {

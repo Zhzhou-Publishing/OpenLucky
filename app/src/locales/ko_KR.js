@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 폴더 선택',
     loading: '불러오는 중...',
     selectedPath: '선택한 경로(經路):',
-    processingProgress: '미리보기 준비 중'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← 뒤로',

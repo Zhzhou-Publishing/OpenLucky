@@ -13,8 +13,11 @@ const {
 } = require('../shared/utils')
 
 function register() {
-  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath) => {
+  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath, options = {}) => {
     try {
+      const compressPreview = options.compressPreview === true
+      const resizeOptions = compressPreview ? { value: 1920 } : {}
+
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
       const workingDirectory = workingDirObj.name
 
@@ -46,7 +49,7 @@ function register() {
         }
 
         if (await needsResize(srcPath)) {
-          const result = await resizeImage(srcPath, destPath)
+          const result = await resizeImage(srcPath, destPath, resizeOptions)
           if (result.success) {
             console.log('Image processed (resized):', file)
             return { success: true, file }

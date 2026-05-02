@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 Sélectionner le répertoire',
     loading: 'Chargement...',
     selectedPath: 'Chemin sélectionné :',
-    processingProgress: 'Préparation de l\'aperçu'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← Retour',

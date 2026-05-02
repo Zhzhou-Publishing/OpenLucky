@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 Chọn thư mục',
     loading: 'Đang tải...',
     selectedPath: 'Đường dẫn đã chọn:',
-    processingProgress: 'Đang chuẩn bị xem trước'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← Quay lại',

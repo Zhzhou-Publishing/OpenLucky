@@ -131,11 +131,16 @@ async function needsResize(imagePath) {
   }
 }
 
-// Resize image using openlucky tool resize command
-function resizeImage(inputPath, outputPath) {
+// Resize image using openlucky tool resize command.
+// options.value: when provided, passes -v <value>; when absent, -v is omitted
+//   so the CLI copies non-RAW directly and converts RAW to TIFF without resize.
+function resizeImage(inputPath, outputPath, options = {}) {
   return new Promise((resolve) => {
     const command = getOpenLuckyPath()
-    const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '8000']
+    const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath]
+    if (options.value !== undefined && options.value !== null) {
+      args.push('-v', String(options.value))
+    }
     console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
     const child = spawn(command, args, {

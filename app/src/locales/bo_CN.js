@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 ཡིག་སྣོད་འདེམས།',
     loading: 'ཕབ་ལེན་བྱེད་བཞིན་པ...',
     selectedPath: 'བདམས་པའི་ལམ་ཀ:',
-    processingProgress: 'གོང་ལྟ་གྲ་སྒྲིག་བྱེད་བཞིན་པ'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← ཕྱིར་ལོག',

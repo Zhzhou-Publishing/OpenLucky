@@ -93,6 +93,7 @@ const originalDirectoryPath = ref('')
 const originalWindowTitle = ref('OpenLucky Desktop App')
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
+const compressPreview = ref(false)
 
 // Block SaveAll until every image has an entry in .preset.json. Until we
 // finish reading the file we keep SaveAll disabled to be safe.
@@ -396,6 +397,7 @@ onMounted(() => {
       // Use the provided working directory directly
       workingDirectory.value = route.query.workingDirectory
       originalDirectoryPath.value = route.query.originalDirectory || ''
+      compressPreview.value = route.query.compressPreview === '1'
       // Use the outputDirectory from query if available, otherwise compute it
       if (route.query.outputDirectory) {
         outputDirectory.value = route.query.outputDirectory
@@ -406,7 +408,8 @@ onMounted(() => {
     } else {
       // Fallback to old behavior for backward compatibility
       originalDirectoryPath.value = directoryPath.value
-      ipcRenderer.send('prepare-working-directory', directoryPath.value)
+      compressPreview.value = route.query.compressPreview === '1'
+      ipcRenderer.send('prepare-working-directory', directoryPath.value, { compressPreview: compressPreview.value })
 
       ipcRenderer.once('working-directory-prepared', (_, result) => {
         workingDirectory.value = result.workingDirectory

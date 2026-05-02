@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 निर्देशिका चुनें',
     loading: 'लोड हो रहा है...',
     selectedPath: 'चयनित पथ:',
-    processingProgress: 'पूर्वावलोकन तैयार किया जा रहा है'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
   },
   photoGallery: {
     back: '← वापस',

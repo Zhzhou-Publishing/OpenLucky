@@ -13,7 +13,9 @@ export default {
     selectButton: '📁 选择目录',
     loading: '加载中...',
     selectedPath: '已选择路径:',
-    processingProgress: '正在准备预览'
+    processingProgress: '正在准备预览',
+    compressPreview: '压缩预览图',
+    compressPreviewTip: '缩略图将压缩到1920px宽度以加速预览，会加快后续去色罩的预览但是会减慢加载流程。'
   },
   photoGallery: {
     back: '← 返回',
