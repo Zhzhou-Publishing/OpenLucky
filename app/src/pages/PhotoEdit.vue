@@ -1137,101 +1137,6 @@ const apply = () => {
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         affectedImages.delete(imageName);
 
-        // 只有当前展示的图片才刷新主图和直方图
-        if (currentImage.value && currentImage.value.name === imageName) {
-          pendingApplyImage.value = imageName
-          clearHistogramCache();
-          refreshImage(imageName);
-          loadFullResImage();
-          loadPresets();
-        }
-
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-success', handleResponse);
-
-    const handleError = (_, error) => {
-      console.error('Error applying film parameters:', error);
-      // 关键：同样要判断是不是当前这张图的错误
-      // error.outputFile 是完整路径，需要从中提取文件名
-      const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
-      if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
-        // Re-enable controls immediately on error
-        affectedImages.delete(imageName);
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-error', handleError);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-error', handleError);
-  } catch (error) {
-    // Re-enable controls immediately on error
-    affectedImages.delete(imageName);
-  }
-}
-
-const applyPreview = () => {
-  if (!currentImage.value || !workingDirectory.value) {
-    console.error('No current image or working directory')
-    return
-  }
-
-  if (!window.require) {
-    console.error('Not running in Electron')
-    return
-  }
-
-  // Reset global isSaveAllClicked state
-  setSaveAllClicked(false)
-
-  try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    const imageName = currentImage.value.name;
-
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
-
-    // Mark image as affected to disable controls
-    affectedImages.add(imageName)
-
-    // Send request to main process
-    // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
-    // IPC 包根本到不了主进程。
-    const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
-    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
-    ipcRenderer.send('apply-filmparam', {
-      inputPath: workingDirectory.value,
-      outputPath: outputDirectory.value,
-      filename: imageName,
-      params: params,
-      rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc,
-      areaBasis: areaBasisForIpc,
-      exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
-    })
-
-    // Handle response
-    ipcRenderer.once('filmparam-apply-started', (_, result) => {
-      console.log(result.message)
-    })
-
-    ipcRenderer.once('filmparam-apply-progress', (_, result) => {
-      console.log(result.data)
-    })
-
-    // 使用一个命名的函数，方便处理逻辑
-    const handleResponse = (_, result) => {
-      // 关键：由于是全局频道，所有的 apply 请求都会触发这个 handleResponse
-      // 我们必须判断返回的结果是不是当前这张图
-      // result.outputFile 是完整路径，需要从中提取文件名
-      const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
-      console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
-      if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        affectedImages.delete(imageName);
-
         // 旋转操作：IPC 成功后旋转白点选区坐标
         if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
           rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
@@ -1259,6 +1164,7 @@ const applyPreview = () => {
       // error.outputFile 是完整路径，需要从中提取文件名
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
+        // Re-enable controls immediately on error
         affectedImages.delete(imageName);
         // IPC 失败时清除待旋转标记，避免选区被错误旋转
         if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
@@ -1270,10 +1176,13 @@ const applyPreview = () => {
     };
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
+    // Re-enable controls immediately on error
     affectedImages.delete(imageName);
     pendingRotation.value = null;
   }
 }
+
+const applyPreview = () => apply()
 
 const applyAll = () => {
   if (!workingDirectory.value) {
