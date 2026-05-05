@@ -11,6 +11,9 @@ const {
   needsResize,
   resizeImage
 } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('PrepareWorkingDirFromSelected')
 
 function register() {
   ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath, options = {}) => {
@@ -57,7 +60,7 @@ function register() {
         }
 
         if (cancelled) {
-          console.log('Processing cancelled by user')
+          logger.info('Processing cancelled by user')
           // throwing skips subsequent images via limit's error path,
           // but Promise.all will still wait for already-running tasks.
           throw new Error('CANCELLED')
@@ -66,19 +69,19 @@ function register() {
         if (await needsResize(srcPath)) {
           const result = await resizeImage(srcPath, destPath, resizeOptions)
           if (result.success) {
-            console.log('Image processed (resized):', file)
+            logger.info('Image processed (resized):', file)
             return { success: true, file }
           } else {
-            console.error('Failed to process image (resize):', result.error)
+            logger.error('Failed to process image (resize):', result.error)
             return { success: false, file, error: result.error }
           }
         } else {
           try {
             fs.copyFileSync(srcPath, destPath)
-            console.log('Image processed (copied):', file)
+            logger.info('Image processed (copied):', file)
             return { success: true, file }
           } catch (err) {
-            console.error('Failed to process image (copy):', file, err.message)
+            logger.error('Failed to process image (copy):', file, err.message)
             return { success: false, file, error: err.message }
           }
         }
@@ -108,7 +111,7 @@ function register() {
     } catch (error) {
       ipcMain.removeListener('cancel-processing', onCancel)
       if (error.message === 'CANCELLED') {
-        console.log('Processing cancelled by user, cleaning up temp directory')
+        logger.info('Processing cancelled by user, cleaning up temp directory')
         try { fs.rmSync(workingDirectory, { recursive: true, force: true }) } catch (_) {}
         if (!event.sender.isDestroyed()) {
           event.sender.send('processing-progress-clear', {})
@@ -116,7 +119,7 @@ function register() {
         }
         return
       }
-      console.error('Error preparing working directory:', error)
+      logger.error('Error preparing working directory:', error)
       if (!event.sender.isDestroyed()) {
         event.sender.send('processing-progress-clear', {})
         event.sender.send('window-title-restore', {})

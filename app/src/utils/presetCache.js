@@ -1,4 +1,7 @@
 import { ref } from 'vue'
+import { createRendererLogger } from './rendererLogger'
+
+const logger = createRendererLogger('PresetCache')
 
 export const presets = ref([])
 
@@ -17,14 +20,14 @@ export function fetchPresets() {
       }
       const onError = (_, error) => {
         ipcRenderer.removeListener('presets-loaded', onLoaded)
-        console.error('Error loading presets:', error)
+        logger.error('Error loading presets:', error)
         reject(error)
       }
       ipcRenderer.once('presets-loaded', onLoaded)
       ipcRenderer.once('presets-error', onError)
       ipcRenderer.send('get-presets')
     } catch (error) {
-      console.error('Error loading presets:', error)
+      logger.error('Error loading presets:', error)
       reject(error)
     }
   })

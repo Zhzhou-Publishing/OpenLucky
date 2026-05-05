@@ -1,13 +1,16 @@
 const { ipcMain } = require('electron')
 const { spawn } = require('child_process')
 const { getOpenLuckyPath } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('GetPresets')
 
 function register() {
   ipcMain.on('get-presets', async (event) => {
     try {
       const command = getOpenLuckyPath()
       const args = ['config', 'read', '-f', 'json']
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -49,7 +52,7 @@ function register() {
         event.sender.send('presets-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {
-      console.error('Error getting presets:', error)
+      logger.error('Error getting presets:', error)
       event.sender.send('presets-error', { message: 'Error getting presets', error: error.message })
     }
   })

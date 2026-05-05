@@ -9,6 +9,9 @@ const {
   readPresetJson,
   resolveImagePath
 } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('GetFullResImage')
 
 function register() {
   ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
@@ -30,14 +33,14 @@ function register() {
           fs.writeFileSync(convertedPath, buffer)
           imageUrl = `file://${convertedPath}`
         } catch (err) {
-          console.error('Error converting image for', filename, err)
+          logger.error('Error converting image for', filename, err)
         }
       }
 
       if (event.sender.isDestroyed()) return
       event.sender.send('full-res-image-loaded', { url: imageUrl })
     } catch (error) {
-      console.error('Error getting full resolution image:', error)
+      logger.error('Error getting full resolution image:', error)
       if (event.sender.isDestroyed()) return
       event.sender.send('full-res-image-error', { error: error.message })
     }

@@ -1,6 +1,9 @@
 const { ipcMain } = require('electron')
 const fs = require('fs')
 const path = require('path')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('ResetImage')
 
 function register() {
   ipcMain.on('reset-image', async (event, { workingDirectory, outputDirectory, filename }) => {
@@ -23,7 +26,7 @@ function register() {
 
       event.sender.send('image-reset', { filename, success: true })
     } catch (error) {
-      console.error('Error resetting image:', error)
+      logger.error('Error resetting image:', error)
       event.sender.send('image-reset-error', { filename, error: error.message })
     }
   })

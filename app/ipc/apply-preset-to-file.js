@@ -8,6 +8,9 @@ const {
   checkExtension,
   getOpenLuckyPath
 } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('ApplyPresetToFile')
 
 function register() {
   ipcMain.on('apply-preset-to-file', async (event, { presetFile, inputFilePath, outputFilePath }) => {
@@ -60,7 +63,7 @@ function register() {
 
       const command = getOpenLuckyPath()
       const args = ['filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-to-file-started', { message: 'Processing started' })
 
@@ -96,7 +99,7 @@ function register() {
         event.sender.send('preset-to-file-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {
-      console.error('Error applying preset to file:', error)
+      logger.error('Error applying preset to file:', error)
       if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-file-error', { message: 'Error applying preset to file', error: error.message })
     }

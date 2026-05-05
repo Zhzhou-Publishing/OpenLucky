@@ -193,6 +193,9 @@ import ContextMenu from '../components/ContextMenu.vue'
 import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
 import { presets as globalPresets } from '../utils/presetCache'
+import { createRendererLogger } from '../utils/rendererLogger'
+
+const logger = createRendererLogger('PhotoEdit')
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
@@ -313,7 +316,7 @@ async function fetchHistogramFor(directoryPath, filename, area) {
       writeHistogramCache(cacheKey, result)
     }
   } catch (err) {
-    console.error('Failed to compute histogram:', err)
+    logger.error('Failed to compute histogram:', err)
     if (seq === histogramRequestSeq) {
       histogramData.value = null
     }
@@ -358,7 +361,7 @@ function loadAreaSelections() {
   try {
     return JSON.parse(sessionStorage.getItem(AREA_SESSION_STORAGE_KEY) || '{}')
   } catch (err) {
-    console.error('Failed to load area selections:', err)
+    logger.error('Failed to load area selections:', err)
     return {}
   }
 }
@@ -394,7 +397,7 @@ function persistAreaSelections() {
   try {
     sessionStorage.setItem(AREA_SESSION_STORAGE_KEY, JSON.stringify(areaSelectionsByName.value))
   } catch (err) {
-    console.error('Failed to persist area selections:', err)
+    logger.error('Failed to persist area selections:', err)
   }
 }
 
@@ -609,7 +612,7 @@ async function onImageClick(e) {
       }
     }
   } catch (err) {
-    console.error('Pick color failed:', err)
+    logger.error('Pick color failed:', err)
   }
 }
 
@@ -793,7 +796,7 @@ const updateOperationAreaHeight = () => {
 }
 
 const handleTabChange = (tabId) => {
-  console.log('Tab changed to:', tabId)
+  logger.debug('Tab changed to:', tabId)
   // 高度变化由 ResizeObserver 自动捕获，这里无需手动触发
 }
 
@@ -1018,7 +1021,7 @@ const resetImage = () => {
 
   ipcRenderer.once('image-reset-error', (_, result) => {
     if (result.filename !== imageName) return
-    console.error('Error resetting image:', result.error)
+    logger.error('Error resetting image:', result.error)
   })
 
   ipcRenderer.send('reset-image', {
@@ -1049,7 +1052,7 @@ const refreshImage = (imageName) => {
   const onError = (_, result) => {
     if (result.filename !== imageName) return
     cleanup()
-    console.error('Error refreshing image:', result.error)
+    logger.error('Error refreshing image:', result.error)
   }
   const cleanup = () => {
     ipcRenderer.removeListener('image-refreshed', onRefreshed)
@@ -1066,12 +1069,12 @@ const refreshImage = (imageName) => {
 
 const apply = () => {
   if (!currentImage.value || !workingDirectory.value) {
-    console.error('No current image or working directory')
+    logger.error('No current image or working directory')
     return
   }
 
   if (!window.require) {
-    console.error('Not running in Electron')
+    logger.error('Not running in Electron')
     return
   }
 
@@ -1108,11 +1111,11 @@ const apply = () => {
 
     // Handle response
     ipcRenderer.once('filmparam-apply-started', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
     })
 
     ipcRenderer.once('filmparam-apply-progress', (_, result) => {
-      console.log(result.data)
+      logger.debug(result.data)
     })
 
     // 使用一个命名的函数，方便处理逻辑
@@ -1121,7 +1124,7 @@ const apply = () => {
       // 我们必须判断返回的结果是不是当前这张图
       // result.outputFile 是完整路径，需要从中提取文件名
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
-      console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
+      logger.debug(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         affectedImages.delete(imageName);
 
@@ -1149,7 +1152,7 @@ const apply = () => {
     ipcRenderer.on('filmparam-apply-success', handleResponse);
 
     const handleError = (_, error) => {
-      console.error('Error applying film parameters:', error);
+      logger.error('Error applying film parameters:', error)
       // 关键：同样要判断是不是当前这张图的错误
       // error.outputFile 是完整路径，需要从中提取文件名
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
@@ -1175,12 +1178,12 @@ const apply = () => {
 
 const applyAll = () => {
   if (!workingDirectory.value) {
-    console.error('No working directory')
+    logger.error('No working directory')
     return
   }
 
   if (!window.require) {
-    console.error('Not running in Electron')
+    logger.error('Not running in Electron')
     return
   }
 
@@ -1220,15 +1223,15 @@ const applyAll = () => {
 
     // Handle response
     ipcRenderer.once('filmparambatch-apply-started', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
     })
 
     ipcRenderer.once('filmparambatch-apply-progress', (_, result) => {
-      console.log(result.data)
+      logger.debug(result.data)
     })
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
       pendingApplyImage.value = currentImage.value?.name || null
       clearHistogramCache()
       // Update all image timestamps to refresh display without reloading page
@@ -1243,12 +1246,12 @@ const applyAll = () => {
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
-      console.error('Error applying film parameters to all images:', error)
+      logger.error('Error applying film parameters to all images:', error)
       // Re-enable controls immediately on error
       affectedImages.clear()
     })
   } catch (error) {
-    console.error('Error applying film parameters to all images:', error)
+    logger.error('Error applying film parameters to all images:', error)
     // Re-enable controls immediately on error
     affectedImages.clear()
   }
@@ -1256,16 +1259,16 @@ const applyAll = () => {
 
 const saveAll = () => {
   if (hasUnappliedImages.value) {
-    console.warn('SaveAll blocked: there are still images without applied parameters')
+    logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
   }
   if (!workingDirectory.value || !originalDirectory.value) {
-    console.error('No working directory or original directory')
+    logger.error('No working directory or original directory')
     return
   }
 
   if (!window.require) {
-    console.error('Not running in Electron')
+    logger.error('Not running in Electron')
     return
   }
 
@@ -1296,17 +1299,17 @@ const saveAll = () => {
 
     // Handle started
     ipcRenderer.once('preset-to-batch-started', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
     })
 
     // Handle progress
     ipcRenderer.on('preset-to-batch-progress', (_, result) => {
-      console.log(result.data)
+      logger.debug(result.data)
     })
 
     // Handle success
     ipcRenderer.once('preset-to-batch-success', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
       // Update all image timestamps to refresh display without reloading page
       images.value.forEach(img => {
         img.timestamp = Date.now()
@@ -1317,11 +1320,11 @@ const saveAll = () => {
 
     // Handle error
     ipcRenderer.once('preset-to-batch-error', (_, result) => {
-      console.error('Error saving all files:', result.message, result.error)
+      logger.error('Error saving all files:', result.message, result.error)
       affectedImages.clear()
     })
   } catch (error) {
-    console.error('Error saving all files:', error)
+    logger.error('Error saving all files:', error)
     affectedImages.clear()
   }
 }
@@ -1355,7 +1358,7 @@ const loadFullResImage = async () => {
       })
 
       ipcRenderer.once('full-res-image-error', (_, error) => {
-        console.error('Error loading full resolution image:', error)
+        logger.error('Error loading full resolution image:', error)
         // Check if this is a RAW file not yet converted
         if (currentImage.value.isRaw && error.error === 'RAW file not yet converted') {
           // Show placeholder for RAW file still converting
@@ -1371,7 +1374,7 @@ const loadFullResImage = async () => {
         }
       })
     } catch (error) {
-      console.error('Error loading full resolution image:', error)
+      logger.error('Error loading full resolution image:', error)
       fullResImageUrl.value = currentImage.value.url
     }
   } else {
@@ -1510,15 +1513,15 @@ const loadImages = async () => {
       })
 
       ipcRenderer.once('images-error', (_, error) => {
-        console.error('Error loading images:', error)
+        logger.error('Error loading images:', error)
         isLoading.value = false
       })
     } else {
-      console.warn('Not running in Electron, showing demo data')
+      logger.warn('Not running in Electron, showing demo data')
       isLoading.value = false
     }
   } catch (error) {
-    console.error('Error loading images:', error)
+    logger.error('Error loading images:', error)
     isLoading.value = false
   }
 }
@@ -1540,11 +1543,11 @@ const loadPresets = async ({ skipLoadCurrent = false } = {}) => {
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
-      console.error('Error loading preset json:', error)
+      logger.error('Error loading preset json:', error)
       presetsDataLoaded.value = true
     })
   } catch (error) {
-    console.error('Error loading preset json:', error)
+    logger.error('Error loading preset json:', error)
   }
 }
 

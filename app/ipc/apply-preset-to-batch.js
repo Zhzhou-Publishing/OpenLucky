@@ -9,6 +9,9 @@ const {
   checkExtension,
   getOpenLuckyPath
 } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('ApplyPresetToBatch')
 
 function register() {
   ipcMain.on('apply-preset-to-batch', async (event, { presetFile, inputDir, outputDir }) => {
@@ -101,7 +104,7 @@ function register() {
           if (typeof presetWhiteBalance === 'string' && presetWhiteBalance.length > 0) {
             args.push('--white-balance', presetWhiteBalance)
           }
-          console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+          logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           if (!event.sender.isDestroyed()) {
             event.sender.send('preset-to-batch-progress', {
@@ -119,13 +122,13 @@ function register() {
 
             child.on('close', (code) => {
               if (code !== 0) {
-                console.error(`Error processing ${file}: Exit code ${code}`)
+                logger.error(`Error processing ${file}: Exit code ${code}`)
               }
               resolve()
             })
 
             child.on('error', (err) => {
-              console.error(`Error processing ${file}:`, err.message)
+              logger.error(`Error processing ${file}:`, err.message)
               resolve()
             })
           })
@@ -137,7 +140,7 @@ function register() {
       if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-batch-success', { message: `Batch processing completed. Processed ${processedCount}/${totalCount} files.` })
     } catch (error) {
-      console.error('Error applying preset to batch:', error)
+      logger.error('Error applying preset to batch:', error)
       if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-batch-error', { message: 'Error applying preset to batch', error: error.message })
     }

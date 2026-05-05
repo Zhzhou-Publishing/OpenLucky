@@ -1,13 +1,16 @@
 const { ipcMain } = require('electron')
 const { spawn } = require('child_process')
 const { getOpenLuckyPath } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('CheckOpenlucky')
 
 function register() {
   ipcMain.on('check-openlucky', async (event) => {
     try {
       const command = getOpenLuckyPath()
       const args = ['--help']
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -31,7 +34,7 @@ function register() {
         event.sender.send('openlucky-checked', { success: false, error: err.message })
       })
     } catch (error) {
-      console.error('Error checking openlucky:', error)
+      logger.error('Error checking openlucky:', error)
       event.sender.send('openlucky-checked', { success: false, error: error.message })
     }
   })

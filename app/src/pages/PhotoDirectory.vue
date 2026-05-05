@@ -47,6 +47,9 @@ import { useRouter } from 'vue-router'
 import { fetchPresets } from '../utils/presetCache'
 import CapsuleSwitch from '../components/CapsuleSwitch.vue'
 import Popover from '../components/Popover.vue'
+import { createRendererLogger } from '../utils/rendererLogger'
+
+const logger = createRendererLogger('PhotoDirectory')
 
 const router = useRouter()
 
@@ -67,7 +70,7 @@ onMounted(() => {
   if (isElectron.value) {
     try {
       ipcRenderer = window.require('electron').ipcRenderer
-      console.log('Electron environment detected, ipcRenderer loaded')
+      logger.debug('Electron environment detected, ipcRenderer loaded')
 
       // Check if openlucky is available
       checkOpenLucky()
@@ -75,12 +78,12 @@ onMounted(() => {
       // Pre-load preset list so PhotoGallery can show it immediately
       fetchPresets().catch(() => {})
     } catch (error) {
-      console.error('Failed to load electron APIs:', error)
+      logger.error('Failed to load electron APIs:', error)
       isElectron.value = false
     }
   } else {
-    console.warn('Not running in Electron environment')
-    console.warn('Please run: npm run dev (in terminal 1) && npm run electron (in terminal 2)')
+    logger.warn('Not running in Electron environment')
+    logger.warn('Please run: npm run dev (in terminal 1) && npm run electron (in terminal 2)')
   }
 })
 
@@ -92,7 +95,7 @@ const checkOpenLucky = () => {
     isCheckingOpenLucky.value = false
 
     if (!result.success) {
-      console.error('openlucky check failed:', result.error)
+      logger.error('openlucky check failed:', result.error)
     }
   })
 }
@@ -128,18 +131,18 @@ const selectDirectory = async () => {
     }
 
     isLoading.value = true
-    console.log('Sending select-directory request...')
+    logger.info('Sending select-directory request...')
 
     // Request directory selection from main process
     ipcRenderer.send('select-directory')
 
     // Listen for the selected directory response
     ipcRenderer.once('directory-selected', (_, result) => {
-      console.log('Received directory-selected response:', result)
+      logger.info('Received directory-selected response:', result)
       selectedPath.value = result.path
 
       // Print to console as requested
-      console.log('Selected directory:', result.path)
+      logger.info('Selected directory:', result.path)
 
       // Prepare working directory from selected directory
       isLoading.value = true
@@ -148,9 +151,9 @@ const selectDirectory = async () => {
 
     // Handle working directory preparation success
     ipcRenderer.once('working-directory-from-selected-prepared', (_, result) => {
-      console.log('Working directory prepared:', result.workingDirectory)
-      console.log('Output directory:', result.outputDirectory)
-      console.log('Original directory:', result.originalDirectory)
+      logger.info('Working directory prepared:', result.workingDirectory)
+      logger.info('Output directory:', result.outputDirectory)
+      logger.info('Original directory:', result.originalDirectory)
       isLoading.value = false
 
       // Navigate to PhotoGallery page with working directory
@@ -187,25 +190,25 @@ const selectDirectory = async () => {
 
     // Handle working directory preparation error
     ipcRenderer.once('working-directory-from-selected-error', (_, error) => {
-      console.error('Error preparing working directory:', error)
+      logger.error('Error preparing working directory:', error)
       alert('Failed to prepare working directory: ' + error.error)
       isLoading.value = false
     })
 
     // Handle cancellation
     ipcRenderer.once('directory-cancelled', () => {
-      console.log('Directory selection cancelled')
+      logger.info('Directory selection cancelled')
       isLoading.value = false
     })
 
     // Handle errors
     ipcRenderer.once('directory-error', (_, error) => {
-      console.error('Directory selection error:', error)
+      logger.error('Directory selection error:', error)
       isLoading.value = false
     })
 
   } catch (error) {
-    console.error('Error selecting directory:', error)
+    logger.error('Error selecting directory:', error)
     isLoading.value = false
   }
 }

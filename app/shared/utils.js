@@ -5,6 +5,9 @@ const sharp = require('sharp')
 const sizeOf = require('image-size')
 const tmp = require('tmp')
 const { spawn } = require('child_process')
+const { createLogger } = require('./logger')
+
+const logger = createLogger('OpenLucky')
 
 // Keep temp files alive for the session
 tmp.setGracefulCleanup()
@@ -72,7 +75,7 @@ function readPresetJson(directoryPath) {
   try {
     return JSON.parse(fs.readFileSync(presetsFile, 'utf-8'))
   } catch (err) {
-    console.error('Error reading .preset.json:', err)
+    logger.error('Error reading .preset.json:', err)
     return {}
   }
 }
@@ -107,7 +110,7 @@ async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, ti
         .toFile(thumbnailPath)
       url = `file://${thumbnailPath}?t=${timestamp}`
     } catch (err) {
-      console.error('Error generating thumbnail for', filename, err)
+      logger.error('Error generating thumbnail for', filename, err)
     }
   }
   return { name: filename, path: fullPath, url, isRaw }
@@ -126,7 +129,7 @@ async function needsResize(imagePath) {
     const longEdge = Math.max(width, height)
     return longEdge >= 800
   } catch (error) {
-    console.error('Error checking image dimensions:', error)
+    logger.error('Error checking image dimensions:', error)
     return false
   }
 }
@@ -141,7 +144,7 @@ function resizeImage(inputPath, outputPath, options = {}) {
     if (options.value !== undefined && options.value !== null) {
       args.push('-v', String(options.value))
     }
-    console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+    logger.info(`Executing: ${command} ${args.join(' ')}`)
 
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -158,14 +161,14 @@ function resizeImage(inputPath, outputPath, options = {}) {
       if (code === 0) {
         resolve({ success: true })
       } else {
-        console.error('Resize failed:', inputPath, 'Exit code:', code)
-        console.error('Error output:', stderrOutput)
+        logger.error('Resize failed:', inputPath, 'Exit code:', code)
+        logger.error('Error output:', stderrOutput)
         resolve({ success: false, error: stderrOutput })
       }
     })
 
     child.on('error', (err) => {
-      console.error('Resize error:', inputPath, err.message)
+      logger.error('Resize error:', inputPath, err.message)
       resolve({ success: false, error: err.message })
     })
   })

@@ -2,6 +2,9 @@ const { ipcMain } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
 const { getOpenLuckyPath } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('ApplyFilmparambatch')
 
 function register() {
   ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
@@ -20,7 +23,7 @@ function register() {
       if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
         args.push('--white-balance', whiteBalance)
       }
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
 
@@ -56,7 +59,7 @@ function register() {
         event.sender.send('filmparambatch-apply-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {
-      console.error('Error applying filmparambatch:', error)
+      logger.error('Error applying filmparambatch:', error)
       event.sender.send('filmparambatch-apply-error', { message: 'Error applying batch film parameters', error: error.message })
     }
   })
