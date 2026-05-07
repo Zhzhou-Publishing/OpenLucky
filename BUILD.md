@@ -12,6 +12,14 @@ python -m PyInstaller --onefile --name openlucky --distpath ./bin cli/openlucky.
 
 ```cmd
 python cli/openlucky.dev.py genlut --func s-curve.power-curve --arg p,k --min 0.3,0.5 --max 0.7,2.5 --step 0.1,0.05
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-3ev --arg ev --min=-3.0 --max 3.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-5ev --arg ev --min=-5.0 --max 5.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-7ev --arg ev --min=-7.0 --max 7.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.gamma --arg gamma --min 0.4 --max 3.0 --step 0.01
 ```
 
 ### build desktop app
@@ -60,7 +68,15 @@ python3 -m PyInstaller --onedir --name openlucky \
 ### Step 2: Build LUT files
 
 ```cmd
-python3 cli/openlucky.dev.py genlut --func s-curve.power-curve --arg p,k --min 0.3,0.5 --max 0.7,2.5 --step 0.1,0.05
+python cli/openlucky.dev.py genlut --func s-curve.power-curve --arg p,k --min 0.3,0.5 --max 0.7,2.5 --step 0.1,0.05
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-3ev --arg ev --min=-3.0 --max 3.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-5ev --arg ev --min=-5.0 --max 5.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.apply-exposure-7ev --arg ev --min=-7.0 --max 7.0 --step 0.1
+
+python cli/openlucky.dev.py genlut --func common.gamma --arg gamma --min 0.4 --max 3.0 --step 0.01
 ```
 
 #### Step 3: Build the Electron app

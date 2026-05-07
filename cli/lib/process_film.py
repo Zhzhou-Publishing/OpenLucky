@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
-from cli.lib.exposure import apply_exposure_3ev, apply_exposure_5ev, apply_exposure_7ev
+from cli.lib.lut import apply_lut
 
 
 def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
@@ -276,19 +276,18 @@ def process_film_bytestream_with_params(
     img *= gains
     img = np.clip(img, 0, 1.0)
 
-    # 调整曝光
-    if exposure_ev_mode == "3ev":
-        img = apply_exposure_3ev(img, ev=exposure_ev)
-    elif exposure_ev_mode == "5ev":
-        img = apply_exposure_5ev(img, ev=exposure_ev)
-    elif exposure_ev_mode == "7ev":
-        img = apply_exposure_7ev(img, ev=exposure_ev)
+    # 调整曝光：走 LUT 通道，未命中时回退到原始函数。ev=0 时跳过避免量化损失。
+    if exposure_ev != 0.0:
+        img = apply_lut(
+            f"common.apply-exposure-{exposure_ev_mode}",
+            img,
+            ev=exposure_ev,
+        )
 
-    # 4. Gamma correction
+    # 4. Gamma correction：同样走 LUT 通道。gamma=1.0 时跳过避免量化损失。
     # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
     if preset_gamma != 1.0:
-        # Perform power operation in 0-1 space for maximum precision
-        img = np.power(img, preset_gamma)
+        img = apply_lut("common.gamma", img, gamma=preset_gamma)
 
     # 5. Auto levels and contrast fine-tuning
     # Store per-channel contrast settings in a list for iteration

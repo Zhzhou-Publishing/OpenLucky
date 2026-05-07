@@ -1,9 +1,8 @@
 import argparse
 import numpy as np
-import os
 from itertools import product
 
-from cli.lib.lut import LUT_NAMESPACE, FUNC_REGISTRY
+from cli.lib.lut import FUNC_REGISTRY, lut_path_for
 
 
 def generate_lut(func_name, arg_names, mins, maxs, steps, output_dir):
@@ -12,8 +11,6 @@ def generate_lut(func_name, arg_names, mins, maxs, steps, output_dir):
         return
 
     target_func = FUNC_REGISTRY[func_name]
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
 
     # 核心修改：为每个参数应用其专属的步长
     ranges = [np.arange(m, ma + s / 10, s) for m, ma, s in zip(mins, maxs, steps)]
@@ -27,10 +24,9 @@ def generate_lut(func_name, arg_names, mins, maxs, steps, output_dir):
         lut_data = target_func(x, **params)
         lut_u16 = (np.clip(lut_data, 0, 1) * 65535).astype(np.uint16)
 
-        param_parts = [f"{n}-{f'{v:.2f}'.replace('.', '_')}" for n, v in params.items()]
-        filename = f"{LUT_NAMESPACE}.{func_name}.{'-'.join(param_parts)}.lut"
-
-        lut_u16.tofile(os.path.join(output_dir, filename))
+        out_path = lut_path_for(output_dir, func_name, params)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        lut_u16.tofile(out_path)
 
     print(f"Success! Saved to '{output_dir}'.")
 
