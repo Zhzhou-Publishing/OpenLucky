@@ -3,10 +3,7 @@ import numpy as np
 import os
 from itertools import product
 
-from cli.lib.curve.s_curve import power_curve_raw
-
-
-FUNC_REGISTRY = {"s-curve.power-curve": power_curve_raw}
+from cli.lib.lut import LUT_NAMESPACE, FUNC_REGISTRY
 
 
 def generate_lut(func_name, arg_names, mins, maxs, steps, output_dir):
@@ -31,11 +28,7 @@ def generate_lut(func_name, arg_names, mins, maxs, steps, output_dir):
         lut_u16 = (np.clip(lut_data, 0, 1) * 65535).astype(np.uint16)
 
         param_parts = [f"{n}-{f'{v:.2f}'.replace('.', '_')}" for n, v in params.items()]
-        filename = (
-            f"com.github.zhzhou-publishing.openlucky.s-curve.{func_name}-"
-            + "-".join(param_parts)
-            + ".lut"
-        )
+        filename = f"{LUT_NAMESPACE}.{func_name}.{'-'.join(param_parts)}.lut"
 
         lut_u16.tofile(os.path.join(output_dir, filename))
 
