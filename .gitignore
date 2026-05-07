@@ -63,3 +63,6 @@ dist-electron/
 
 # Test outputs
 tests/output/
+
+# LUTs
+lut/
