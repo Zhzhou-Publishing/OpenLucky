@@ -196,9 +196,41 @@ def process_film_bytestream_with_params(
 
     # 2. Remove color mask (operate in 0-1 space)
     # At this point, img is confirmed to be in RGB order
-    img[:, :, 0] /= preset_mask_r / 255.0  # Red
-    img[:, :, 1] /= preset_mask_g / 255.0  # Green
-    img[:, :, 2] /= preset_mask_b / 255.0  # Blue
+    
+    # --- 增加基于缩放采样的溢出控制迭代逻辑 ---
+    # 使用下采样图像进行快速迭代尋优
+    h, w = img.shape[:2]
+    scale = 0.125 # 1/8 采样
+    img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    
+    current_mask_r = float(preset_mask_r)
+    current_mask_g = float(preset_mask_g)
+    current_mask_b = float(preset_mask_b)
+    
+    max_iter = 15
+    for i in range(max_iter):
+        # 在小图上计算溢出面积
+        test_r = img_small[:, :, 0] / (current_mask_r / 255.0)
+        test_g = img_small[:, :, 1] / (current_mask_g / 255.0)
+        test_b = img_small[:, :, 2] / (current_mask_b / 255.0)
+        
+        # 统计整体溢出率 (高于 1.0 的像素占比)
+        overflow_count = (test_r > 1.0).sum() + (test_g > 1.0).sum() + (test_b > 1.0).sum()
+        overflow_ratio = overflow_count / (img_small.size)
+        
+        # 如果溢出率在 5% 以内，或者达到迭代上限，跳出
+        if overflow_ratio <= 0.05 or i == max_iter - 1:
+            break
+            
+        # 否则，增加色罩值以降低增益（按 5% 步进）
+        current_mask_r *= 1.05
+        current_mask_g *= 1.05
+        current_mask_b *= 1.05
+
+    # 应用最终确定的 Mask 值到大图
+    img[:, :, 0] /= current_mask_r / 255.0  # Red
+    img[:, :, 1] /= current_mask_g / 255.0  # Green
+    img[:, :, 2] /= current_mask_b / 255.0  # Blue
 
     # 3. Color inversion (in 0-1 space, it's 1.0 - img)
     img = 1.0 - img
@@ -263,13 +295,16 @@ def process_film_bytestream_with_params(
     channel_contrasts = [preset_contrast_r, preset_contrast_g, preset_contrast_b]
 
     for i in range(3):
-        low = np.percentile(img[:, :, i], 0.5)
-        high = np.percentile(img[:, :, i], 99.5)
+        # 注意：由于我们在 Step 2 允许了 5% 溢出，这里的 low 采样应保持保守（0.01%）以防细节丢失
+        low = np.percentile(img[:, :, i], 0.01)
+        high = np.percentile(img[:, :, i], 99.99)
         # Apply combined contrast: global * channel_specific
         combined_contrast = preset_contrast * channel_contrasts[i]
+        # 增加一个极其微小的分母保护，防止 high - low 过窄导致的数值暴增
+        denominator = max(high - low, 1e-5)
         # Linear stretch and apply contrast
         img[:, :, i] = np.clip(
-            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * combined_contrast,
+            (img[:, :, i] - low) * (1.0 / denominator) * combined_contrast,
             0,
             1.0,
         )

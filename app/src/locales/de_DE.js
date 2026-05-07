@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 Verzeichnis auswählen',
     loading: 'Wird geladen...',
     selectedPath: 'Ausgewählter Pfad:',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'Vorschau wird vorbereitet',
+    compressPreview: 'Vorschau komprimieren',
+    compressPreviewTip: 'Miniaturansichten werden auf 1920 px Breite komprimiert, um die Vorschau zu beschleunigen. Dies beschleunigt die Vorschau der Maskenentfernung, verlangsamt aber den Ladevorgang.',
+    cancel: 'Abbrechen',
   },
   photoGallery: {
     back: '← Zurück',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°',
       rotate180: '180° drehen',
-      resetImage: 'Reset Image',
+      resetImage: 'Bild zurücksetzen',
     },
     eyedropper: {
       exitHint: 'Pipette aktiv — Bild anklicken zum Aufnehmen, ESC zum Abbrechen'
@@ -98,6 +98,9 @@ export default {
     homepage: 'Startseite',
     license: 'Lizenz',
     licenseSummary: 'Erlaubt kommerzielle Nutzung, Modifikation, Verbreitung und private Nutzung; erfordert die Beibehaltung des Copyright-Hinweises und die Angabe wesentlicher Änderungen; gewährt keine Markenrechte und bietet keine Garantie.',
-    language: 'Sprache Language'
+    language: 'Sprache Language',
+    theme: 'Erscheinungsbild',
+    themeLight: 'Hell',
+    themeDark: 'Dunkel'
   }
 }

@@ -47,6 +47,10 @@ ENV/
 # OS
 Thumbs.db
 
+# Log files
+*.log
+logs/
+
 # Node.js
 node_modules/
 npm-debug.log*

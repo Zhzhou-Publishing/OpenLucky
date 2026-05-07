@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 Выбрать каталог',
     loading: 'Загрузка...',
     selectedPath: 'Выбранный путь:',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'Подготовка предпросмотра',
+    compressPreview: 'Сжимать предпросмотр',
+    compressPreviewTip: 'Эскизы будут сжаты до ширины 1920 px для ускорения предпросмотра. Это ускоряет предпросмотр удаления маски, но замедляет процесс загрузки.',
+    cancel: 'Отмена',
   },
   photoGallery: {
     back: '← Назад',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°',
       rotate180: 'Поворот 180°',
-      resetImage: 'Reset Image',
+      resetImage: 'Сбросить изображение',
     },
     eyedropper: {
       exitHint: 'Пипетка активна — кликните по изображению, ESC для отмены'
@@ -98,6 +98,9 @@ export default {
     homepage: 'Главная страница проекта',
     license: 'Лицензия',
     licenseSummary: 'Разрешает коммерческое использование, изменение, распространение и частное использование; требует сохранения уведомления об авторских правах и указания значительных изменений; не предоставляет прав на товарные знаки и не даёт никаких гарантий.',
-    language: 'Язык Language'
+    language: 'Язык Language',
+    theme: 'Тема',
+    themeLight: 'Светлая',
+    themeDark: 'Тёмная'
   }
 }

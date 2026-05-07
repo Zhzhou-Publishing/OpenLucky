@@ -5,6 +5,9 @@ const sharp = require('sharp')
 const sizeOf = require('image-size')
 const tmp = require('tmp')
 const { spawn } = require('child_process')
+const { createLogger } = require('./logger')
+
+const logger = createLogger('OpenLucky')
 
 // Keep temp files alive for the session
 tmp.setGracefulCleanup()
@@ -42,11 +45,16 @@ const checkExtension = (extensions, ext) => {
 }
 
 /**
- * Get the path to the openlucky CLI executable
- * In production (Windows): uses openlucky command from PATH
- * In production (non-Windows): uses Resources/openlucky/openlucky
- * In development (Windows): uses ../bin/openlucky
- * In development (non-Windows): uses ../bin/openlucky/openlucky
+ * Get the path to the openlucky CLI executable (binary only).
+ *
+ * Kept for backward compatibility with any external caller that needs a plain path
+ * string. To actually invoke the CLI, use `buildOpenLuckyCommand()` so that the
+ * default dev-mode `python -m cli.openlucky` invocation is honored.
+ *
+ * In production (Windows): uses openlucky command from PATH.
+ * In production (non-Windows): uses Resources/openlucky/openlucky.
+ * In development (Windows): uses ../bin/openlucky.
+ * In development (non-Windows): uses ../bin/openlucky/openlucky.
  */
 function getOpenLuckyPath() {
   if (app.isPackaged) {
@@ -64,6 +72,49 @@ function getOpenLuckyPath() {
   }
 }
 
+/**
+ * Build the command/args/options needed to spawn openlucky.
+ *
+ * - Production: prebuilt binary on PATH (Win) or in Resources/openlucky (non-Win).
+ * - Development (default): `python -m cli.openlucky` with cwd set to the repo root,
+ *   so edits to cli/*.py take effect immediately without rebuilding the binary.
+ * - Development with `OPENLUCKY_DEV_USEBIN=1`: falls back to ../bin/openlucky.
+ *
+ * `OPENLUCKY_PYTHON` overrides the Python interpreter (defaults: `python` on Win,
+ * `python3` elsewhere). Useful for pointing at a venv interpreter.
+ *
+ * Callers should spread `prefixArgs` in front of their own args, and merge
+ * `spawnOptions` into their spawn options. ALWAYS pass absolute paths as args —
+ * dev-py mode changes cwd to the repo root, so relative paths resolve differently
+ * between modes.
+ *
+ * @returns {{command: string, prefixArgs: string[], spawnOptions: object}}
+ */
+function buildOpenLuckyCommand() {
+  if (app.isPackaged) {
+    const command = process.platform === 'win32'
+      ? 'openlucky'
+      : path.join(process.resourcesPath, 'openlucky', 'openlucky')
+    return { command, prefixArgs: [], spawnOptions: {} }
+  }
+
+  if (process.env.OPENLUCKY_DEV_USEBIN === '1') {
+    const command = process.platform === 'win32'
+      ? path.join(__dirname, '..', '..', 'bin', 'openlucky')
+      : path.join(__dirname, '..', '..', 'bin', 'openlucky', 'openlucky')
+    return { command, prefixArgs: [], spawnOptions: {} }
+  }
+
+  const repoRoot = path.resolve(__dirname, '..', '..')
+  const python = process.env.OPENLUCKY_PYTHON
+    || (process.platform === 'win32' ? 'python' : 'python3')
+  return {
+    command: python,
+    prefixArgs: ['-m', 'cli.openlucky'],
+    spawnOptions: { cwd: repoRoot }
+  }
+}
+
 // Read .preset.json from a working directory. Returns {} if missing or
 // unparseable so callers can treat the result as a plain lookup.
 function readPresetJson(directoryPath) {
@@ -72,7 +123,7 @@ function readPresetJson(directoryPath) {
   try {
     return JSON.parse(fs.readFileSync(presetsFile, 'utf-8'))
   } catch (err) {
-    console.error('Error reading .preset.json:', err)
+    logger.error('Error reading .preset.json:', err)
     return {}
   }
 }
@@ -107,7 +158,7 @@ async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, ti
         .toFile(thumbnailPath)
       url = `file://${thumbnailPath}?t=${timestamp}`
     } catch (err) {
-      console.error('Error generating thumbnail for', filename, err)
+      logger.error('Error generating thumbnail for', filename, err)
     }
   }
   return { name: filename, path: fullPath, url, isRaw }
@@ -126,7 +177,7 @@ async function needsResize(imagePath) {
     const longEdge = Math.max(width, height)
     return longEdge >= 800
   } catch (error) {
-    console.error('Error checking image dimensions:', error)
+    logger.error('Error checking image dimensions:', error)
     return false
   }
 }
@@ -136,14 +187,15 @@ async function needsResize(imagePath) {
 //   so the CLI copies non-RAW directly and converts RAW to TIFF without resize.
 function resizeImage(inputPath, outputPath, options = {}) {
   return new Promise((resolve) => {
-    const command = getOpenLuckyPath()
-    const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath]
+    const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+    const args = [...prefixArgs, 'tool', 'resize', '-i', inputPath, '-o', outputPath]
     if (options.value !== undefined && options.value !== null) {
       args.push('-v', String(options.value))
     }
-    console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+    logger.info(`Executing: ${command} ${args.join(' ')}`)
 
     const child = spawn(command, args, {
+      ...spawnOptions,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true
     })
@@ -158,14 +210,14 @@ function resizeImage(inputPath, outputPath, options = {}) {
       if (code === 0) {
         resolve({ success: true })
       } else {
-        console.error('Resize failed:', inputPath, 'Exit code:', code)
-        console.error('Error output:', stderrOutput)
+        logger.error('Resize failed:', inputPath, 'Exit code:', code)
+        logger.error('Error output:', stderrOutput)
         resolve({ success: false, error: stderrOutput })
       }
     })
 
     child.on('error', (err) => {
-      console.error('Resize error:', inputPath, err.message)
+      logger.error('Resize error:', inputPath, err.message)
       resolve({ success: false, error: err.message })
     })
   })
@@ -177,6 +229,7 @@ module.exports = {
   TIFF_EXTENSIONS,
   checkExtension,
   getOpenLuckyPath,
+  buildOpenLuckyCommand,
   readPresetJson,
   resolveImagePath,
   buildThumbnailEntry,

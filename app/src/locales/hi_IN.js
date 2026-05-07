@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 निर्देशिका चुनें',
     loading: 'लोड हो रहा है...',
     selectedPath: 'चयनित पथ:',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'पूर्वावलोकन तैयार हो रहा है',
+    compressPreview: 'पूर्वावलोकन संपीड़ित करें',
+    compressPreviewTip: 'पूर्वावलोकन को तेज़ करने के लिए थंबनेल को 1920px चौड़ाई तक संपीड़ित किया जाएगा। इससे मास्क हटाने का पूर्वावलोकन तेज़ हो जाता है, लेकिन लोडिंग प्रक्रिया धीमी हो जाती है।',
+    cancel: 'रद्द करें',
   },
   photoGallery: {
     back: '← वापस',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°',
       rotate180: '180° घुमाएं',
-      resetImage: 'Reset Image',
+      resetImage: 'चित्र रीसेट करें',
     },
     eyedropper: {
       exitHint: 'ड्रॉपर सक्रिय — रंग चुनने के लिए छवि पर क्लिक करें, बाहर निकलने के लिए ESC दबाएं'
@@ -98,6 +98,9 @@ export default {
     homepage: 'प्रोजेक्ट होमपेज',
     license: 'लाइसेंस',
     licenseSummary: 'व्यावसायिक उपयोग, संशोधन, वितरण और निजी उपयोग की अनुमति देता है; कॉपीराइट सूचना को बनाए रखने और महत्वपूर्ण परिवर्तनों को बताने की आवश्यकता है; ट्रेडमार्क अधिकार प्रदान नहीं करता और कोई वारंटी नहीं देता।',
-    language: 'भाषा Language'
+    language: 'भाषा Language',
+    theme: 'थीम',
+    themeLight: 'हल्का',
+    themeDark: 'गहरा'
   }
 }

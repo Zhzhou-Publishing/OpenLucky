@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 場所を選択',
     loading: '読み込み中...',
     selectedPath: '選択された場所：',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'プレビューを準備中',
+    compressPreview: 'プレビューを圧縮',
+    compressPreviewTip: 'サムネイルを 1920px 幅に圧縮してプレビューを高速化します。マスク除去のプレビューは速くなりますが、読み込み処理は遅くなります。',
+    cancel: 'キャンセル',
   },
   photoGallery: {
     back: '← 戻る',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°',
       rotate180: '180° 回転',
-      resetImage: 'Reset Image',
+      resetImage: '画像をリセット',
     },
     eyedropper: {
       exitHint: 'スポイトモード — 画像をクリックして取得、ESC でキャンセル'
@@ -98,6 +98,9 @@ export default {
     homepage: '公式サイト',
     license: '使用許諾',
     licenseSummary: '商用利用、改変、配布、私的利用を許可しています。著作権表示の保持と重要な変更点の明示が必要です。商標権の付与はなく、いかなる保証も提供しません。',
-    language: '言語 Language'
+    language: '言語 Language',
+    theme: 'テーマ',
+    themeLight: 'ライト',
+    themeDark: 'ダーク'
   }
 }

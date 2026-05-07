@@ -46,23 +46,49 @@ def validate_downsampling(downsampling):
 
 
 def normalize_linear(hist_data, normalization):
-    """Linear scale to [0, normalization]; non-zero bins are floored to at least 1."""
-    max_val = np.max(hist_data)
+    """Linear scale to [0, normalization]; non-zero bins are floored to at least 1.
+    
+    “做手脚”：计算最大值时忽略最左端(0)和最右端(max)的统计值，
+    防止撞墙的尖峰压扁中间调细节。
+    """
+    # 如果直方图只有2个或更少的bin，无法忽略两端
+    if len(hist_data) > 2:
+        max_val = np.max(hist_data[1:-1])
+    else:
+        max_val = np.max(hist_data)
+        
     if max_val == 0:
-        return np.zeros_like(hist_data, dtype=np.int32)
+        # 如果中间全是0，回退到全局最大值，防止除以0
+        max_val = np.max(hist_data)
+        if max_val == 0:
+            return np.zeros_like(hist_data, dtype=np.int32)
+            
     normalized = (hist_data.astype(np.float64) / max_val) * normalization
     normalized[(hist_data > 0) & (normalized < 1)] = 1
-    return normalized.astype(np.int32)
+    
+    # 最终输出需要 clip，因为两端撞墙的点现在可能远超 normalization
+    return np.clip(normalized, 0, normalization).astype(np.int32)
 
 
 def normalize_log(hist_data, normalization):
-    """log1p scale to [0, normalization]."""
+    """log1p scale to [0, normalization].
+    
+    “做手脚”：同理，在对数空间也基于中间调的最大值定高度。
+    """
     log_data = np.log1p(hist_data.astype(np.float64))
-    max_log = np.max(log_data)
+    
+    if len(log_data) > 2:
+        max_log = np.max(log_data[1:-1])
+    else:
+        max_log = np.max(log_data)
+        
     if max_log == 0:
-        return np.zeros_like(hist_data, dtype=np.int32)
+        max_log = np.max(log_data)
+        if max_log == 0:
+            return np.zeros_like(hist_data, dtype=np.int32)
+            
     normalized = (log_data / max_log) * normalization
-    return normalized.astype(np.int32)
+    return np.clip(normalized, 0, normalization).astype(np.int32)
 
 
 def apply_gamma(channel, gamma, max_val):
@@ -82,6 +108,7 @@ def compute_channel_histogram(channel, native_bins, downsampling):
     if downsampling is None or downsampling >= native_bins:
         return hist
     reshaped = hist.reshape(downsampling, -1)
+    # 使用 max() 塌陷可以保留最细微的撞墙尖峰特征
     return np.max(reshaped, axis=1)
 
 

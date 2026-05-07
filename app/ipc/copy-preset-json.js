@@ -1,6 +1,9 @@
 const { ipcMain } = require('electron')
 const fs = require('fs')
 const path = require('path')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('CopyPresetJson')
 
 function register() {
   ipcMain.on('copy-preset-json', async (event, { workingDirectory, originalDirectory }) => {
@@ -22,7 +25,7 @@ function register() {
 
       event.sender.send('copy-preset-json-success', { message: '.preset.json copied successfully' })
     } catch (error) {
-      console.error('Error copying .preset.json:', error)
+      logger.error('Error copying .preset.json:', error)
       event.sender.send('copy-preset-json-error', { message: 'Error copying .preset.json', error: error.message })
     }
   })

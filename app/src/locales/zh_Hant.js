@@ -13,9 +13,9 @@ export default {
     selectButton: '📁 選擇目錄',
     loading: '載入中...',
     selectedPath: '已選擇路徑：',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    processingProgress: '正在準備預覽',
+    compressPreview: '壓縮預覽圖',
+    compressPreviewTip: '縮圖將壓縮至 1920px 寬以加速預覽，會加快後續去色罩的預覽但是會減慢載入流程。',
     cancel: '取消'
   },
   photoGallery: {
@@ -98,6 +98,9 @@ export default {
     homepage: '項目首頁',
     license: '開源許可證',
     licenseSummary: '允許商業使用、修改、分發與私人使用；需保留版權聲明並標明重大變更；不授予商標權，亦不提供任何擔保。',
-    language: '語言 Language'
+    language: '語言 Language',
+    theme: '主題',
+    themeLight: '淺色',
+    themeDark: '深色'
   }
 }

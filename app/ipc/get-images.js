@@ -10,6 +10,9 @@ const {
   readPresetJson,
   buildThumbnailEntry
 } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('GetImages')
 
 function register() {
   ipcMain.on('get-images', async (_, directoryPath) => {
@@ -37,7 +40,7 @@ function register() {
         win.webContents.send('images-loaded', { images })
       }
     } catch (error) {
-      console.error('Error loading images:', error)
+      logger.error('Error loading images:', error)
       const win = getWin()
       if (win && !win.isDestroyed()) {
         win.webContents.send('images-error', error.message)

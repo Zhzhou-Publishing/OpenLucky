@@ -28,6 +28,10 @@
 import Tabs from './Tabs.vue'
 import { ref } from 'vue'
 
+import { createRendererLogger } from '../utils/rendererLogger'
+
+const logger = createRendererLogger('TabsExample')
+
 const tabs = ref([
   { id: 'home', label: 'Home' },
   { id: 'profile', label: 'Profile' },
@@ -35,7 +39,7 @@ const tabs = ref([
 ])
 
 const handleTabChange = (tabId) => {
-  console.log('Tab changed to:', tabId)
+  logger.debug('Tab changed to:', tabId)
 }
 </script>
 

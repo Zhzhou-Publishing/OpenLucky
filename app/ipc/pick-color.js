@@ -1,21 +1,26 @@
 const { ipcMain } = require('electron')
 const { spawn } = require('child_process')
-const { getOpenLuckyPath } = require('../shared/utils')
+const { buildOpenLuckyCommand } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('PickColor')
 
 function register() {
   ipcMain.handle('pick-color', async (_event, { filePath, x, y, format = '8' }) => {
     return new Promise((resolve, reject) => {
-      const command = getOpenLuckyPath()
+      const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
       const args = [
+        ...prefixArgs,
         'tool', 'pick',
         '-i', filePath,
         '-x', String(x),
         '-y', String(y),
         '-f', String(format),
       ]
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       const child = spawn(command, args, {
+        ...spawnOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
       })

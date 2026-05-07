@@ -3,7 +3,16 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const https = require('https')
+const { log, createLogger } = require('./shared/logger')
 const { setWin } = require('./shared/main-window')
+
+log.initialize()
+
+const updateLogger = createLogger('UpdateChecker')
+const configLogger = createLogger('Config')
+const recallCheckLogger = createLogger('VersionRecallChecker')
+const recallStatusLogger = createLogger('RecallStatus')
+const appLogger = createLogger('App')
 
 // ── IPC handlers (one per file) ──────────────────────────────────────────────
 const ipcConfirmClose = require('./ipc/confirm-close')
@@ -50,7 +59,7 @@ let recalled = false
 // Get system locale for i18n
 function getSystemLocale() {
   const locale = app.getLocale() || 'en'
-  console.log('[UpdateChecker] System locale:', locale)
+  updateLogger.info('System locale:', locale)
   return locale
 }
 
@@ -105,7 +114,7 @@ function getCurrentVersion() {
 
     return version
   } catch (error) {
-    console.error('[UpdateChecker] Error reading version:', error)
+    updateLogger.error('Error reading version:', error)
     return 'unknown'
   }
 }
@@ -117,10 +126,10 @@ function getStorageFilePath() {
   try {
     const userDataPath = app.getPath('userData')
     const storageFilePath = path.join(userDataPath, STORAGE_FILE_NAME)
-    console.log(`[UpdateChecker] saved ${storageFilePath}`)
+    updateLogger.info(`saved ${storageFilePath}`)
     return storageFilePath
   } catch (error) {
-    console.error('Error getting user data path:', error)
+    updateLogger.error('Error getting user data path:', error)
     return path.join(process.cwd(), STORAGE_FILE_NAME)
   }
 }
@@ -137,7 +146,7 @@ function getLastCheckTime() {
     }
     return 0
   } catch (e) {
-    console.error('Error reading last check time:', e)
+    updateLogger.error('Error reading last check time:', e)
     return 0
   }
 }
@@ -156,7 +165,7 @@ function saveCheckTime() {
 
     fs.writeFileSync(filePath, Date.now().toString(), 'utf-8')
   } catch (e) {
-    console.error('Failed to save check time:', e)
+    updateLogger.error('Failed to save check time:', e)
   }
 }
 
@@ -169,31 +178,31 @@ function getRecallStatus() {
     const filePath = getStorageFilePath()
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8').trim()
-      console.log('[RecallStatus] Read from storage:', data)
+      recallStatusLogger.info('Read from storage:', data)
 
       if (data.startsWith('recall:')) {
         const recalledVersion = data.substring(7)
-        console.log('[RecallStatus] Found recall marker for version:', recalledVersion)
+        recallStatusLogger.info('Found recall marker for version:', recalledVersion)
 
         const currentVersion = getCurrentVersion()
-        console.log('[RecallStatus] Current version:', currentVersion)
+        recallStatusLogger.info('Current version:', currentVersion)
 
         if (recalledVersion === currentVersion) {
-          console.log('[RecallStatus] Current version matches recalled version')
+          recallStatusLogger.info('Current version matches recalled version')
           return { recalled: true, version: recalledVersion }
         } else {
-          console.log('[RecallStatus] Current version does not match recalled version, ignoring recall')
+          recallStatusLogger.info('Current version does not match recalled version, ignoring recall')
           return { recalled: false }
         }
       } else {
-        console.log('[RecallStatus] No recall marker found, data is timestamp')
+        recallStatusLogger.info('No recall marker found, data is timestamp')
         return { recalled: false }
       }
     }
-    console.log('[RecallStatus] Storage file does not exist')
+    recallStatusLogger.info('Storage file does not exist')
     return { recalled: false }
   } catch (e) {
-    console.error('Error reading recall status:', e)
+    recallStatusLogger.error('Error reading recall status:', e)
     return { recalled: false }
   }
 }
@@ -212,9 +221,9 @@ function saveRecallStatus(version) {
 
     const recallData = `recall:${version}`
     fs.writeFileSync(filePath, recallData, 'utf-8')
-    console.log('[RecallStatus] Saved recall status:', recallData)
+    recallStatusLogger.info('Saved recall status:', recallData)
   } catch (e) {
-    console.error('Failed to save recall status:', e)
+    recallStatusLogger.error('Failed to save recall status:', e)
   }
 }
 
@@ -225,13 +234,13 @@ function saveRecallStatus(version) {
 function shouldCheckForUpdates() {
   const recallStatus = getRecallStatus()
   if (recallStatus.recalled) {
-    console.log('[UpdateChecker] Found recall status for current version, should check')
+    updateLogger.info('Found recall status for current version, should check')
     return { shouldCheck: true, recallStatus }
   }
 
   const lastCheck = getLastCheckTime()
   if (lastCheck === 0) {
-    console.log('[UpdateChecker] Never checked before, should check')
+    updateLogger.info('Never checked before, should check')
     return { shouldCheck: true, recallStatus }
   }
 
@@ -240,7 +249,7 @@ function shouldCheckForUpdates() {
   const currentHour = Math.floor(now / (60 * 60 * 1000))
 
   const shouldCheck = currentHour > lastCheckHour
-  console.log('[UpdateChecker] Hour interval check:', shouldCheck ? 'should check' : 'skip')
+  updateLogger.info('Hour interval check:', shouldCheck ? 'should check' : 'skip')
   return { shouldCheck, recallStatus }
 }
 
@@ -251,12 +260,12 @@ function shouldCheckForUpdates() {
 async function checkVersionRecalled() {
   try {
     const currentVersion = getCurrentVersion()
-    console.log('[VersionRecallChecker] Checking if version is recalled...')
-    console.log('[VersionRecallChecker] Current version:', currentVersion)
+    recallCheckLogger.info('Checking if version is recalled...')
+    recallCheckLogger.info('Current version:', currentVersion)
 
     const tag = currentVersion.startsWith('v') ? currentVersion : 'v' + currentVersion
     const url = `https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/tags/${tag}`
-    console.log('[VersionRecallChecker] Checking release tag:', url)
+    recallCheckLogger.info('Checking release tag:', url)
 
     return new Promise((resolve, reject) => {
       const options = {
@@ -267,10 +276,10 @@ async function checkVersionRecalled() {
       }
 
       const req = https.get(url, options, (res) => {
-        console.log('[VersionRecallChecker] HTTP Status Code:', res.statusCode)
+        recallCheckLogger.info('HTTP Status Code:', res.statusCode)
 
         if (res.statusCode === 404) {
-          console.log('[VersionRecallChecker] Version recalled (404 Not Found)')
+          recallCheckLogger.info('Version recalled (404 Not Found)')
           resolve({
             recalled: true,
             version: currentVersion
@@ -279,7 +288,7 @@ async function checkVersionRecalled() {
         }
 
         if (res.statusCode === 200) {
-          console.log('[VersionRecallChecker] Version exists and is active')
+          recallCheckLogger.info('Version exists and is active')
           resolve({
             recalled: false,
             version: currentVersion
@@ -287,23 +296,23 @@ async function checkVersionRecalled() {
           return
         }
 
-        console.error('[VersionRecallChecker] Unexpected status code:', res.statusCode)
+        recallCheckLogger.error('Unexpected status code:', res.statusCode)
         reject(new Error(`GitHub API returned unexpected status code: ${res.statusCode}`))
       })
 
       req.on('timeout', () => {
         req.destroy()
-        console.error('[VersionRecallChecker] Request timed out')
+        recallCheckLogger.error('Request timed out')
         reject(new Error('GitHub API request timed out'))
       })
 
       req.on('error', (err) => {
-        console.error('[VersionRecallChecker] Network error:', err.message)
+        recallCheckLogger.error('Network error:', err.message)
         reject(new Error(`Network error: ${err.message}`))
       })
     })
   } catch (error) {
-    console.error('[VersionRecallChecker] Error checking version recall:', error)
+    recallCheckLogger.error('Error checking version recall:', error)
     return null
   }
 }
@@ -359,7 +368,7 @@ function fetchLatestReleaseForChannel(channel) {
     })
 
     req.on('error', (err) => {
-      console.error('[UpdateChecker] Network error:', err.message)
+      updateLogger.error('Network error:', err.message)
       reject(new Error(`Network error: ${err.message}`))
     })
   })
@@ -377,43 +386,43 @@ async function checkForUpdates() {
     const { shouldCheck, recallStatus } = shouldCheckForUpdates()
 
     if (!shouldCheck) {
-      console.log('[UpdateChecker] Already checked this hour, skipping')
+      updateLogger.info('Already checked this hour, skipping')
       return { skipped: true }
     }
 
     if (recallStatus.recalled) {
-      console.log('[UpdateChecker] Found recall status from file for current version, returning recall result')
+      updateLogger.info('Found recall status from file for current version, returning recall result')
       recalled = true
       return recallStatus
     }
 
-    console.log('[UpdateChecker] Step 1: Checking if current version is recalled...')
+    updateLogger.info('Step 1: Checking if current version is recalled...')
     const recallResult = await checkVersionRecalled()
 
     if (recallResult === null) {
-      console.error('[UpdateChecker] Version recall check failed, proceeding with update check')
+      updateLogger.error('Version recall check failed, proceeding with update check')
     } else if (recallResult.recalled) {
-      console.log('[UpdateChecker] Version is recalled, saving recall status and returning')
+      updateLogger.info('Version is recalled, saving recall status and returning')
       saveRecallStatus(recallResult.version)
       recalled = true
       return recallResult
     } else {
-      console.log('[UpdateChecker] Version is not recalled, proceeding with update check')
+      updateLogger.info('Version is not recalled, proceeding with update check')
     }
 
-    console.log('[UpdateChecker] Step 2: Checking for updates...')
+    updateLogger.info('Step 2: Checking for updates...')
     const currentVersion = getCurrentVersion()
     const currentChannel = getVersionChannel(currentVersion)
-    console.log('[UpdateChecker] Current version:', currentVersion, 'channel:', currentChannel)
+    updateLogger.info('Current version:', currentVersion, 'channel:', currentChannel)
 
     const release = await fetchLatestReleaseForChannel(currentChannel)
 
     if (!release || !release.name) {
-      console.log('[UpdateChecker] No matching release in channel:', currentChannel)
+      updateLogger.info('No matching release in channel:', currentChannel)
       return { hasUpdate: false }
     }
 
-    console.log('[UpdateChecker] Latest version in channel:', release.name)
+    updateLogger.info('Latest version in channel:', release.name)
 
     if (!recalled) {
       saveCheckTime()
@@ -428,10 +437,10 @@ async function checkForUpdates() {
       }
     }
 
-    console.log('[UpdateChecker] Already on latest version')
+    updateLogger.info('Already on latest version')
     return { hasUpdate: false }
   } catch (error) {
-    console.error('[UpdateChecker] Error checking for updates:', error)
+    updateLogger.error('Error checking for updates:', error)
     return null
   }
 }
@@ -447,7 +456,7 @@ function initializeConfigFile() {
     const configFilePath = path.join(configDir, 'config.yaml')
 
     if (fs.existsSync(configFilePath)) {
-      console.log('[Config] Config file already exists at:', configFilePath)
+      configLogger.info('Config file already exists at:', configFilePath)
       return
     }
 
@@ -459,19 +468,19 @@ function initializeConfigFile() {
     }
 
     if (!fs.existsSync(sourceConfigPath)) {
-      console.error('[Config] Source config file not found at:', sourceConfigPath)
+      configLogger.error('Source config file not found at:', sourceConfigPath)
       return
     }
 
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true })
-      console.log('[Config] Created config directory at:', configDir)
+      configLogger.info('Created config directory at:', configDir)
     }
 
     fs.copyFileSync(sourceConfigPath, configFilePath)
-    console.log('[Config] Created config file from bundled resources at:', configFilePath)
+    configLogger.info('Created config file from bundled resources at:', configFilePath)
   } catch (error) {
-    console.error('[Config] Error initializing config file:', error)
+    configLogger.error('Error initializing config file:', error)
   }
 }
 
@@ -562,7 +571,7 @@ function showUpdateDialog(win, updateInfo, isRecalled = false) {
       app.quit()
     }
   }).catch((error) => {
-    console.error('Error showing update dialog:', error)
+    appLogger.error('Error showing update dialog:', error)
   })
 }
 
@@ -582,14 +591,14 @@ function showRecallDialog(win, latestVersion, latestHtmlUrl) {
       shell.openExternal(latestHtmlUrl).then(() => {
         app.quit()
       }).catch((error) => {
-        console.error('Error opening download URL:', error)
+        appLogger.error('Error opening download URL:', error)
         app.quit()
       })
     } else {
       app.quit()
     }
   }).catch((error) => {
-    console.error('Error showing recall dialog:', error)
+    appLogger.error('Error showing recall dialog:', error)
     app.quit()
   })
 }
@@ -605,7 +614,7 @@ app.whenReady().then(async () => {
   const updateInfo = await checkForUpdates()
 
   if (updateInfo && updateInfo.recalled) {
-    console.log('[App] Version is recalled, fetching latest release info...')
+    appLogger.info('Version is recalled, fetching latest release info...')
     try {
       const currentChannel = getVersionChannel(getCurrentVersion())
       const latestRelease = await fetchLatestReleaseForChannel(currentChannel)
@@ -619,11 +628,11 @@ app.whenReady().then(async () => {
           app.quit()
         }
       } else {
-        console.error('[App] Failed to fetch latest release info for recall, quitting...')
+        appLogger.error('Failed to fetch latest release info for recall, quitting...')
         app.quit()
       }
     } catch (error) {
-      console.error('[App] Error fetching latest release for recall:', error)
+      appLogger.error('Error fetching latest release for recall:', error)
       app.quit()
     }
     return
@@ -647,7 +656,7 @@ app.whenReady().then(async () => {
           message: texts.message,
           buttons: [texts.okButton]
         }).catch((error) => {
-          console.error('Error showing network error dialog:', error)
+          appLogger.error('Error showing network error dialog:', error)
         })
       }, 1000)
     }

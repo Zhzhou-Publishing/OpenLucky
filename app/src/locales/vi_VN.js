@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 Chọn thư mục',
     loading: 'Đang tải...',
     selectedPath: 'Đường dẫn đã chọn:',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'Đang chuẩn bị xem trước',
+    compressPreview: 'Nén xem trước',
+    compressPreviewTip: 'Hình thu nhỏ sẽ được nén xuống chiều rộng 1920 px để tăng tốc xem trước. Điều này tăng tốc xem trước xoá mặt nạ nhưng làm chậm quá trình tải.',
+    cancel: 'Huỷ',
   },
   photoGallery: {
     back: '← Quay lại',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°',
       rotate180: 'Xoay 180°',
-      resetImage: 'Reset Image',
+      resetImage: 'Đặt lại ảnh',
     },
     eyedropper: {
       exitHint: 'Đang ở chế độ ống hút màu — bấm vào ảnh để lấy, nhấn ESC để hủy'
@@ -98,6 +98,9 @@ export default {
     homepage: 'Trang chủ dự án',
     license: 'Giấy phép',
     licenseSummary: 'Cho phép sử dụng thương mại, sửa đổi, phân phối và sử dụng cá nhân; yêu cầu giữ nguyên thông báo bản quyền và ghi rõ các thay đổi quan trọng; không cấp quyền nhãn hiệu và không cung cấp bất kỳ bảo đảm nào.',
-    language: 'Ngôn ngữ Language'
+    language: 'Ngôn ngữ Language',
+    theme: 'Giao diện',
+    themeLight: 'Sáng',
+    themeDark: 'Tối'
   }
 }

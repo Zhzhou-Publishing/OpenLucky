@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 폴더 선택',
     loading: '불러오는 중...',
     selectedPath: '선택한 경로(經路):',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: '미리보기 준비(準備) 중',
+    compressPreview: '미리보기 압축(壓縮)',
+    compressPreviewTip: '미리보기를 빠르게 하기 위해 썸네일이 1920px 너비로 압축(壓縮)됩니다. 마스크 제거(除去) 미리보기는 빨라지지만 불러오는 과정(過程)은 느려집니다.',
+    cancel: '취소(取消)',
   },
   photoGallery: {
     back: '← 뒤로',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°',
       rotate180: '180° 회전',
-      resetImage: 'Reset Image',
+      resetImage: '이미지 재설정(再設定)',
     },
     eyedropper: {
       exitHint: '스포이트 활성(活性) — 이미지를 클릭(click)하여 추출(抽出), ESC로 취소(取消)'
@@ -98,7 +98,10 @@ export default {
     homepage: '프로젝트 홈페이지',
     license: '라이선스(License)',
     licenseSummary: '상업적 사용, 수정, 배포(配布), 사적 사용을 허용합니다. 저작권 표시를 유지하고 중요한 변경 사항을 명시해야 하며, 상표권은 부여하지 않고 어떠한 보증도 제공하지 않습니다.',
-    language: '언어(言語) Language'
+    language: '언어(言語) Language',
+    theme: '테마',
+    themeLight: '밝은 테마',
+    themeDark: '어두운 테마'
   },
   languageSwitcher: {
     label: '언어(言語)'

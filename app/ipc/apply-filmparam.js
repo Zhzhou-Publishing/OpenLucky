@@ -1,7 +1,10 @@
 const { ipcMain } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
-const { getOpenLuckyPath } = require('../shared/utils')
+const { buildOpenLuckyCommand } = require('../shared/utils')
+const { createLogger } = require('../shared/logger')
+
+const logger = createLogger('ApplyFilmparam')
 
 function register() {
   ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
@@ -9,8 +12,8 @@ function register() {
       const inputFile = path.join(inputPath, filename)
       const outputFile = path.join(outputPath, filename)
 
-      const command = getOpenLuckyPath()
-      const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+      const args = [...prefixArgs, 'filmparam', '--input', inputFile, '--output', outputFile, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
       if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
         args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
         if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
@@ -23,11 +26,12 @@ function register() {
       if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
         args.push('--white-balance', whiteBalance)
       }
-      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+      logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
 
       const child = spawn(command, args, {
+        ...spawnOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
       })
@@ -59,7 +63,7 @@ function register() {
         event.sender.send('filmparam-apply-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {
-      console.error('Error applying filmparam:', error)
+      logger.error('Error applying filmparam:', error)
       event.sender.send('filmparam-apply-error', { message: 'Error applying film parameters', error: error.message })
     }
   })

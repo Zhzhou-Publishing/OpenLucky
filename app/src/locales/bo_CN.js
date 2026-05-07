@@ -13,10 +13,10 @@ export default {
     selectButton: '📁 ཡིག་སྣོད་འདེམས།',
     loading: 'ཕབ་ལེན་བྱེད་བཞིན་པ...',
     selectedPath: 'བདམས་པའི་ལམ་ཀ:',
-    processingProgress: 'Preparing preview',
-    compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
-    cancel: 'Cancel',
+    processingProgress: 'གོང་ལྟ་གྲ་སྒྲིག་བྱེད་བཞིན་པ',
+    compressPreview: 'གོང་ལྟ་སྡུད་པ',
+    compressPreviewTip: 'གོང་ལྟ་མགྱོགས་སུ་གཏོང་ཆེད། ཟུར་པར་ཞེང་ཚད་ 1920px བར་དུ་སྡུད་པ་ཡིན། འདིས་གདོས་མཐོང་བཀོག་པའི་གོང་ལྟ་མགྱོགས་སུ་གཏོང་མོད། ཕབ་ལེན་གྱི་གོ་རིམ་དལ་བར་འགྱུར།',
+    cancel: 'ཕྱིར་འཐེན།',
   },
   photoGallery: {
     back: '← ཕྱིར་ལོག',
@@ -67,7 +67,7 @@ export default {
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°',
       rotate180: '180° བསྐོར།',
-      resetImage: 'Reset Image',
+      resetImage: 'པར་ཕྱིར་སྒྲིག',
     },
     eyedropper: {
       exitHint: 'ཁ་དོག་ལེན་ཐབས་འགོ་འཛུགས། ཨང་པར་ལ་ཨེབ་ཞིང་ལེན། ESC བཙིར་ནས་ཕྱིར་འཐེན།'
@@ -98,6 +98,9 @@ export default {
     homepage: 'ལས་འཆར་གཙོ་ངོས།',
     license: 'ཆོག་མཆན།',
     licenseSummary: 'ཚོང་སྒྱུར། བསྒྱུར་བཀོད། ཁྱབ་སྤེལ་དང་སྒེར་སྤྱོད་ཡོད་ཚད་ཆོག །རྩོམ་པོའི་ཆ་འཕྲིན་མུ་མཐུད་སྦར་དགོས་ཤིང་འགྱུར་བ་ཆེ་ཁག་གསལ་སྟོན་དགོས། ཀོ་ཐོ་ཐོབ་དབང་མི་སྤྲོད་པར་མ་ཟད་ཁས་ལེན་གང་ཡང་མི་སྤྲོད།',
-    language: 'སྐད་ཡིག Language'
+    language: 'སྐད་ཡིག Language',
+    theme: 'རྣམ་པ',
+    themeLight: 'གསལ་པོ',
+    themeDark: 'ནག་པོ'
   }
 }

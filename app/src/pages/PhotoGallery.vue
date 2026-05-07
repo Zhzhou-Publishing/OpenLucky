@@ -69,6 +69,9 @@ import { useI18n } from 'vue-i18n'
 import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
 import { presets as globalPresets } from '../utils/presetCache'
+import { createRendererLogger } from '../utils/rendererLogger'
+
+const logger = createRendererLogger('PhotoGallery')
 
 const router = useRouter()
 const route = useRoute()
@@ -184,17 +187,17 @@ const applyPreset = async () => {
 
       // Listen for apply started
       ipcRenderer.once('preset-apply-started', (_, result) => {
-        console.log('Preset apply started:', result.message)
+        logger.info('Preset apply started:', result.message)
       })
 
       // Listen for progress updates
       ipcRenderer.on('preset-apply-progress', (_, result) => {
-        console.log('Progress:', result.data)
+        logger.debug('Progress:', result.data)
       })
 
       // Listen for success
       ipcRenderer.once('preset-apply-success', async (_, result) => {
-        console.log('Preset applied successfully:', result.message)
+        logger.info('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
 
         // Restore original window title
@@ -209,9 +212,9 @@ const applyPreset = async () => {
 
       // Listen for errors
       ipcRenderer.once('preset-apply-error', (_, result) => {
-        console.error('Error applying preset:', result.message)
+        logger.error('Error applying preset:', result.message)
         if (result.error) {
-          console.error('Error details:', result.error)
+          logger.error('Error details:', result.error)
         }
         isApplyingPreset.value = false
 
@@ -227,14 +230,14 @@ const applyPreset = async () => {
       })
     } else {
       // Fallback for non-Electron environment
-      console.warn('Not running in Electron, cannot apply preset')
+      logger.warn('Not running in Electron, cannot apply preset')
       isApplyingPreset.value = false
 
       // Restore original window title
       document.title = originalWindowTitle.value
     }
   } catch (error) {
-    console.error('Error applying preset:', error)
+    logger.error('Error applying preset:', error)
     isApplyingPreset.value = false
 
     // Restore original window title
@@ -268,16 +271,16 @@ const loadImages = async () => {
       })
 
       ipcRenderer.once('images-error', (_, error) => {
-        console.error('Error loading images:', error)
+        logger.error('Error loading images:', error)
         isLoading.value = false
       })
     } else {
       // Fallback for non-Electron environment
-      console.warn('Not running in Electron, showing demo data')
+      logger.warn('Not running in Electron, showing demo data')
       isLoading.value = false
     }
   } catch (error) {
-    console.error('Error loading images:', error)
+    logger.error('Error loading images:', error)
     isLoading.value = false
   }
 }
@@ -296,16 +299,16 @@ watch(globalPresets, (list) => {
 
 const saveAll = () => {
   if (hasUnappliedImages.value) {
-    console.warn('SaveAll blocked: there are still images without applied parameters')
+    logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
   }
   if (!workingDirectory.value || !originalDirectoryPath.value) {
-    console.error('No working directory or original directory')
+    logger.error('No working directory or original directory')
     return
   }
 
   if (!window.require) {
-    console.error('Not running in Electron')
+    logger.error('Not running in Electron')
     return
   }
 
@@ -342,12 +345,12 @@ const saveAll = () => {
 
     // Handle started
     ipcRenderer.once('preset-to-batch-started', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
     })
 
     // Handle progress - update window title with current file being processed
     ipcRenderer.on('preset-to-batch-progress', (_, result) => {
-      console.log(result.data)
+      logger.debug(result.data)
 
       // Update window title with current file path being processed
       if (result.file) {
@@ -358,7 +361,7 @@ const saveAll = () => {
 
     // Handle success
     ipcRenderer.once('preset-to-batch-success', (_, result) => {
-      console.log(result.message)
+      logger.info(result.message)
       isSavingAll.value = false
 
       // Restore original window title
@@ -369,14 +372,14 @@ const saveAll = () => {
 
     // Handle error
     ipcRenderer.once('preset-to-batch-error', (_, result) => {
-      console.error('Error saving all files:', result.message, result.error)
+      logger.error('Error saving all files:', result.message, result.error)
       isSavingAll.value = false
 
       // Restore original window title
       document.title = originalWindowTitle.value
     })
   } catch (error) {
-    console.error('Error saving all files:', error)
+    logger.error('Error saving all files:', error)
     isSavingAll.value = false
 
     // Restore original window title
@@ -423,7 +426,7 @@ onMounted(() => {
       })
 
       ipcRenderer.once('working-directory-error', (_, error) => {
-        console.error('Error preparing working directory:', error)
+        logger.error('Error preparing working directory:', error)
         isLoading.value = false
       })
     }
