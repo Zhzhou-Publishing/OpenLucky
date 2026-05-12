@@ -28,19 +28,20 @@
 import { ref, computed, onUnmounted } from 'vue'
 
 const props = defineProps({
-  // [R, G, B, L] from `openlucky tool histogram -d 256 -n <H> -m log`.
-  // Values must already be normalized to [0, height]; we draw them
-  // directly without re-scaling.
-  histogram: { type: Array, default: null },
+  // { data: { red, green, blue, luminosity }, visual_meta: { suggested_max_y, is_clipped, total_pixels } }
+  // from `openlucky tool histogram -d 256 -m log`. We scale each bin by
+  // `suggested_max_y` to fit the canvas; the back end picks that ceiling
+  // so curves consistently fill the box without further front-end tuning.
+  histogram: { type: Object, default: null },
   width: { type: Number, default: 256 },
-  height: { type: Number, default: 100 },
+  height: { type: Number, default: 256 },
   initialX: { type: Number, default: 120 },
   initialY: { type: Number, default: 80 },
   loading: { type: Boolean, default: false },
 })
 
 const PAD_X = 8
-const PAD_Y = 4
+const PAD_Y = 8
 
 const x = ref(props.initialX)
 const y = ref(props.initialY)
@@ -62,30 +63,32 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
 }
 
-function buildPath(channel) {
-  if (!Array.isArray(channel) || channel.length === 0) return ''
+function buildPath(channel, maxY) {
+  if (!Array.isArray(channel) || channel.length === 0 || !(maxY > 0)) return ''
   const w = props.width
   const h = props.height
   const n = channel.length
-  // SVG y is flipped: bin value v (already in [0, h]) → py = h - v.
   const denom = n > 1 ? n - 1 : 1
   const points = []
   for (let i = 0; i < n; i++) {
     const px = (i * (w - 1)) / denom
-    const py = h - clamp(channel[i], 0, h)
+    const ratio = clamp(channel[i] / maxY, 0, 1)
+    const py = h - ratio * h
     points.push(`${px.toFixed(2)},${py.toFixed(2)}`)
   }
   return points.join(' ')
 }
 
 const paths = computed(() => {
-  const h = props.histogram
-  if (!Array.isArray(h) || h.length < 4) return {}
+  const payload = props.histogram
+  if (!payload || !payload.data || !payload.visual_meta) return {}
+  const maxY = payload.visual_meta.suggested_max_y
+  const { red, green, blue, luminosity } = payload.data
   return {
-    r: buildPath(h[0]),
-    g: buildPath(h[1]),
-    b: buildPath(h[2]),
-    l: buildPath(h[3]),
+    r: buildPath(red, maxY),
+    g: buildPath(green, maxY),
+    b: buildPath(blue, maxY),
+    l: buildPath(luminosity, maxY),
   }
 })
 
@@ -129,7 +132,7 @@ onUnmounted(() => {
   user-select: none;
   box-sizing: border-box;
   overflow: hidden;
-  padding: 4px 8px;
+  padding: 8px;
 }
 
 :global(:root.dark .histogram-overlay) {

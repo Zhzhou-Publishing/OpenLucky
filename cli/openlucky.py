@@ -338,9 +338,7 @@ def main():
                                   help='Gamma applied before histogramming (default: 1.0; suggest 2.2 for RAW)')
     histogram_parser.add_argument('--mode', '-m', default='log',
                                   choices=['log', 'linear'],
-                                  help='Y-axis normalization mode (default: log). Ignored when --normalization is unset.')
-    histogram_parser.add_argument('--normalization', '-n', type=int, default=None,
-                                  help='Y-axis normalization target (e.g., 256). Leave unset to output raw counts.')
+                                  help='Per-bin transform applied to counts (default: log). The renderer scales data by visual_meta.suggested_max_y.')
     histogram_parser.add_argument('--downsampling', '-d', type=int, default=None,
                                   help='X-axis bin count after downsampling. Power of 2 in [256, 65536]. Leave unset to keep native bit depth.')
     histogram_parser.add_argument('--area', '-a', required=False, default=None,
@@ -1048,7 +1046,6 @@ def main():
                     hist_type=args.type,
                     gamma=args.gamma,
                     mode=args.mode,
-                    normalization=args.normalization,
                     downsampling=args.downsampling,
                     area=hist_area,
                 )

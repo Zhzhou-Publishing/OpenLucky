@@ -1,26 +1,50 @@
 """Image histogram computation tool.
 
 Computes per-channel histograms (and a luminance channel for the rgbl
-type) with optional gamma correction, log/linear normalization, and
-X-axis bin downsampling. Designed for UI consumption.
+type) with optional gamma correction and X-axis bin downsampling.
+
+Output schema:
+
+    {
+        "data": { "red": [...], "green": [...], "blue": [...], "luminosity": [...] },
+        "visual_meta": {
+            "suggested_max_y": <int>,   # y-axis ceiling in the same unit as data
+            "is_clipped": <bool>,       # significant pile-up at first/last bin
+            "total_pixels": <int>       # pixels histogrammed (post-area-crop)
+        }
+    }
+
+`data` values are in the transformed space chosen by `mode`:
+  - mode="log"    → log1p(count) per bin
+  - mode="linear" → raw count per bin
+
+The renderer scales each value by `suggested_max_y` to fit the canvas:
+    py = canvas_h * (1 - value / suggested_max_y)
 """
+
+import math
 from pathlib import Path
 
 import cv2
 import numpy as np
 import rawpy
 
-from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
-from cli.lib.tool.resize import read_image_safe
-
-
-SUPPORTED_TYPES = {'rgbl'}
-SUPPORTED_MODES = {'log', 'linear'}
+SUPPORTED_TYPES = {"rgbl"}
+SUPPORTED_MODES = {"log", "linear"}
 
 # ITU-R BT.601 luma coefficients
 BT601_R = 0.299
 BT601_G = 0.587
 BT601_B = 0.114
+
+# Headroom multipliers applied to the interior-bin peak when choosing the
+# y-axis ceiling. Log mode is already compressed so a small margin suffices.
+LOG_HEADROOM = 1.05
+LINEAR_HEADROOM = 1.1
+# Lower floor for linear mode so near-empty histograms still look reasonable.
+LINEAR_FLOOR_RATIO = 0.005
+# End-bin pile-up multiple that triggers the `is_clipped` flag.
+CLIP_RATIO = 1.5
 
 
 def _is_power_of_two(n):
@@ -45,50 +69,12 @@ def validate_downsampling(downsampling):
     return downsampling
 
 
-def normalize_linear(hist_data, normalization):
-    """Linear scale to [0, normalization]; non-zero bins are floored to at least 1.
-    
-    “做手脚”：计算最大值时忽略最左端(0)和最右端(max)的统计值，
-    防止撞墙的尖峰压扁中间调细节。
-    """
-    # 如果直方图只有2个或更少的bin，无法忽略两端
-    if len(hist_data) > 2:
-        max_val = np.max(hist_data[1:-1])
-    else:
-        max_val = np.max(hist_data)
-        
-    if max_val == 0:
-        # 如果中间全是0，回退到全局最大值，防止除以0
-        max_val = np.max(hist_data)
-        if max_val == 0:
-            return np.zeros_like(hist_data, dtype=np.int32)
-            
-    normalized = (hist_data.astype(np.float64) / max_val) * normalization
-    normalized[(hist_data > 0) & (normalized < 1)] = 1
-    
-    # 最终输出需要 clip，因为两端撞墙的点现在可能远超 normalization
-    return np.clip(normalized, 0, normalization).astype(np.int32)
-
-
-def normalize_log(hist_data, normalization):
-    """log1p scale to [0, normalization].
-    
-    “做手脚”：同理，在对数空间也基于中间调的最大值定高度。
-    """
-    log_data = np.log1p(hist_data.astype(np.float64))
-    
-    if len(log_data) > 2:
-        max_log = np.max(log_data[1:-1])
-    else:
-        max_log = np.max(log_data)
-        
-    if max_log == 0:
-        max_log = np.max(log_data)
-        if max_log == 0:
-            return np.zeros_like(hist_data, dtype=np.int32)
-            
-    normalized = (log_data / max_log) * normalization
-    return np.clip(normalized, 0, normalization).astype(np.int32)
+def _smooth_histogram(hist_data):
+    """3点高斯平滑，消除梳齿，提升视觉高级感"""
+    if len(hist_data) < 3:
+        return hist_data
+    kernel = np.array([0.25, 0.5, 0.25])
+    return np.convolve(hist_data.astype(np.float64), kernel, mode="same")
 
 
 def apply_gamma(channel, gamma, max_val):
@@ -104,41 +90,35 @@ def apply_gamma(channel, gamma, max_val):
 
 def compute_channel_histogram(channel, native_bins, downsampling):
     """Histogram a single channel at native_bins; collapse with max() to downsampling if smaller."""
-    hist, _ = np.histogram(channel, bins=native_bins, range=(0, native_bins - 1))
+    hist, _ = np.histogram(channel, bins=native_bins, range=(0, native_bins))
+
     if downsampling is None or downsampling >= native_bins:
-        return hist
+        return _smooth_histogram(hist)
+
     reshaped = hist.reshape(downsampling, -1)
-    # 使用 max() 塌陷可以保留最细微的撞墙尖峰特征
-    return np.max(reshaped, axis=1)
+    hist = np.max(reshaped, axis=1)
+    return _smooth_histogram(hist)
 
 
 def load_image_for_histogram(input_path):
-    """Load an image as an RGB array. RAW gets demosaiced to 16-bit linear RGB."""
     input_path = Path(input_path)
     if not input_path.exists():
         raise FileNotFoundError(f"Input file does not exist: {input_path}")
 
     ext = input_path.suffix.lower()
-    if ext in RAW_EXTENSIONS:
+    raw_exts = {".arw", ".cr2", ".nef", ".dng", ".raf"}
+
+    if ext in raw_exts:
         with rawpy.imread(str(input_path)) as raw:
             img = raw.postprocess(
-                demosaic_algorithm=(
-                    rawpy.DemosaicAlgorithm.DHT if ext == '.raf'
-                    else rawpy.DemosaicAlgorithm.AAHD
-                ),
-                fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
-                gamma=(1, 1),
+                use_camera_wb=True,
                 no_auto_bright=True,
                 output_bps=16,
-                use_camera_wb=True,
                 bright=1.0,
             )
         return img
 
-    if ext not in IMAGE_EXTENSIONS:
-        raise ValueError(f"Unsupported image format: {ext}")
-
-    img = read_image_safe(str(input_path))
+    img = cv2.imread(str(input_path))
     if img is None:
         raise ValueError(f"Failed to read image: {input_path}")
 
@@ -146,39 +126,24 @@ def load_image_for_histogram(input_path):
         img = np.stack([img, img, img], axis=-1)
     elif img.ndim == 3 and img.shape[2] >= 3:
         img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2RGB)
-    else:
-        raise ValueError(f"Unsupported image shape {img.shape} for histogram")
+
     return img
 
 
-def compute_histogram(input_path, hist_type='rgbl', gamma=1.0,
-                     mode='log', normalization=None, downsampling=None,
-                     area=None):
-    """Compute histogram per pr/020.histogram.md.
-
-    Returns a 2-D list of ints. Outer length depends on hist_type
-    (rgbl → 4, ordered R, G, B, L). Inner length is `downsampling`
-    when set, otherwise the native bin count of the source image
-    (256 for 8-bit, 65536 for 16-bit).
-
-    If `area` is provided as (x1, y1, x2, y2), only pixels strictly
-    inside that rectangle contribute. Coordinates are clipped to the
-    image bounds; an empty intersection raises ValueError.
-    """
+def compute_histogram(
+    input_path,
+    hist_type="rgbl",
+    gamma=1.0,
+    mode="log",
+    downsampling=None,
+    area=None,
+):
     if hist_type not in SUPPORTED_TYPES:
-        raise ValueError(
-            f"Invalid type. Expected one of {sorted(SUPPORTED_TYPES)}, got '{hist_type}'"
-        )
+        raise ValueError(f"Invalid type. Got '{hist_type}'")
     if mode not in SUPPORTED_MODES:
-        raise ValueError(
-            f"Invalid mode. Expected one of {sorted(SUPPORTED_MODES)}, got '{mode}'"
-        )
+        raise ValueError(f"Invalid mode. Got '{mode}'")
+
     downsampling = validate_downsampling(downsampling)
-    if normalization is not None:
-        if not isinstance(normalization, int) or isinstance(normalization, bool) or normalization <= 0:
-            raise ValueError(
-                f"Invalid normalization value. Expected positive integer, got {normalization!r}"
-            )
 
     img = load_image_for_histogram(input_path)
 
@@ -191,45 +156,83 @@ def compute_histogram(input_path, hist_type='rgbl', gamma=1.0,
         y2c = max(0, min(h_img, int(y2)))
         if x2c <= x1c or y2c <= y1c:
             raise ValueError(
-                f"Invalid --area: empty intersection with image bounds "
-                f"(image is {w_img}x{h_img}, area={area})"
+                f"Invalid --area: empty intersection (image {w_img}x{h_img}, area={area})"
             )
         img = img[y1c:y2c, x1c:x2c]
 
+    total_pixels = int(img.shape[0] * img.shape[1])
+
     if img.dtype == np.uint16:
-        native_bins = 65536
-        max_val = 65535
+        native_bins, max_val = 65536, 65535
     else:
         if img.dtype != np.uint8:
             img = np.clip(img, 0, 255).astype(np.uint8)
-        native_bins = 256
-        max_val = 255
+        native_bins, max_val = 256, 255
 
     if gamma != 1:
         img = apply_gamma(img, gamma, max_val)
 
-    if hist_type == 'rgbl':
-        r = img[:, :, 0]
-        g = img[:, :, 1]
-        b = img[:, :, 2]
-        l_float = (
-            BT601_R * r.astype(np.float64)
-            + BT601_G * g.astype(np.float64)
-            + BT601_B * b.astype(np.float64)
-        )
-        l = np.clip(l_float, 0, max_val).astype(img.dtype)
-        channels = [r, g, b, l]
+    r, g, b = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+    l_float = (
+        BT601_R * r.astype(np.float64)
+        + BT601_G * g.astype(np.float64)
+        + BT601_B * b.astype(np.float64)
+    )
+    l = np.clip(l_float, 0, max_val).astype(img.dtype)
+
+    raw_hists = [
+        compute_channel_histogram(ch, native_bins, downsampling)
+        for ch in [r, g, b, l]
+    ]
+
+    # End-bin pile-up detection runs on raw counts (independent of mode), so
+    # the flag means "shadows or highlights are clipping," not "the line just
+    # exits the canvas."
+    is_clipped = False
+    for h in raw_hists:
+        if len(h) > 2:
+            interior_peak = float(np.max(h[1:-1]))
+            if interior_peak > 0 and (
+                float(h[0]) > interior_peak * CLIP_RATIO
+                or float(h[-1]) > interior_peak * CLIP_RATIO
+            ):
+                is_clipped = True
+                break
+
+    if mode == "log":
+        transformed = [np.log1p(h.astype(np.float64)) for h in raw_hists]
+        headroom = LOG_HEADROOM
     else:
-        channels = []
+        transformed = [h.astype(np.float64) for h in raw_hists]
+        headroom = LINEAR_HEADROOM
 
-    raw_hists = [compute_channel_histogram(ch, native_bins, downsampling) for ch in channels]
+    interior_max = 0.0
+    for h in transformed:
+        if len(h) > 2:
+            interior_max = max(interior_max, float(np.max(h[1:-1])))
+        else:
+            interior_max = max(interior_max, float(np.max(h)))
 
-    if normalization is None:
-        return [h.astype(np.int64).tolist() for h in raw_hists]
+    suggested_max_y = interior_max * headroom
+    if mode == "linear":
+        suggested_max_y = max(suggested_max_y, total_pixels * LINEAR_FLOOR_RATIO)
 
-    if mode == 'log':
-        normalized = [normalize_log(h, normalization) for h in raw_hists]
-    else:
-        normalized = [normalize_linear(h, normalization) for h in raw_hists]
+    # Keep two decimals: log-mode peaks land around 7-15 for typical photos,
+    # so integer rounding collapses adjacent bins to the same step and the
+    # rendered polyline looks like a square wave.
+    data_output = [np.round(h, 2).tolist() for h in transformed]
+    suggested_max_y_int = max(1, int(math.ceil(suggested_max_y)))
 
-    return [h.tolist() for h in normalized]
+    return {
+        "data": {
+            "red": data_output[0],
+            "green": data_output[1],
+            "blue": data_output[2],
+            "luminosity": data_output[3],
+        },
+        "visual_meta": {
+            "suggested_max_y": suggested_max_y_int,
+            "is_clipped": is_clipped,
+            "total_pixels": total_pixels,
+        },
+    }

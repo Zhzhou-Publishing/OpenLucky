@@ -232,13 +232,12 @@ const presetsDataLoaded = ref(false)
 const pendingRotation = ref(null) // null | { imageName: string, direction: 'cw' | 'ccw' }
 
 // 直方图叠加层：每次主图加载完成或被 apply 刷新后重算一次。
-// 数据是 [R, G, B, L] 四数组，已由 CLI 用 log + n=100 规约到画布像素，
-// HistogramOverlay 拿到直接画 polyline，不再做缩放。
+// CLI 现在返回 { data: { red, green, blue, luminosity }, visual_meta: { suggested_max_y, ... } }，
+// HistogramOverlay 用 suggested_max_y 把曲线归一化到 SVG 高度，不再依赖前端塞死 -n。
 //
 // 把目录+文件名透传给 main，由 main 端读最新 .preset.json 决定取哪个
 // 版本（apply 后的 output_dir 或工作目录原图），避免依赖 renderer 这边
 // 可能滞后的 currentImage.path。
-const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
@@ -306,7 +305,6 @@ async function fetchHistogramFor(directoryPath, filename, area) {
     const result = await ipcRenderer.invoke('compute-histogram', {
       directoryPath,
       filename,
-      height: HISTOGRAM_HEIGHT,
       downsampling: HISTOGRAM_BINS,
       area: area || null,
     })

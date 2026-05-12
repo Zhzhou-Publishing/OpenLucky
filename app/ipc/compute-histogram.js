@@ -3,7 +3,7 @@ const { spawn } = require('child_process')
 const { buildOpenLuckyCommand, readPresetJson, resolveImagePath } = require('../shared/utils')
 
 function register() {
-  ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, height = 100, downsampling = 256, area = null }) => {
+  ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, downsampling = 256, area = null }) => {
     return new Promise((resolve, reject) => {
       const presets = readPresetJson(directoryPath)
       const filePath = resolveImagePath(directoryPath, filename, presets)
@@ -13,7 +13,6 @@ function register() {
         'tool', 'histogram',
         '-i', filePath,
         '-d', String(downsampling),
-        '-n', String(height),
         '-m', 'log',
       ]
       if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
