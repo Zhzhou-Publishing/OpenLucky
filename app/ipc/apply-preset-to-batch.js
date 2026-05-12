@@ -104,6 +104,10 @@ function register() {
           if (typeof presetWhiteBalance === 'string' && presetWhiteBalance.length > 0) {
             args.push('--white-balance', presetWhiteBalance)
           }
+          const presetTone = presetParams.tone
+          if (typeof presetTone === 'string' && presetTone.length > 0) {
+            args.push('--tone', presetTone)
+          }
           logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           if (!event.sender.isDestroyed()) {

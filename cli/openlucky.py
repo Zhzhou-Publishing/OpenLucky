@@ -126,6 +126,41 @@ def parse_area_basis(s):
     return (w, h)
 
 
+def parse_tone(s):
+    """Parse '--tone' argument 'pivot,curve' into a 2-float tuple.
+
+    - pivot: power_curve_raw pivot point, range [0.01, 0.99]
+    - curve: power_curve_raw exponent. <1 = inverse-S (shadow lift + highlight
+      compression), =1 = linear, >1 = standard S (contrast boost). Range
+      [0.05, 5.0] keeps the curve out of degenerate territory while leaving
+      room for both strong compression and strong contrast.
+
+    Returns None when input is None so callers can fall back to defaults.
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --tone format. Expected 'pivot,curve', got: {s!r}"
+        )
+    try:
+        pivot, curve = (float(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --tone values. Both must be floats, got: {s!r}"
+        )
+    if not (0.01 <= pivot <= 0.99):
+        raise ValueError(
+            f"Invalid --tone pivot: must be in [0.01, 0.99], got {pivot}"
+        )
+    if not (0.05 <= curve <= 5.0):
+        raise ValueError(
+            f"Invalid --tone curve: must be in [0.05, 5.0], got {curve}"
+        )
+    return (pivot, curve)
+
+
 def parse_white_balance(s):
     """Parse '--white-balance' into the value process_film expects.
 
@@ -222,6 +257,8 @@ def main():
                              help='Exposure compensation in EV (default: 0.0)')
     film_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                              help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    film_parser.add_argument('--tone', required=False, default=None,
+                             help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -241,6 +278,8 @@ def main():
                                    help='Exposure compensation in EV (default: 0.0)')
     filmbatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmbatch_parser.add_argument('--tone', required=False, default=None,
+                                   help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -261,6 +300,8 @@ def main():
                                    help='Exposure compensation in EV (default: 0.0)')
     filmparam_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmparam_parser.add_argument('--tone', required=False, default=None,
+                                   help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -281,6 +322,8 @@ def main():
                                          help='Exposure compensation in EV (default: 0.0)')
     filmparambatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                          help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmparambatch_parser.add_argument('--tone', required=False, default=None,
+                                         help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -380,6 +423,7 @@ def main():
         try:
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -450,6 +494,8 @@ def main():
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
             white_balance=white_balance,
+            tone_pivot=tone[0] if tone else 0.5,
+            tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw
         )
 
@@ -479,6 +525,7 @@ def main():
                     # Add rotate_clockwise to preset_config
                     preset_config['rotate_clockwise'] = args.rotate_clockwise
                     preset_config['white_balance'] = serialize_white_balance(white_balance)
+                    preset_config['tone'] = f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}"
                     # Use forward slashes in path to avoid double backslashes in JSON
                     if args.output is not None:
                         output_path_for_preset = Path(args.output)
@@ -491,6 +538,7 @@ def main():
         try:
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -580,6 +628,8 @@ def main():
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
                     white_balance=white_balance,
+                    tone_pivot=tone[0] if tone else 0.5,
+                    tone_curve=tone[1] if tone else 0.5,
                 )
 
 
@@ -599,6 +649,7 @@ def main():
                 # Add rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['rotate_clockwise'] = args.rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['white_balance'] = serialize_white_balance(white_balance)
+                presets_by_dir[dir_key][input_file.name]['tone'] = f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}"
             except Exception as e:
                 print(e)
                 fail_count += 1
@@ -627,6 +678,7 @@ def main():
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -705,6 +757,8 @@ def main():
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
             white_balance=white_balance,
+            tone_pivot=tone[0] if tone else 0.5,
+            tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw
         )
 
@@ -741,6 +795,7 @@ def main():
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
+            'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
         }
         # Persist white-point ROI + basis so a later batch save against the
         # original full-res file can replay the same sampling window.
@@ -762,6 +817,7 @@ def main():
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -834,6 +890,7 @@ def main():
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
+            'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
         }
         # Persist ROI + basis alongside the per-file preset so a later
         # batch save against the original full-res file can replay sampling.
@@ -876,6 +933,8 @@ def main():
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
                     white_balance=white_balance,
+                    tone_pivot=tone[0] if tone else 0.5,
+                    tone_curve=tone[1] if tone else 0.5,
                 )
                 success_count += 1
 

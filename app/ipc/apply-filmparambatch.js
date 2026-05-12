@@ -7,7 +7,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('ApplyFilmparambatch')
 
 function register() {
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null }) => {
     try {
       const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
       const args = [...prefixArgs, 'filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
@@ -22,6 +22,9 @@ function register() {
       }
       if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
         args.push('--white-balance', whiteBalance)
+      }
+      if (typeof tone === 'string' && tone.length > 0) {
+        args.push('--tone', tone)
       }
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

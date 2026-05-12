@@ -74,6 +74,7 @@
           { id: 'basic', label: $t('photoEdit.basicTab') },
           { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
           { id: 'exposure', label: $t('photoEdit.exposureTab') },
+          { id: 'tone', label: $t('photoEdit.toneTab') },
           { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
@@ -117,6 +118,30 @@
               <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
                 :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
                 />
+            </div>
+
+            <!-- Tone Adjustment Tab -->
+            <div v-if="activeTab === 'tone'" class="tab-content tone-tab">
+              <div class="tone-rows">
+                <div class="tone-row">
+                  <Slider class="tone-row-slider" :label="$t('photoEdit.tonePivot')"
+                    v-model="tonePivotUi" :min="-100" :max="100" :step="1"
+                    :popover-left="$t('photoEdit.tonePivotLeft')"
+                    :popover-right="$t('photoEdit.tonePivotRight')"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="tonePivotUi" :max="100" :min="-100" :step-value="1"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                </div>
+                <div class="tone-row">
+                  <Slider class="tone-row-slider" :label="$t('photoEdit.toneCurve')"
+                    v-model="toneCurveUi" :min="-100" :max="100" :step="1"
+                    :popover-left="$t('photoEdit.toneCurveLeft')"
+                    :popover-right="$t('photoEdit.toneCurveRight')"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="toneCurveUi" :max="100" :min="-100" :step-value="1"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                </div>
+              </div>
             </div>
 
             <!-- White Balance Tab -->
@@ -221,6 +246,42 @@ const exposure = ref(0)
 const whiteBalanceAuto = ref(true)
 const whiteBalanceTemp = ref(0)
 const whiteBalanceTint = ref(0)
+// 色调调整 UI 数值 [-100, 100]。重心 0 = 数学 p=0.5（对称中点），
+// 反差 0 = 数学 k=1.0（恒等无变化）；两个滑块都用 0 居中表达"原片直出"。
+const tonePivotUi = ref(0)
+const toneCurveUi = ref(0)
+
+// UI [-100, 100] → 内部 p ∈ [0.20, 0.80]（线性映射）
+function tonePivotUiToInternal(ui) {
+  return 0.50 + ui * 0.003
+}
+function tonePivotInternalToUi(p) {
+  if (typeof p !== 'number') return 0
+  return Math.max(-100, Math.min(100, Math.round((p - 0.50) / 0.003)))
+}
+
+// UI [-100, 100] → 内部 k ∈ [0.5, 3.0]（三段线性，0 居中代表 k=1.0）
+// -100→0.5, 0→1.0, +50→1.8, +100→3.0
+function toneCurveUiToInternal(ui) {
+  if (ui <= 0) return 1.0 + ui * 0.005       // [-100, 0]  → [0.5, 1.0]
+  if (ui <= 50) return 1.0 + ui * 0.016      // [0, 50]    → [1.0, 1.8]
+  return 1.8 + (ui - 50) * 0.024             // [50, 100]  → [1.8, 3.0]
+}
+function toneCurveInternalToUi(k) {
+  if (typeof k !== 'number') return 0
+  let ui
+  if (k <= 1.0) ui = (k - 1.0) / 0.005
+  else if (k <= 1.8) ui = (k - 1.0) / 0.016
+  else ui = 50 + (k - 1.8) / 0.024
+  return Math.max(-100, Math.min(100, Math.round(ui)))
+}
+
+// 序列化成 CLI --tone 期望的 "pivot,curve" 字符串
+function currentToneForIpc() {
+  const p = tonePivotUiToInternal(tonePivotUi.value)
+  const k = toneCurveUiToInternal(toneCurveUi.value)
+  return `${p.toFixed(4)},${k.toFixed(4)}`
+}
 // 渐变贴在 slider 轨道上，给用户一个色温/色调拉杆方向的视觉锚点：
 //   色温 -50 偏冷蓝 / 0 中性 / +50 偏暖琥珀
 //   色调 -50 偏品红 / 0 中性 / +50 偏绿（CLI 里 +y 是抬绿色增益）
@@ -632,7 +693,9 @@ function copyParams() {
     contrast: input5.value,
     contrast_r: contrastR.value,
     contrast_g: contrastG.value,
-    contrast_b: contrastB.value
+    contrast_b: contrastB.value,
+    tone_pivot_ui: tonePivotUi.value,
+    tone_curve_ui: toneCurveUi.value,
   }
 }
 
@@ -647,6 +710,8 @@ function pasteParams() {
   contrastR.value = c.contrast_r
   contrastG.value = c.contrast_g
   contrastB.value = c.contrast_b
+  tonePivotUi.value = c.tone_pivot_ui ?? 0
+  toneCurveUi.value = c.tone_curve_ui ?? 0
 }
 
 const presetModalOpen = ref(false)
@@ -675,8 +740,29 @@ function applyPresetFromModal() {
   contrastR.value = preset.contrast_r ?? 1.0
   contrastG.value = preset.contrast_g ?? 1.0
   contrastB.value = preset.contrast_b ?? 1.0
+  applyTonePresetToUi(preset)
   presetModalOpen.value = false
   apply()
+}
+
+// Pull tone back from a preset entry (.preset.json or globalPreset). Tone is
+// stored as a "pivot,curve" CLI string (mirrors --tone), so we parse to math
+// values then invert through the UI mapping. Missing/invalid → reset to 0.
+function applyTonePresetToUi(preset) {
+  const raw = preset?.tone
+  if (typeof raw !== 'string' || raw.length === 0) {
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+    return
+  }
+  const parts = raw.split(',').map(s => parseFloat(s))
+  if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) {
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+    return
+  }
+  tonePivotUi.value = tonePivotInternalToUi(parts[0])
+  toneCurveUi.value = toneCurveInternalToUi(parts[1])
 }
 
 const ctxMenuItems = computed(() => {
@@ -1005,6 +1091,8 @@ const resetImage = () => {
     whiteBalanceAuto.value = true
     whiteBalanceTemp.value = 0
     whiteBalanceTint.value = 0
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
     rotateClockwiseMap.value[imageName] = 0
     // Clear area selection
     const next = { ...areaSelectionsByName.value }
@@ -1104,7 +1192,8 @@ const apply = () => {
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
+      whiteBalance: currentWhiteBalanceForIpc(),
+      tone: currentToneForIpc()
     })
 
     // Handle response
@@ -1216,7 +1305,8 @@ const applyAll = () => {
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
+      whiteBalance: currentWhiteBalanceForIpc(),
+      tone: currentToneForIpc()
     })
 
     // Handle response
@@ -1564,6 +1654,7 @@ const loadPresetForCurrentImage = () => {
     contrastR.value = preset.contrast_r ?? 1.0
     contrastG.value = preset.contrast_g ?? 1.0
     contrastB.value = preset.contrast_b ?? 1.0
+    applyTonePresetToUi(preset)
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
@@ -1575,6 +1666,8 @@ const loadPresetForCurrentImage = () => {
     contrastR.value = 1.0
     contrastG.value = 1.0
     contrastB.value = 1.0
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
     rotateClockwiseMap.value[currentFileName.value] = 0
 
     // Auto-prompt the apply-preset modal once we know .preset.json was
@@ -2105,6 +2198,30 @@ onUnmounted(() => {
 }
 
 .wb-row-slider {
+  flex: 1;
+}
+
+.tab-content.tone-tab {
+  gap: 24px;
+  align-items: center;
+}
+
+.tone-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+  min-width: 240px;
+}
+
+.tone-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.tone-row-slider {
   flex: 1;
 }
 

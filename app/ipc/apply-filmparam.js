@@ -7,7 +7,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('ApplyFilmparam')
 
 function register() {
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null }) => {
     try {
       const inputFile = path.join(inputPath, filename)
       const outputFile = path.join(outputPath, filename)
@@ -25,6 +25,9 @@ function register() {
       }
       if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
         args.push('--white-balance', whiteBalance)
+      }
+      if (typeof tone === 'string' && tone.length > 0) {
+        args.push('--tone', tone)
       }
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

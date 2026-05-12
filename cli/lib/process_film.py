@@ -121,6 +121,8 @@ def process_film_bytestream_with_params(
     white_balance="auto",
     exposure_ev_mode="3ev",
     exposure_ev=0.0,
+    tone_pivot=0.5,
+    tone_curve=0.5,
     is_raw=False,
 ):
     """
@@ -324,12 +326,10 @@ def process_film_bytestream_with_params(
     # 单一 gamma 无法同时"提阴影 + 压高光"——它是单调函数；分段幂曲线（k<1
     # 时是反 S 形）以 p 为轴心，下半段提亮、上半段压暗，正好解决"衣服/树叶
     # 看得见但天空过曝"或反之的二选一困境。
-    # 起步参数：p=0.5（对称中点）、k=0.5（中等力度反 S）；视觉评估后再调参或晋升为预设。
-    TONE_PIVOT = 0.5
-    TONE_EXPONENT = 0.5
-    # power_curve_raw 内部 np.power(float32, python_float) 可能升到 float64，
-    # 否则后面 cv2.cvtColor 会因 CV_64F 报错。
-    img = power_curve_raw(img, p=TONE_PIVOT, k=TONE_EXPONENT).astype(np.float32)
+    # p=0.5/k=0.5 是常见胶片冲扫起点；k<1 反 S（提阴影压高光），k>1 标准 S
+    # （增对比），k=1 恒等。power_curve_raw 内部 np.power(float32, python_float)
+    # 可能升到 float64，否则后面 cv2.cvtColor 会因 CV_64F 报错。
+    img = power_curve_raw(img, p=tone_pivot, k=tone_curve).astype(np.float32)
 
     # 5. Auto levels and contrast fine-tuning
     # Store per-channel contrast settings in a list for iteration
@@ -414,6 +414,8 @@ def process_film_with_params(
     white_balance="auto",
     exposure_ev_mode="3ev",
     exposure_ev=0.0,
+    tone_pivot=0.5,
+    tone_curve=0.5,
 ):
     # 1. Read input file as byte stream
     try:
@@ -448,6 +450,8 @@ def process_film_with_params(
         white_balance=white_balance,
         exposure_ev_mode=exposure_ev_mode,
         exposure_ev=exposure_ev,
+        tone_pivot=tone_pivot,
+        tone_curve=tone_curve,
     )
 
     # 3. Write output byte stream to file

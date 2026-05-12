@@ -9,6 +9,13 @@
     >
       <div class="slider-track-fill-bg" :style="trackGradient ? { background: trackGradient } : null"></div>
       <div
+        v-if="showPopover && popoverText"
+        class="slider-popover"
+        :style="{ left: thumbLeftPct + '%' }"
+      >
+        {{ popoverText }}
+      </div>
+      <div
         class="slider-thumb"
         :style="{ left: thumbLeftPct + '%' }"
         @mousedown.stop="onThumbMouseDown"
@@ -28,6 +35,12 @@ const props = defineProps({
   step: { type: Number, default: 1 },
   disabled: { type: Boolean, default: false },
   trackGradient: { type: String, default: '' },
+  // Popover bubble shown above the thumb while dragging. Center is computed
+  // as (min + max) / 2; left text appears when value < center, right when >.
+  // When all three are empty, the popover stays hidden.
+  popoverLeft: { type: String, default: '' },
+  popoverRight: { type: String, default: '' },
+  popoverCenter: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -36,11 +49,21 @@ const trackRef = ref(null)
 const dragging = ref(false)
 
 const span = computed(() => props.max - props.min)
+const center = computed(() => (props.min + props.max) / 2)
 
 const thumbLeftPct = computed(() => {
   if (span.value <= 0) return 0
   const v = Math.max(props.min, Math.min(props.max, Number(props.modelValue) || 0))
   return ((v - props.min) / span.value) * 100
+})
+
+const showPopover = computed(() => dragging.value)
+
+const popoverText = computed(() => {
+  const v = Number(props.modelValue) || 0
+  if (v < center.value) return props.popoverLeft
+  if (v > center.value) return props.popoverRight
+  return props.popoverCenter
 })
 
 function snapToStep(value) {
@@ -164,5 +187,31 @@ onUnmounted(() => {
 .slider-track.disabled .slider-thumb {
   cursor: not-allowed;
   background: var(--btn-disabled-bg);
+}
+
+.slider-popover {
+  position: absolute;
+  bottom: calc(50% + 14px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-on-accent);
+  background: var(--accent);
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px var(--shadow);
+  z-index: 1;
+}
+
+.slider-popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--accent);
 }
 </style>
