@@ -6,7 +6,8 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
-from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
+from cli.lib.curve.s_curve import power_curve_raw
+from cli.lib.process_film_functions.gamma_alignment import apply_midtone_alignment
 
 
 def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
@@ -199,12 +200,28 @@ def process_film_bytestream_with_params(
     # At this point, img is confirmed to be in RGB order
 
     # --- 增加基于缩放采样的溢出控制迭代逻辑 ---
-    # 使用下采样图像进行快速迭代尋优
+    # 使用下采样图像进行快速迭代尋优。**溢出统计只在 WP ROI 内部进行**：
+    # 否则底座/扫描边/片基外缘等非影像区域会贡献大量溢出像素，把循环
+    # 骗成提前达标而停止，让影像内部的真实溢出得不到充分压制。
     h, w = img.shape[:2]
     scale = 0.125  # 1/8 采样
     img_small = cv2.resize(
         img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA
     )
+
+    # 把 WP ROI 映射到下采样坐标系；ROI 不可用时回退到整张小图
+    sh, sw = img_small.shape[:2]
+    if roi_complete:
+        rx1 = max(0, min(sw, int(round(wp_roi_x1 * scale))))
+        ry1 = max(0, min(sh, int(round(wp_roi_y1 * scale))))
+        rx2 = max(0, min(sw, int(round(wp_roi_x2 * scale))))
+        ry2 = max(0, min(sh, int(round(wp_roi_y2 * scale))))
+        if rx2 - rx1 < 2 or ry2 - ry1 < 2:
+            roi_small = img_small
+        else:
+            roi_small = img_small[ry1:ry2, rx1:rx2]
+    else:
+        roi_small = img_small
 
     current_mask_r = float(preset_mask_r)
     current_mask_g = float(preset_mask_g)
@@ -212,16 +229,16 @@ def process_film_bytestream_with_params(
 
     max_iter = 15
     for i in range(max_iter):
-        # 在小图上计算溢出面积
-        test_r = img_small[:, :, 0] / (current_mask_r / 255.0)
-        test_g = img_small[:, :, 1] / (current_mask_g / 255.0)
-        test_b = img_small[:, :, 2] / (current_mask_b / 255.0)
+        # 在 ROI 小图上计算溢出面积
+        test_r = roi_small[:, :, 0] / (current_mask_r / 255.0)
+        test_g = roi_small[:, :, 1] / (current_mask_g / 255.0)
+        test_b = roi_small[:, :, 2] / (current_mask_b / 255.0)
 
-        # 统计整体溢出率 (高于 1.0 的像素占比)
+        # 统计 ROI 内部溢出率 (高于 1.0 的通道值占比)
         overflow_count = (
             (test_r > 1.0).sum() + (test_g > 1.0).sum() + (test_b > 1.0).sum()
         )
-        overflow_ratio = overflow_count / (img_small.size)
+        overflow_ratio = overflow_count / max(roi_small.size, 1)
 
         # 如果溢出率在 5% 以内，或者达到迭代上限，跳出
         if overflow_ratio <= 0.05 or i == max_iter - 1:
@@ -281,10 +298,10 @@ def process_film_bytestream_with_params(
     img *= gains
     img = np.clip(img, 0, 1.0)
 
-    # --- 插入 Gamma 对齐逻辑 ---
-    # 这里传入用户拍摄时的 EV 偏置（假设你新增了 shooting_ev 参数）
-    # 如果没有新增参数，可以暂时传入 0.0
-    img = apply_gamma_alignment(
+    # --- 插入中间调对齐逻辑 ---
+    # 加法位移实现：在 sin² 权重下把每通道中位数朝目标拉近，幅度被 SHIFT_CAP
+    # 截断；端点严格保留。user_ev_bias 仅在 mode='ev_target' 时起作用。
+    img = apply_midtone_alignment(
         img,
         roi=(wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
@@ -303,14 +320,41 @@ def process_film_bytestream_with_params(
     if preset_gamma != 1.0:
         img = apply_lut("common.gamma", img, gamma=preset_gamma)
 
+    # 4.5 Tone mapping：分段幂曲线，把动态范围压进显示空间。
+    # 单一 gamma 无法同时"提阴影 + 压高光"——它是单调函数；分段幂曲线（k<1
+    # 时是反 S 形）以 p 为轴心，下半段提亮、上半段压暗，正好解决"衣服/树叶
+    # 看得见但天空过曝"或反之的二选一困境。
+    # 起步参数：p=0.5（对称中点）、k=0.5（中等力度反 S）；视觉评估后再调参或晋升为预设。
+    TONE_PIVOT = 0.5
+    TONE_EXPONENT = 0.5
+    # power_curve_raw 内部 np.power(float32, python_float) 可能升到 float64，
+    # 否则后面 cv2.cvtColor 会因 CV_64F 报错。
+    img = power_curve_raw(img, p=TONE_PIVOT, k=TONE_EXPONENT).astype(np.float32)
+
     # 5. Auto levels and contrast fine-tuning
     # Store per-channel contrast settings in a list for iteration
     channel_contrasts = [preset_contrast_r, preset_contrast_g, preset_contrast_b]
 
+    # **分位数只在 WP ROI 内统计**：否则底座/扫描边那些被压成 0 的非影像像素
+    # 会霸占 0.01% 分位点，让 low 永远等于 0，阴影抬不起来，褶皱细节湮没。
+    # 拉伸变换仍然作用于全图，保证管线行为一致。
+    h_full, w_full = img.shape[:2]
+    if roi_complete:
+        lx1 = max(0, min(w_full, int(round(wp_roi_x1))))
+        ly1 = max(0, min(h_full, int(round(wp_roi_y1))))
+        lx2 = max(0, min(w_full, int(round(wp_roi_x2))))
+        ly2 = max(0, min(h_full, int(round(wp_roi_y2))))
+        if lx2 - lx1 < 2 or ly2 - ly1 < 2:
+            levels_sample = img
+        else:
+            levels_sample = img[ly1:ly2, lx1:lx2]
+    else:
+        levels_sample = img
+
     for i in range(3):
         # 注意：由于我们在 Step 2 允许了 5% 溢出，这里的 low 采样应保持保守（0.01%）以防细节丢失
-        low = np.percentile(img[:, :, i], 0.01)
-        high = np.percentile(img[:, :, i], 99.99)
+        low = np.percentile(levels_sample[:, :, i], 0.01)
+        high = np.percentile(levels_sample[:, :, i], 99.99)
         # Apply combined contrast: global * channel_specific
         combined_contrast = preset_contrast * channel_contrasts[i]
         # 增加一个极其微小的分母保护，防止 high - low 过窄导致的数值暴增
