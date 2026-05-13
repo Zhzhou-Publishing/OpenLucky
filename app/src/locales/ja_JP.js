@@ -49,6 +49,13 @@ export default {
     basicTab: '基本設定',
     advancedTab: '乳剤濃度補正',
     exposureTab: '露出',
+    toneTab: 'ラチチュード補正',
+    tonePivot: '露出ピボット',
+    toneCurve: '露出コントラスト',
+    tonePivotLeft: '左へシフト',
+    tonePivotRight: '右へシフト',
+    toneCurveLeft: 'コントラストを下げる',
+    toneCurveRight: 'コントラストを上げる',
     whiteBalanceTab: 'ホワイトバランス',
     whiteBalanceAuto: '自動',
     whiteBalanceTemp: '色温',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'すべて保存',
     unappliedTooltip: 'パラメータが適用されていない画像があります'
+  },
+  languageMismatch: {
+    message: 'システム言語と現在の表示言語が一致しません。システム言語に切り替えますか？',
+    yes: 'はい',
+    no: 'いいえ',
+    dontRemind: 'いいえ、今後表示しない'
   },
   about: {
     title: 'OpenLucky Desktop について',

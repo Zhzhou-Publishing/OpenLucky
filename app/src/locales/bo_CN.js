@@ -49,6 +49,13 @@ export default {
     basicTab: 'གཞི་རྩའི་ཚད།',
     advancedTab: 'མཐོ་རིམ་སྒྲིག་བཀོད།',
     exposureTab: 'འོད་ཕོག།',
+    toneTab: 'འོད་ཕོག་ཁྱབ་ཁོངས་བཅོས་སྒྲིག',
+    tonePivot: 'འོད་ཕོག་ལྟེ་གནས།',
+    toneCurve: 'འོད་ཕོག་ཁྲ་གསལ།',
+    tonePivotLeft: 'གཡོན་དུ་གཡོ་སྤོ།',
+    tonePivotRight: 'གཡས་སུ་གཡོ་སྤོ།',
+    toneCurveLeft: 'ཁྲ་གསལ་མར་གཤེད།',
+    toneCurveRight: 'ཁྲ་གསལ་ཡར་བསྐྱེད།',
     whiteBalanceTab: 'དཀར་པོའི་ཁ་སྙོམས།',
     whiteBalanceAuto: 'རང་འགུལ།',
     whiteBalanceTemp: 'ཁ་དོག་གི་དྲོ་ཚད།',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'ཡོད་ཚད་ཉར།',
     unappliedTooltip: 'པར་འགའ་ལ་ཚད་གཞི་མ་སྦྱོར་བ་ཡོད།'
+  },
+  languageMismatch: {
+    message: 'མ་ལག་གི་སྐད་ཡིག་དང་ད་ལྟའི་མཐོང་ངོས་སྐད་ཡིག་མི་མཐུན། མ་ལག་གི་སྐད་ཡིག་ལ་བསྒྱུར་དགོས་སམ།',
+    yes: 'ཡིན།',
+    no: 'མིན།',
+    dontRemind: 'མིན། ཡང་བསྐྱར་དྲན་སྐུལ་མི་བྱེད།'
   },
   about: {
     title: 'OpenLucky Desktop སྐོར།',

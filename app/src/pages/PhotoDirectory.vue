@@ -38,20 +38,84 @@
         <Popover :text="$t('photoDirectory.compressPreviewTip')" />
       </div>
     </div>
+
+    <Modal
+      v-model="showLangMismatch"
+      :save-label="`${systemLabels.yes} ${currentLabels.yes}`"
+      :cancel-label="`${systemLabels.no} ${currentLabels.no}`"
+      :extra-label="`${systemLabels.dontRemind} ${currentLabels.dontRemind}`"
+      @save="onAcceptSystemLanguage"
+      @cancel="onDeclineSystemLanguage"
+      @extra="onSilenceSystemLanguage"
+    >
+      <p class="lang-mismatch-line">{{ systemLabels.message }}</p>
+      <p class="lang-mismatch-line lang-mismatch-line-secondary">{{ currentLabels.message }}</p>
+    </Modal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { fetchPresets } from '../utils/presetCache'
 import CapsuleSwitch from '../components/CapsuleSwitch.vue'
 import Popover from '../components/Popover.vue'
+import Modal from '../components/Modal.vue'
 import { createRendererLogger } from '../utils/rendererLogger'
+import { detectSystemLocale, SUPPORTED_LOCALES } from '../i18n'
 
 const logger = createRendererLogger('PhotoDirectory')
 
 const router = useRouter()
+const { locale, messages } = useI18n({ useScope: 'global' })
+
+const systemLocale = ref(detectSystemLocale())
+const showLangMismatch = ref(false)
+
+const fallbackLabels = { message: '', yes: 'Yes', no: 'No' }
+
+const currentLabels = computed(() => {
+  const dict = messages.value?.[locale.value]?.languageMismatch
+  return dict || fallbackLabels
+})
+
+const systemLabels = computed(() => {
+  const dict = messages.value?.[systemLocale.value]?.languageMismatch
+  return dict || fallbackLabels
+})
+
+const languageFamily = (loc) => String(loc).split('_')[0]
+
+function checkLanguageMismatch() {
+  const system = systemLocale.value
+  if (!SUPPORTED_LOCALES.includes(system)) return
+  if (system === locale.value) return
+  if (languageFamily(system) === languageFamily(locale.value)) return
+
+  if (localStorage.getItem('localeMismatchSilenced') === '1') return
+  if (sessionStorage.getItem('localeMismatchDismissedSession') === '1') return
+
+  showLangMismatch.value = true
+}
+
+function onAcceptSystemLanguage() {
+  locale.value = systemLocale.value
+  localStorage.setItem('locale', systemLocale.value)
+  localStorage.removeItem('localeMismatchSilenced')
+  sessionStorage.removeItem('localeMismatchDismissedSession')
+  showLangMismatch.value = false
+}
+
+function onDeclineSystemLanguage() {
+  sessionStorage.setItem('localeMismatchDismissedSession', '1')
+  showLangMismatch.value = false
+}
+
+function onSilenceSystemLanguage() {
+  localStorage.setItem('localeMismatchSilenced', '1')
+  showLangMismatch.value = false
+}
 
 // Check if running in Electron environment
 let ipcRenderer = null
@@ -60,6 +124,8 @@ const openluckyAvailable = ref(true)
 const isCheckingOpenLucky = ref(true)
 
 onMounted(() => {
+  checkLanguageMismatch()
+
   // Multiple checks to detect Electron environment
   const isElectronEnv = window.process?.type === 'renderer' ||
                        window?.require?.('electron') ||
@@ -382,5 +448,20 @@ const selectDirectory = async () => {
 .file-item.more-files {
   color: var(--text-tertiary);
   font-style: italic;
+}
+
+.lang-mismatch-line {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lang-mismatch-line + .lang-mismatch-line {
+  margin-top: 10px;
+}
+
+.lang-mismatch-line-secondary {
+  color: var(--text-secondary);
 }
 </style>

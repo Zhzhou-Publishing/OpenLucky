@@ -49,6 +49,13 @@ export default {
     basicTab: 'Tham số cơ bản',
     advancedTab: 'Hiệu chỉnh nồng độ nhũ tương',
     exposureTab: 'Phơi sáng',
+    toneTab: 'Hiệu chỉnh dải sáng',
+    tonePivot: 'Điểm trục phơi sáng',
+    toneCurve: 'Độ tương phản phơi sáng',
+    tonePivotLeft: 'Dịch sang trái',
+    tonePivotRight: 'Dịch sang phải',
+    toneCurveLeft: 'Giảm tương phản',
+    toneCurveRight: 'Tăng tương phản',
     whiteBalanceTab: 'Cân bằng trắng',
     whiteBalanceAuto: 'Tự động',
     whiteBalanceTemp: 'Nhiệt độ màu',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'Lưu tất cả',
     unappliedTooltip: 'Một số ảnh chưa được áp dụng tham số'
+  },
+  languageMismatch: {
+    message: 'Ngôn ngữ hệ thống khác với ngôn ngữ giao diện hiện tại. Chuyển sang ngôn ngữ hệ thống?',
+    yes: 'Có',
+    no: 'Không',
+    dontRemind: 'Không, không nhắc lại'
   },
   about: {
     title: 'Giới thiệu OpenLucky Desktop',

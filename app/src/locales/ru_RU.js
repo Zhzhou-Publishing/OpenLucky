@@ -49,6 +49,13 @@ export default {
     basicTab: 'Основные параметры',
     advancedTab: 'Коррекция плотности эмульсии',
     exposureTab: 'Экспозиция',
+    toneTab: 'Коррекция фотошироты',
+    tonePivot: 'Точка экспозиции',
+    toneCurve: 'Контраст экспозиции',
+    tonePivotLeft: 'Сдвиг влево',
+    tonePivotRight: 'Сдвиг вправо',
+    toneCurveLeft: 'Понизить контраст',
+    toneCurveRight: 'Повысить контраст',
     whiteBalanceTab: 'Баланс белого',
     whiteBalanceAuto: 'Авто',
     whiteBalanceTemp: 'Температура',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'Сохранить все',
     unappliedTooltip: 'У некоторых изображений ещё не применены параметры'
+  },
+  languageMismatch: {
+    message: 'Язык системы отличается от текущего языка интерфейса. Переключиться на язык системы?',
+    yes: 'Да',
+    no: 'Нет',
+    dontRemind: 'Нет, больше не напоминать'
   },
   about: {
     title: 'О программе OpenLucky Desktop',

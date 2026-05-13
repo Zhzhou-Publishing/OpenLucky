@@ -49,7 +49,7 @@ export default {
     basicTab: 'Basic Parameters',
     advancedTab: 'Emulsion Concentration Correction',
     exposureTab: 'Exposure',
-    toneTab: 'Tone Adjustment',
+    toneTab: 'Latitude Correction',
     tonePivot: 'Exposure Pivot',
     toneCurve: 'Exposure Contrast',
     tonePivotLeft: 'Shift Left',
@@ -96,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'Save All',
     unappliedTooltip: "Some images don't have parameters applied yet"
+  },
+  languageMismatch: {
+    message: 'Your system language differs from the current interface language. Switch to the system language?',
+    yes: 'Yes',
+    no: 'No',
+    dontRemind: 'No, don\'t remind again'
   },
   about: {
     title: 'About OpenLucky Desktop',

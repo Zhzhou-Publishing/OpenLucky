@@ -49,6 +49,13 @@ export default {
     basicTab: '基礎參數',
     advancedTab: '乳劑濃度校正',
     exposureTab: '曝光',
+    toneTab: '寬容度矯正',
+    tonePivot: '曝光重心',
+    toneCurve: '曝光反差',
+    tonePivotLeft: '向左偏移',
+    tonePivotRight: '向右偏移',
+    toneCurveLeft: '壓低反差',
+    toneCurveRight: '提高反差',
     whiteBalanceTab: '白平衡',
     whiteBalanceAuto: '自動',
     whiteBalanceTemp: '色溫',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: '全部儲存',
     unappliedTooltip: '尚有未套用參數的圖片'
+  },
+  languageMismatch: {
+    message: '系統語言與當前介面語言不一致，是否切換為系統語言？',
+    yes: '是',
+    no: '否',
+    dontRemind: '否，不再提醒'
   },
   about: {
     title: '關於 OpenLucky 桌面版',

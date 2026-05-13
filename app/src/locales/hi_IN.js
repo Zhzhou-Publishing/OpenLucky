@@ -49,6 +49,13 @@ export default {
     basicTab: 'मूलभूत पैरामीटर',
     advancedTab: 'इमल्शन सांद्रता सुधार',
     exposureTab: 'एक्सपोज़र',
+    toneTab: 'अक्षांश सुधार',
+    tonePivot: 'एक्सपोज़र पिवट',
+    toneCurve: 'एक्सपोज़र कंट्रास्ट',
+    tonePivotLeft: 'बाएँ स्थानांतरित करें',
+    tonePivotRight: 'दाएँ स्थानांतरित करें',
+    toneCurveLeft: 'कंट्रास्ट कम करें',
+    toneCurveRight: 'कंट्रास्ट बढ़ाएँ',
     whiteBalanceTab: 'व्हाइट बैलेंस',
     whiteBalanceAuto: 'स्वचालित',
     whiteBalanceTemp: 'तापमान',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'सभी सहेजें',
     unappliedTooltip: 'कुछ चित्रों पर पैरामीटर अभी तक लागू नहीं किए गए हैं'
+  },
+  languageMismatch: {
+    message: 'सिस्टम भाषा वर्तमान इंटरफ़ेस भाषा से भिन्न है। क्या सिस्टम भाषा पर स्विच करना है?',
+    yes: 'हाँ',
+    no: 'नहीं',
+    dontRemind: 'नहीं, फिर से याद न दिलाएँ'
   },
   about: {
     title: 'OpenLucky Desktop के बारे में',

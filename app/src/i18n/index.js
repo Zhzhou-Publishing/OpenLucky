@@ -19,42 +19,53 @@ const SUPPORTED = [
   'ru_RU', 'es_ES', 'pt_PT', 'ja_JP', 'vi_VN', 'hi_IN', 'bo_CN', 'ko_KR'
 ]
 
-function detectInitialLocale() {
-  const stored = localStorage.getItem('locale')
-  if (stored && SUPPORTED.includes(stored)) return stored
+export const SUPPORTED_LOCALES = SUPPORTED
 
+function mapTagToLocale(tag) {
+  const lower = String(tag).toLowerCase()
+  if (lower.startsWith('zh')) {
+    if (
+      lower.includes('hant') ||
+      lower.startsWith('zh-tw') ||
+      lower.startsWith('zh-hk') ||
+      lower.startsWith('zh-mo')
+    ) {
+      return 'zh_Hant'
+    }
+    return 'zh_Hans'
+  }
+  if (lower.startsWith('en')) return 'en_US'
+  if (lower.startsWith('fr')) return 'fr_FR'
+  if (lower.startsWith('de')) return 'de_DE'
+  if (lower.startsWith('pl')) return 'pl_PL'
+  if (lower.startsWith('ru')) return 'ru_RU'
+  if (lower.startsWith('es')) return 'es_ES'
+  if (lower.startsWith('pt')) return 'pt_PT'
+  if (lower.startsWith('ja')) return 'ja_JP'
+  if (lower.startsWith('vi')) return 'vi_VN'
+  if (lower.startsWith('hi')) return 'hi_IN'
+  if (lower.startsWith('bo')) return 'bo_CN'
+  if (lower.startsWith('ko')) return 'ko_KR'
+  return null
+}
+
+export function detectSystemLocale() {
   const candidates = navigator.languages?.length
     ? navigator.languages
     : [navigator.language || '']
 
   for (const tag of candidates) {
-    const lower = String(tag).toLowerCase()
-    if (lower.startsWith('zh')) {
-      if (
-        lower.includes('hant') ||
-        lower.startsWith('zh-tw') ||
-        lower.startsWith('zh-hk') ||
-        lower.startsWith('zh-mo')
-      ) {
-        return 'zh_Hant'
-      }
-      return 'zh_Hans'
-    }
-    if (lower.startsWith('en')) return 'en_US'
-    if (lower.startsWith('fr')) return 'fr_FR'
-    if (lower.startsWith('de')) return 'de_DE'
-    if (lower.startsWith('pl')) return 'pl_PL'
-    if (lower.startsWith('ru')) return 'ru_RU'
-    if (lower.startsWith('es')) return 'es_ES'
-    if (lower.startsWith('pt')) return 'pt_PT'
-    if (lower.startsWith('ja')) return 'ja_JP'
-    if (lower.startsWith('vi')) return 'vi_VN'
-    if (lower.startsWith('hi')) return 'hi_IN'
-    if (lower.startsWith('bo')) return 'bo_CN'
-    if (lower.startsWith('ko')) return 'ko_KR'
+    const mapped = mapTagToLocale(tag)
+    if (mapped) return mapped
   }
 
   return 'en_US'
+}
+
+function detectInitialLocale() {
+  const stored = localStorage.getItem('locale')
+  if (stored && SUPPORTED.includes(stored)) return stored
+  return detectSystemLocale()
 }
 
 const i18n = createI18n({

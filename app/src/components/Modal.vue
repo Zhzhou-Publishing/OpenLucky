@@ -9,6 +9,7 @@
           </div>
           <div class="modal-actions">
             <button class="modal-cancel" @click="onCancel('button')">{{ cancelLabel }}</button>
+            <button v-if="extraLabel" class="modal-extra" @click="onExtra">{{ extraLabel }}</button>
             <button class="modal-save" :disabled="saveDisabled" @click="onSave">{{ saveLabel }}</button>
           </div>
         </div>
@@ -25,10 +26,11 @@ const props = defineProps({
   title: { type: String, default: '' },
   saveLabel: { type: String, default: 'OK' },
   cancelLabel: { type: String, default: 'Cancel' },
+  extraLabel: { type: String, default: '' },
   saveDisabled: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['update:modelValue', 'save', 'cancel'])
+const emit = defineEmits(['update:modelValue', 'save', 'cancel', 'extra'])
 
 function onCancel(source = 'button') {
   emit('cancel', source)
@@ -38,6 +40,11 @@ function onCancel(source = 'button') {
 function onSave() {
   if (props.saveDisabled) return
   emit('save')
+}
+
+function onExtra() {
+  emit('extra')
+  emit('update:modelValue', false)
 }
 
 function onKey(e) {
@@ -92,6 +99,7 @@ onBeforeUnmount(() => {
 }
 
 .modal-cancel,
+.modal-extra,
 .modal-save {
   padding: 8px 18px;
   border-radius: 6px;
@@ -100,13 +108,15 @@ onBeforeUnmount(() => {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.modal-cancel {
+.modal-cancel,
+.modal-extra {
   background: var(--bg-surface-hover);
   color: var(--text-secondary);
   border: 1px solid var(--border-light);
 }
 
-.modal-cancel:hover {
+.modal-cancel:hover,
+.modal-extra:hover {
   background: var(--bg-input);
 }
 

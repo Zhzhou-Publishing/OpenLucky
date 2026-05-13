@@ -49,6 +49,13 @@ export default {
     basicTab: '기본 매개변수(媒介變數)',
     advancedTab: '유제(乳劑) 농도(濃度) 보정(補正)',
     exposureTab: '노출(露出)',
+    toneTab: '관용도(寬容度) 보정(補正)',
+    tonePivot: '노출(露出) 피벗',
+    toneCurve: '노출(露出) 대비(對比)',
+    tonePivotLeft: '왼쪽으로 이동(移動)',
+    tonePivotRight: '오른쪽으로 이동(移動)',
+    toneCurveLeft: '대비(對比) 낮추기',
+    toneCurveRight: '대비(對比) 높이기',
     whiteBalanceTab: '화이트밸런스',
     whiteBalanceAuto: '자동(自動)',
     whiteBalanceTemp: '색온도(色溫度)',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: '모두 저장(貯藏)',
     unappliedTooltip: '매개변수(媒介變數)가 적용(適用)되지 않은 사진이 있습니다'
+  },
+  languageMismatch: {
+    message: '시스템 언어가 현재 인터페이스 언어와 일치하지 않습니다. 시스템 언어로 전환(轉換)하시겠습니까?',
+    yes: '예',
+    no: '아니오',
+    dontRemind: '아니오, 다시 묻지 않기'
   },
   about: {
     title: 'OpenLucky Desktop 정보(情報)',

@@ -49,7 +49,7 @@ export default {
     basicTab: '基础参数',
     advancedTab: '乳剂浓度校正',
     exposureTab: '曝光',
-    toneTab: '色调调整',
+    toneTab: '宽容度矫正',
     tonePivot: '曝光重心',
     toneCurve: '曝光反差',
     tonePivotLeft: '向左偏移',
@@ -96,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: '全部保存',
     unappliedTooltip: '尚有未套用参数的图片'
+  },
+  languageMismatch: {
+    message: '系统语言与当前界面语言不一致，是否切换为系统语言？',
+    yes: '是',
+    no: '否',
+    dontRemind: '否，不再提醒'
   },
   about: {
     title: '关于 OpenLucky 桌面版',

@@ -49,6 +49,13 @@ export default {
     basicTab: 'Parametry podstawowe',
     advancedTab: 'Korekcja stężenia emulsji',
     exposureTab: 'Ekspozycja',
+    toneTab: 'Korekta szerokości tonalnej',
+    tonePivot: 'Punkt obrotu ekspozycji',
+    toneCurve: 'Kontrast ekspozycji',
+    tonePivotLeft: 'Przesuń w lewo',
+    tonePivotRight: 'Przesuń w prawo',
+    toneCurveLeft: 'Obniż kontrast',
+    toneCurveRight: 'Podnieś kontrast',
     whiteBalanceTab: 'Balans bieli',
     whiteBalanceAuto: 'Automatyczny',
     whiteBalanceTemp: 'Temperatura',
@@ -89,6 +96,12 @@ export default {
   saveAllButton: {
     saveAll: 'Zapisz wszystkie',
     unappliedTooltip: 'Niektóre obrazy nie mają jeszcze zastosowanych parametrów'
+  },
+  languageMismatch: {
+    message: 'Język systemu różni się od bieżącego języka interfejsu. Przełączyć na język systemu?',
+    yes: 'Tak',
+    no: 'Nie',
+    dontRemind: 'Nie, nie przypominaj ponownie'
   },
   about: {
     title: 'O OpenLucky Desktop',

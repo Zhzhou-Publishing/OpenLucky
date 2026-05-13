@@ -29,6 +29,8 @@ const currentLocale = ref(locale.value)
 const changeLanguage = () => {
   locale.value = currentLocale.value
   localStorage.setItem('locale', currentLocale.value)
+  localStorage.removeItem('localeMismatchSilenced')
+  sessionStorage.removeItem('localeMismatchDismissedSession')
 }
 
 watch(locale, (newLocale) => {
