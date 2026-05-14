@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'གཡས་སུ་གཡོ་སྤོ།',
     toneCurveLeft: 'ཁྲ་གསལ་མར་གཤེད།',
     toneCurveRight: 'ཁྲ་གསལ་ཡར་བསྐྱེད།',
+    toneAuto: 'རང་འགུལ།',
     whiteBalanceTab: 'དཀར་པོའི་ཁ་སྙོམས།',
     whiteBalanceAuto: 'རང་འགུལ།',
     whiteBalanceTemp: 'ཁ་དོག་གི་དྲོ་ཚད།',

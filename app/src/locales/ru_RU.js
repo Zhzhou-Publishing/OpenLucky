@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'Сдвиг вправо',
     toneCurveLeft: 'Понизить контраст',
     toneCurveRight: 'Повысить контраст',
+    toneAuto: 'Авто',
     whiteBalanceTab: 'Баланс белого',
     whiteBalanceAuto: 'Авто',
     whiteBalanceTemp: 'Температура',

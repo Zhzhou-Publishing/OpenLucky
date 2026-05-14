@@ -126,38 +126,95 @@ def parse_area_basis(s):
     return (w, h)
 
 
+def _parse_curve_strength(token, full_input):
+    """Parse 'auto:STRENGTH' suffix on the curve slot. Returns float in [0, 1]."""
+    rest = token[len('auto:'):].strip()
+    try:
+        strength = float(rest)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --tone strength. Expected 'auto:FLOAT', got: {full_input!r}"
+        )
+    if not (0.0 <= strength <= 1.0):
+        raise ValueError(
+            f"Invalid --tone strength: must be in [0, 1], got {strength}"
+        )
+    return strength
+
+
 def parse_tone(s):
-    """Parse '--tone' argument 'pivot,curve' into a 2-float tuple.
+    """Parse '--tone' argument into a 2-tuple consumed by process_film.
 
-    - pivot: power_curve_raw pivot point, range [0.01, 0.99]
-    - curve: power_curve_raw exponent. <1 = inverse-S (shadow lift + highlight
-      compression), =1 = linear, >1 = standard S (contrast boost). Range
-      [0.05, 5.0] keeps the curve out of degenerate territory while leaving
-      room for both strong compression and strong contrast.
+    Per-slot modes — pivot and curve can independently be auto or manual:
+      - 'pivot,curve'     : both manual.            e.g. '0.4,0.7'
+      - 'auto,curve'      : auto pivot, manual k.   e.g. 'auto,1.2'
+      - 'pivot,auto'      : manual pivot, auto k.   e.g. '0.4,auto'
+      - 'pivot,auto:STR'  : manual pivot, auto k softened by STR in [0,1].
+      - 'auto,auto'       : both auto.
+      - 'auto'            : shortcut for 'auto,auto'.
+      - 'auto:STR'        : shortcut for 'auto,auto:STR'.
 
-    Returns None when input is None so callers can fall back to defaults.
+    Strength suffix is only meaningful on the curve slot (it softens k toward
+    1.0); accepting it on the pivot slot would be a no-op and is rejected.
+
+    Returns a 2-tuple where each slot is either a float (manual) or a string
+    sentinel ('auto' or 'auto:STR'). process_film inspects these and calls
+    auto_pk() if either slot is auto. Returns None when input is None.
     """
     if s is None:
         return None
+    s = s.strip()
+
+    # Shortcuts: standalone 'auto' / 'auto:STR' mean both slots auto
+    if s == 'auto':
+        return ('auto', 'auto')
+    if s.startswith('auto:') and ',' not in s:
+        strength = _parse_curve_strength(s, s)
+        return ('auto', f'auto:{strength}')
+
     parts = [p.strip() for p in s.split(',')]
     if len(parts) != 2:
         raise ValueError(
-            f"Invalid --tone format. Expected 'pivot,curve', got: {s!r}"
+            f"Invalid --tone format. Expected 'pivot,curve' or 'auto[:strength]', got: {s!r}"
         )
-    try:
-        pivot, curve = (float(p) for p in parts)
-    except ValueError:
+    pivot_raw, curve_raw = parts
+
+    if pivot_raw == 'auto':
+        pivot = 'auto'
+    elif pivot_raw.startswith('auto:'):
+        # Strength has no effect on p — reject to avoid silent confusion
         raise ValueError(
-            f"Invalid --tone values. Both must be floats, got: {s!r}"
+            f"Invalid --tone pivot: 'auto:STRENGTH' is only valid on the curve slot, got {pivot_raw!r}"
         )
-    if not (0.01 <= pivot <= 0.99):
-        raise ValueError(
-            f"Invalid --tone pivot: must be in [0.01, 0.99], got {pivot}"
-        )
-    if not (0.05 <= curve <= 5.0):
-        raise ValueError(
-            f"Invalid --tone curve: must be in [0.05, 5.0], got {curve}"
-        )
+    else:
+        try:
+            pivot = float(pivot_raw)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --tone pivot. Expected float or 'auto', got: {pivot_raw!r}"
+            )
+        if not (0.01 <= pivot <= 0.99):
+            raise ValueError(
+                f"Invalid --tone pivot: must be in [0.01, 0.99], got {pivot}"
+            )
+
+    if curve_raw == 'auto':
+        curve = 'auto'
+    elif curve_raw.startswith('auto:'):
+        strength = _parse_curve_strength(curve_raw, s)
+        curve = f'auto:{strength}'
+    else:
+        try:
+            curve = float(curve_raw)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --tone curve. Expected float or 'auto[:strength]', got: {curve_raw!r}"
+            )
+        if not (0.05 <= curve <= 5.0):
+            raise ValueError(
+                f"Invalid --tone curve: must be in [0.05, 5.0], got {curve}"
+            )
+
     return (pivot, curve)
 
 

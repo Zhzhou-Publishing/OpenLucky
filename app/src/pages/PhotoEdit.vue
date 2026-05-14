@@ -128,18 +128,28 @@
                     v-model="tonePivotUi" :min="-100" :max="100" :step="1"
                     :popover-left="$t('photoEdit.tonePivotLeft')"
                     :popover-right="$t('photoEdit.tonePivotRight')"
-                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    :disabled="tonePivotAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="tonePivotUi" :max="100" :min="-100" :step-value="1"
-                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    :disabled="tonePivotAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <label class="tone-auto-label">
+                    <input type="checkbox" v-model="tonePivotAuto"
+                      :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    {{ $t('photoEdit.toneAuto') }}
+                  </label>
                 </div>
                 <div class="tone-row">
                   <Slider class="tone-row-slider" :label="$t('photoEdit.toneCurve')"
                     v-model="toneCurveUi" :min="-100" :max="100" :step="1"
                     :popover-left="$t('photoEdit.toneCurveLeft')"
                     :popover-right="$t('photoEdit.toneCurveRight')"
-                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    :disabled="toneCurveAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="toneCurveUi" :max="100" :min="-100" :step-value="1"
-                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    :disabled="toneCurveAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <label class="tone-auto-label">
+                    <input type="checkbox" v-model="toneCurveAuto"
+                      :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    {{ $t('photoEdit.toneAuto') }}
+                  </label>
                 </div>
               </div>
             </div>
@@ -250,6 +260,11 @@ const whiteBalanceTint = ref(0)
 // 反差 0 = 数学 k=1.0（恒等无变化）；两个滑块都用 0 居中表达"原片直出"。
 const tonePivotUi = ref(0)
 const toneCurveUi = ref(0)
+// 重心 / 反差各自独立的 auto 开关。勾选后对应滑块禁用，序列化成 CLI
+// --tone 的 'auto' 槽位，由 CLI 端 auto_pk 按直方图反推该参数。
+// 默认开启：多数胶片冲扫直接吃自动值即可，需要手动微调再取消勾选。
+const tonePivotAuto = ref(true)
+const toneCurveAuto = ref(true)
 
 // UI [-100, 100] → 内部 p ∈ [0.20, 0.80]（线性映射）
 function tonePivotUiToInternal(ui) {
@@ -276,11 +291,16 @@ function toneCurveInternalToUi(k) {
   return Math.max(-100, Math.min(100, Math.round(ui)))
 }
 
-// 序列化成 CLI --tone 期望的 "pivot,curve" 字符串
+// 序列化成 CLI --tone 期望的字符串。每个槽位独立：勾了 auto 就给 'auto'，
+// 否则给数值。CLI parse_tone 接受 'auto,K' / 'P,auto' / 'auto,auto' / 'P,K'。
 function currentToneForIpc() {
-  const p = tonePivotUiToInternal(tonePivotUi.value)
-  const k = toneCurveUiToInternal(toneCurveUi.value)
-  return `${p.toFixed(4)},${k.toFixed(4)}`
+  const pivotSlot = tonePivotAuto.value
+    ? 'auto'
+    : tonePivotUiToInternal(tonePivotUi.value).toFixed(4)
+  const curveSlot = toneCurveAuto.value
+    ? 'auto'
+    : toneCurveUiToInternal(toneCurveUi.value).toFixed(4)
+  return `${pivotSlot},${curveSlot}`
 }
 // 渐变贴在 slider 轨道上，给用户一个色温/色调拉杆方向的视觉锚点：
 //   色温 -50 偏冷蓝 / 0 中性 / +50 偏暖琥珀
@@ -696,6 +716,8 @@ function copyParams() {
     contrast_b: contrastB.value,
     tone_pivot_ui: tonePivotUi.value,
     tone_curve_ui: toneCurveUi.value,
+    tone_pivot_auto: tonePivotAuto.value,
+    tone_curve_auto: toneCurveAuto.value,
   }
 }
 
@@ -712,6 +734,8 @@ function pasteParams() {
   contrastB.value = c.contrast_b
   tonePivotUi.value = c.tone_pivot_ui ?? 0
   toneCurveUi.value = c.tone_curve_ui ?? 0
+  tonePivotAuto.value = c.tone_pivot_auto ?? false
+  toneCurveAuto.value = c.tone_curve_auto ?? false
 }
 
 const presetModalOpen = ref(false)
@@ -746,23 +770,45 @@ function applyPresetFromModal() {
 }
 
 // Pull tone back from a preset entry (.preset.json or globalPreset). Tone is
-// stored as a "pivot,curve" CLI string (mirrors --tone), so we parse to math
-// values then invert through the UI mapping. Missing/invalid → reset to 0.
+// stored as a CLI --tone string; each slot is either a number or 'auto'
+// (an 'auto:STRENGTH' suffix collapses to the auto flag — the UI doesn't
+// expose strength). Missing/invalid → fall back to the default (both auto).
 function applyTonePresetToUi(preset) {
+  const resetToDefault = () => {
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+  }
   const raw = preset?.tone
   if (typeof raw !== 'string' || raw.length === 0) {
-    tonePivotUi.value = 0
-    toneCurveUi.value = 0
+    resetToDefault()
     return
   }
-  const parts = raw.split(',').map(s => parseFloat(s))
-  if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) {
-    tonePivotUi.value = 0
-    toneCurveUi.value = 0
+  const parts = raw.split(',').map(s => s.trim())
+  if (parts.length !== 2) {
+    resetToDefault()
     return
   }
-  tonePivotUi.value = tonePivotInternalToUi(parts[0])
-  toneCurveUi.value = toneCurveInternalToUi(parts[1])
+  const isAuto = (slot) => slot === 'auto' || slot.startsWith('auto:')
+
+  if (isAuto(parts[0])) {
+    tonePivotAuto.value = true
+    tonePivotUi.value = 0
+  } else {
+    const p = parseFloat(parts[0])
+    tonePivotAuto.value = false
+    tonePivotUi.value = Number.isFinite(p) ? tonePivotInternalToUi(p) : 0
+  }
+
+  if (isAuto(parts[1])) {
+    toneCurveAuto.value = true
+    toneCurveUi.value = 0
+  } else {
+    const k = parseFloat(parts[1])
+    toneCurveAuto.value = false
+    toneCurveUi.value = Number.isFinite(k) ? toneCurveInternalToUi(k) : 0
+  }
 }
 
 const ctxMenuItems = computed(() => {
@@ -1093,6 +1139,8 @@ const resetImage = () => {
     whiteBalanceTint.value = 0
     tonePivotUi.value = 0
     toneCurveUi.value = 0
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
     rotateClockwiseMap.value[imageName] = 0
     // Clear area selection
     const next = { ...areaSelectionsByName.value }
@@ -1668,6 +1716,8 @@ const loadPresetForCurrentImage = () => {
     contrastB.value = 1.0
     tonePivotUi.value = 0
     toneCurveUi.value = 0
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
     rotateClockwiseMap.value[currentFileName.value] = 0
 
     // Auto-prompt the apply-preset modal once we know .preset.json was
@@ -2223,6 +2273,25 @@ onUnmounted(() => {
 
 .tone-row-slider {
   flex: 1;
+}
+
+.tone-auto-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tone-auto-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.tone-auto-label input[type="checkbox"]:disabled {
+  cursor: not-allowed;
 }
 
 .action-buttons {

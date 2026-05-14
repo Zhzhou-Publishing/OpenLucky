@@ -56,6 +56,7 @@ export default {
     tonePivotRight: '오른쪽으로 이동(移動)',
     toneCurveLeft: '대비(對比) 낮추기',
     toneCurveRight: '대비(對比) 높이기',
+    toneAuto: '자동(自動)',
     whiteBalanceTab: '화이트밸런스',
     whiteBalanceAuto: '자동(自動)',
     whiteBalanceTemp: '색온도(色溫度)',

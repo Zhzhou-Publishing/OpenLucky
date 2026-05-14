@@ -56,6 +56,7 @@ export default {
     tonePivotRight: '右へシフト',
     toneCurveLeft: 'コントラストを下げる',
     toneCurveRight: 'コントラストを上げる',
+    toneAuto: '自動',
     whiteBalanceTab: 'ホワイトバランス',
     whiteBalanceAuto: '自動',
     whiteBalanceTemp: '色温',

@@ -6,7 +6,7 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
-from cli.lib.curve.s_curve import power_curve_raw
+from cli.lib.curve.s_curve import auto_pk, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_midtone_alignment
 
 
@@ -329,7 +329,29 @@ def process_film_bytestream_with_params(
     # p=0.5/k=0.5 是常见胶片冲扫起点；k<1 反 S（提阴影压高光），k>1 标准 S
     # （增对比），k=1 恒等。power_curve_raw 内部 np.power(float32, python_float)
     # 可能升到 float64，否则后面 cv2.cvtColor 会因 CV_64F 报错。
-    img = power_curve_raw(img, p=tone_pivot, k=tone_curve).astype(np.float32)
+    # auto 模式：tone_pivot 和 tone_curve 各自独立可以是 float 或 'auto'/'auto:STR'。
+    # 任一为 auto 就调一次 auto_pk，把手动那一侧的值塞进去覆盖。
+    pivot_is_auto = (tone_pivot == 'auto')
+    curve_is_auto = isinstance(tone_curve, str) and tone_curve.startswith('auto')
+    if pivot_is_auto or curve_is_auto:
+        strength = 1.0
+        if isinstance(tone_curve, str) and tone_curve.startswith('auto:'):
+            strength = float(tone_curve.split(':', 1)[1])
+        roi = (
+            (wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2)
+            if roi_complete
+            else None
+        )
+        # 手动 pivot 时传给 auto_pk 让 k 反解与之自洽；手动 curve 时丢掉 auto_k
+        pivot_override = None if pivot_is_auto else float(tone_pivot)
+        auto_p, auto_k = auto_pk(
+            img, roi=roi, strength=strength, pivot=pivot_override
+        )
+        eff_pivot = auto_p  # = pivot_override when manual
+        eff_curve = auto_k if curve_is_auto else float(tone_curve)
+    else:
+        eff_pivot, eff_curve = tone_pivot, tone_curve
+    img = power_curve_raw(img, p=eff_pivot, k=eff_curve).astype(np.float32)
 
     # 5. Auto levels and contrast fine-tuning
     # Store per-channel contrast settings in a list for iteration

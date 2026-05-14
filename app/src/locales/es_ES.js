@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'Desplazar a la derecha',
     toneCurveLeft: 'Reducir contraste',
     toneCurveRight: 'Aumentar contraste',
+    toneAuto: 'Automático',
     whiteBalanceTab: 'Balance de blancos',
     whiteBalanceAuto: 'Automático',
     whiteBalanceTemp: 'Temperatura',

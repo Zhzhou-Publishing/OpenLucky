@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'Dịch sang phải',
     toneCurveLeft: 'Giảm tương phản',
     toneCurveRight: 'Tăng tương phản',
+    toneAuto: 'Tự động',
     whiteBalanceTab: 'Cân bằng trắng',
     whiteBalanceAuto: 'Tự động',
     whiteBalanceTemp: 'Nhiệt độ màu',

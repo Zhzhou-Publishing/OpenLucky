@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'दाएँ स्थानांतरित करें',
     toneCurveLeft: 'कंट्रास्ट कम करें',
     toneCurveRight: 'कंट्रास्ट बढ़ाएँ',
+    toneAuto: 'स्वचालित',
     whiteBalanceTab: 'व्हाइट बैलेंस',
     whiteBalanceAuto: 'स्वचालित',
     whiteBalanceTemp: 'तापमान',

@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'Shift Right',
     toneCurveLeft: 'Lower Contrast',
     toneCurveRight: 'Raise Contrast',
+    toneAuto: 'Auto',
     whiteBalanceTab: 'White Balance',
     whiteBalanceAuto: 'Auto',
     whiteBalanceTemp: 'Temperature',

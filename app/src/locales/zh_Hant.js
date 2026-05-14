@@ -56,6 +56,7 @@ export default {
     tonePivotRight: '向右偏移',
     toneCurveLeft: '壓低反差',
     toneCurveRight: '提高反差',
+    toneAuto: '自動',
     whiteBalanceTab: '白平衡',
     whiteBalanceAuto: '自動',
     whiteBalanceTemp: '色溫',

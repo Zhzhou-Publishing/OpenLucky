@@ -56,6 +56,7 @@ export default {
     tonePivotRight: 'Nach rechts verschieben',
     toneCurveLeft: 'Kontrast verringern',
     toneCurveRight: 'Kontrast erhöhen',
+    toneAuto: 'Automatisch',
     whiteBalanceTab: 'Weißabgleich',
     whiteBalanceAuto: 'Automatisch',
     whiteBalanceTemp: 'Farbtemperatur',
