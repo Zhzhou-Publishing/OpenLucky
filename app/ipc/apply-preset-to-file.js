@@ -4,10 +4,11 @@ const path = require('path')
 const { spawn } = require('child_process')
 const {
   RAW_EXTENSIONS,
-  TIFF_EXTENSIONS,
   checkExtension,
+  coerceRawOutputPath,
   buildOpenLuckyCommand
 } = require('../shared/utils')
+const { buildParamString, resolvePresetKey, buildFilmparamArgs } = require('../shared/cli-args')
 const { createLogger } = require('../shared/logger')
 
 const logger = createLogger('ApplyPresetToFile')
@@ -27,26 +28,7 @@ function register() {
       const ext = path.extname(filename)
       const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
-      let presetKey = null
-
-      if (isRaw) {
-        const possibleKeys = [
-          filename,
-          filename + '.tif',
-          filename + '.tiff'
-        ]
-
-        for (const key of possibleKeys) {
-          if (presetObj[key]) {
-            presetKey = key
-            break
-          }
-        }
-      } else {
-        if (presetObj[filename]) {
-          presetKey = filename
-        }
-      }
+      const presetKey = resolvePresetKey(presetObj, filename, isRaw)
 
       if (!presetKey) {
         event.sender.send('preset-to-file-error', { message: 'Preset not found for file', error: `No preset found for file: ${filename}` })
@@ -54,15 +36,14 @@ function register() {
       }
 
       const presetParams = presetObj[presetKey]
-      const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+      const paramsString = buildParamString(presetParams)
 
-      let finalOutputPath = outputFilePath
-      if (isRaw && !checkExtension(TIFF_EXTENSIONS, path.extname(outputFilePath))) {
-        finalOutputPath += '.tif'
-      }
+      const finalOutputPath = coerceRawOutputPath(outputFilePath, isRaw, path.extname)
 
       const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
-      const args = [...prefixArgs, 'filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
+      const args = [...prefixArgs, ...buildFilmparamArgs({
+        input: inputFilePath, output: finalOutputPath, param: paramsString
+      })]
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-to-file-started', { message: 'Processing started' })

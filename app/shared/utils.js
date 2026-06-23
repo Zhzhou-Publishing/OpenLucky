@@ -6,43 +6,19 @@ const sizeOf = require('image-size')
 const tmp = require('tmp')
 const { spawn } = require('child_process')
 const { createLogger } = require('./logger')
+const {
+  IMAGE_EXTENSIONS,
+  RAW_EXTENSIONS,
+  TIFF_EXTENSIONS,
+  checkExtension,
+  coerceRawOutputPath
+} = require('./formats')
+const { resolveOpenLuckyCommand, buildResizeArgs } = require('./cli-args')
 
 const logger = createLogger('OpenLucky')
 
 // Keep temp files alive for the session
 tmp.setGracefulCleanup()
-
-// Image format constants
-const IMAGE_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.gif',
-  '.webp',
-  '.bmp',
-  '.tif',
-  '.tiff'
-]
-
-const RAW_EXTENSIONS = [
-  '.arw',
-  '.cr2',
-  '.cr3',
-  '.nef',
-  '.dng',
-  '.orf',
-  '.raf'
-]
-
-const TIFF_EXTENSIONS = [
-  '.tif',
-  '.tiff'
-]
-
-// Helper function to check file extension with case-insensitive matching
-const checkExtension = (extensions, ext) => {
-  return extensions.includes(ext.toLowerCase())
-}
 
 /**
  * Get the path to the openlucky CLI executable (binary only).
@@ -91,28 +67,20 @@ function getOpenLuckyPath() {
  * @returns {{command: string, prefixArgs: string[], spawnOptions: object}}
  */
 function buildOpenLuckyCommand() {
-  if (app.isPackaged) {
-    const command = process.platform === 'win32'
-      ? 'openlucky'
-      : path.join(process.resourcesPath, 'openlucky', 'openlucky')
-    return { command, prefixArgs: [], spawnOptions: {} }
-  }
-
-  if (process.env.OPENLUCKY_DEV_USEBIN === '1') {
-    const command = process.platform === 'win32'
-      ? path.join(__dirname, '..', '..', 'bin', 'openlucky')
-      : path.join(__dirname, '..', '..', 'bin', 'openlucky', 'openlucky')
-    return { command, prefixArgs: [], spawnOptions: {} }
-  }
-
-  const repoRoot = path.resolve(__dirname, '..', '..')
-  const python = process.env.OPENLUCKY_PYTHON
-    || (process.platform === 'win32' ? 'python' : 'python3')
-  return {
-    command: python,
-    prefixArgs: ['-m', 'cli.openlucky'],
-    spawnOptions: { cwd: repoRoot }
-  }
+  // Compute the environment-dependent paths here (electron/path/process), then
+  // delegate the actual branching to the pure, tested resolveOpenLuckyCommand.
+  return resolveOpenLuckyCommand({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    useBin: process.env.OPENLUCKY_DEV_USEBIN === '1',
+    python: process.env.OPENLUCKY_PYTHON
+      || (process.platform === 'win32' ? 'python' : 'python3'),
+    repoRoot: path.resolve(__dirname, '..', '..'),
+    packagedWinCommand: 'openlucky',
+    packagedUnixCommand: path.join(process.resourcesPath || '', 'openlucky', 'openlucky'),
+    devBinWinCommand: path.join(__dirname, '..', '..', 'bin', 'openlucky'),
+    devBinUnixCommand: path.join(__dirname, '..', '..', 'bin', 'openlucky', 'openlucky')
+  })
 }
 
 // Read .preset.json from a working directory. Returns {} if missing or
@@ -188,10 +156,7 @@ async function needsResize(imagePath) {
 function resizeImage(inputPath, outputPath, options = {}) {
   return new Promise((resolve) => {
     const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
-    const args = [...prefixArgs, 'tool', 'resize', '-i', inputPath, '-o', outputPath]
-    if (options.value !== undefined && options.value !== null) {
-      args.push('-v', String(options.value))
-    }
+    const args = [...prefixArgs, ...buildResizeArgs({ input: inputPath, output: outputPath, value: options.value })]
     logger.info(`Executing: ${command} ${args.join(' ')}`)
 
     const child = spawn(command, args, {
@@ -228,6 +193,7 @@ module.exports = {
   RAW_EXTENSIONS,
   TIFF_EXTENSIONS,
   checkExtension,
+  coerceRawOutputPath,
   getOpenLuckyPath,
   buildOpenLuckyCommand,
   readPresetJson,

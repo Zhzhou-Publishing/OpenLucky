@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron')
 const { spawn } = require('child_process')
 const { buildOpenLuckyCommand, readPresetJson, resolveImagePath } = require('../shared/utils')
+const { buildHistogramArgs } = require('../shared/cli-args')
 
 function register() {
   ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, downsampling = 256, area = null }) => {
@@ -8,16 +9,7 @@ function register() {
       const presets = readPresetJson(directoryPath)
       const filePath = resolveImagePath(directoryPath, filename, presets)
       const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
-      const args = [
-        ...prefixArgs,
-        'tool', 'histogram',
-        '-i', filePath,
-        '-d', String(downsampling),
-        '-m', 'log',
-      ]
-      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
-        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
-      }
+      const args = [...prefixArgs, ...buildHistogramArgs({ input: filePath, downsampling, area })]
       const child = spawn(command, args, {
         ...spawnOptions,
         stdio: ['pipe', 'pipe', 'pipe'],

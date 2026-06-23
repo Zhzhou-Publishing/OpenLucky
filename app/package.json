@@ -4,6 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
+    "test": "node --test \"shared/__tests__/**/*.test.js\"",
     "dev": "vite",
     "dev:electron": "electron .",
     "dev:hot": "concurrently \"npm run dev\" \"npm run dev:electron\" --kill-others",

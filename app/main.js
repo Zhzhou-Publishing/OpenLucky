@@ -5,6 +5,13 @@ const path = require('path')
 const https = require('https')
 const { log, createLogger } = require('./shared/logger')
 const { setWin } = require('./shared/main-window')
+const {
+  getVersionChannel,
+  normalizeVersion,
+  parseRecallData,
+  isChineseLocale: isChineseLocaleString,
+  shouldCheckByHour
+} = require('./shared/version')
 
 log.initialize()
 
@@ -41,18 +48,6 @@ const ipcSetTheme = require('./ipc/set-theme')
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
 
-// Tumbleweed channels: a release only nudges users on the same channel.
-// 'stable' (no suffix) → next stable
-// 'rc' / 'beta' / 'alpha' → next release in the same channel
-function getVersionChannel(version) {
-  if (!version) return 'stable'
-  const v = String(version).toLowerCase()
-  if (/-rc/i.test(v)) return 'rc'
-  if (/-beta/i.test(v)) return 'beta'
-  if (/-alpha/i.test(v)) return 'alpha'
-  return 'stable'
-}
-
 // Global variable to track if current version is recalled
 let recalled = false
 
@@ -65,8 +60,7 @@ function getSystemLocale() {
 
 // Check if current locale is Chinese (Simplified)
 function isChineseLocale() {
-  const locale = getSystemLocale().toLowerCase()
-  return locale === 'zh_cn' || locale === 'zh-cn' || locale === 'zh-hans' || locale === 'zh_hans'
+  return isChineseLocaleString(getSystemLocale())
 }
 
 // Get localized text for dialogs
@@ -106,13 +100,7 @@ function getLocalizedText(type) {
 // 读取当前版本号
 function getCurrentVersion() {
   try {
-    let version = app.getVersion()
-
-    if (version && !version.startsWith('v')) {
-      version = 'v' + version
-    }
-
-    return version
+    return normalizeVersion(app.getVersion())
   } catch (error) {
     updateLogger.error('Error reading version:', error)
     return 'unknown'
@@ -180,24 +168,14 @@ function getRecallStatus() {
       const data = fs.readFileSync(filePath, 'utf-8').trim()
       recallStatusLogger.info('Read from storage:', data)
 
-      if (data.startsWith('recall:')) {
-        const recalledVersion = data.substring(7)
-        recallStatusLogger.info('Found recall marker for version:', recalledVersion)
-
-        const currentVersion = getCurrentVersion()
-        recallStatusLogger.info('Current version:', currentVersion)
-
-        if (recalledVersion === currentVersion) {
-          recallStatusLogger.info('Current version matches recalled version')
-          return { recalled: true, version: recalledVersion }
-        } else {
-          recallStatusLogger.info('Current version does not match recalled version, ignoring recall')
-          return { recalled: false }
-        }
+      const currentVersion = getCurrentVersion()
+      const status = parseRecallData(data, currentVersion)
+      if (status.recalled) {
+        recallStatusLogger.info('Current version matches recalled version:', status.version)
       } else {
-        recallStatusLogger.info('No recall marker found, data is timestamp')
-        return { recalled: false }
+        recallStatusLogger.info('No active recall for current version:', currentVersion)
       }
+      return status
     }
     recallStatusLogger.info('Storage file does not exist')
     return { recalled: false }
@@ -239,16 +217,7 @@ function shouldCheckForUpdates() {
   }
 
   const lastCheck = getLastCheckTime()
-  if (lastCheck === 0) {
-    updateLogger.info('Never checked before, should check')
-    return { shouldCheck: true, recallStatus }
-  }
-
-  const now = Date.now()
-  const lastCheckHour = Math.floor(lastCheck / (60 * 60 * 1000))
-  const currentHour = Math.floor(now / (60 * 60 * 1000))
-
-  const shouldCheck = currentHour > lastCheckHour
+  const shouldCheck = shouldCheckByHour(lastCheck, Date.now())
   updateLogger.info('Hour interval check:', shouldCheck ? 'should check' : 'skip')
   return { shouldCheck, recallStatus }
 }
