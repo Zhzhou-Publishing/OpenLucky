@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 NONE_RAW_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 RAW_EXTS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".orf", ".raf"}
+FFF_EXTS = {".fff"}
 TIFF_EXTS = {".tif", ".tiff"}
 
 
@@ -53,6 +54,16 @@ def raw_sample_dir(repo_root: Path) -> Path:
 @pytest.fixture(scope="session")
 def none_raw_sample_dir(repo_root: Path) -> Path:
     return repo_root / "tests" / "input_sample_none_raw"
+
+
+@pytest.fixture(scope="session")
+def fff_sample_dir(repo_root: Path) -> Path:
+    return repo_root / "tests" / "input_sample_fff"
+
+
+@pytest.fixture(scope="session")
+def strip_sample_dir(repo_root: Path) -> Path:
+    return repo_root / "tests" / "input_sample_strip"
 
 
 @pytest.fixture(scope="session")
@@ -124,6 +135,22 @@ def random_none_raw_input(none_raw_sample_dir: Path, tmp_path: Path) -> Path:
     return _pick_random_copy(
         none_raw_sample_dir, NONE_RAW_EXTS, tmp_path,
         f"Place non-RAW samples in {none_raw_sample_dir.relative_to(REPO_ROOT)}/ to enable",
+    )
+
+
+@pytest.fixture
+def random_fff_input(fff_sample_dir: Path, tmp_path: Path) -> Path:
+    return _pick_random_copy(
+        fff_sample_dir, FFF_EXTS, tmp_path,
+        f"Place FFF samples in {fff_sample_dir.relative_to(REPO_ROOT)}/ to enable",
+    )
+
+
+@pytest.fixture
+def random_strip_input(strip_sample_dir: Path, tmp_path: Path) -> Path:
+    return _pick_random_copy(
+        strip_sample_dir, TIFF_EXTS | FFF_EXTS, tmp_path,
+        f"Place a strip scan in {strip_sample_dir.relative_to(REPO_ROOT)}/ to enable",
     )
 
 
