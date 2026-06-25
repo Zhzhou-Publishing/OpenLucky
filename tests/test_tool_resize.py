@@ -142,7 +142,10 @@ def test_resize_invalid_choices(run_cli, output_dir, tmp_path, extra):
 
 @pytest.mark.slow
 def test_resize_no_value_non_raw_copy(run_cli, random_none_raw_input, output_dir):
-    """Without -v, non-RAW images should be directly copied to output."""
+    """Without -v, non-RAW images go to output unchanged — except a 4-channel
+    scanner TIFF (RGB+IR), whose IR band is dropped so the working copy is a
+    clean 3-channel RGB TIFF."""
+    src = _decode(random_none_raw_input)
     out = output_dir / random_none_raw_input.name
     res = run_cli(
         "tool", "resize",
@@ -151,8 +154,15 @@ def test_resize_no_value_non_raw_copy(run_cli, random_none_raw_input, output_dir
     )
     assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
     assert out.exists()
-    # File should be identical to input (direct copy)
-    assert out.read_bytes() == random_none_raw_input.read_bytes()
+
+    if src.ndim == 3 and src.shape[2] > 3:
+        # 4-channel TIFF: IR dropped, RGB preserved at full resolution.
+        out_img = _decode(out)
+        assert out_img.shape[2] == 3, f"expected 3 channels, got {out_img.shape}"
+        assert out_img.shape[:2] == src.shape[:2]
+    else:
+        # Everything else is a verbatim, byte-identical copy.
+        assert out.read_bytes() == random_none_raw_input.read_bytes()
 
 
 @pytest.mark.slow

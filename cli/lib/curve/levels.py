@@ -76,6 +76,11 @@ def levels_clip(
                 print(f"Error: All decoders failed for {input_path}")
                 return False
 
+            # 丢弃第4个(IR)通道，仅保留RGB（tifffile 按原序返回 [R,G,B,IR]）
+            # TODO(IR): 以后改为暂存 IR、输出时回填
+            if img_raw.ndim == 3 and img_raw.shape[2] > 3:
+                img_raw = img_raw[:, :, :3]
+
             is_16bit = img_raw.dtype == np.uint16
             img = img_raw.astype(np.float32)
             img /= 65535.0 if is_16bit else 255.0

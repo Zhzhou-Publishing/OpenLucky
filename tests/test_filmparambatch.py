@@ -14,7 +14,9 @@ def test_filmparambatch_non_raw_5_values(run_cli, none_raw_input_dir, output_dir
     )
     assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
 
-    inputs = [p.name for p in none_raw_input_dir.iterdir() if p.is_file()]
+    # Exclude the .preset.json sidecar the run writes into the input dir.
+    inputs = [p.name for p in none_raw_input_dir.iterdir()
+              if p.is_file() and not p.name.startswith(".")]
     outputs = [p.name for p in output_dir.iterdir() if p.is_file()]
     for name in inputs:
         assert name in outputs

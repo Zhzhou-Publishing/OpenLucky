@@ -9,10 +9,12 @@ import yaml
 from cli.lib.process_film import process_film_with_params, process_film_bytestream_with_params
 from cli.lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from cli.lib.raw_to_tiff import raw_to_tiff
+from cli.lib.fff_to_tiff import fff_to_tiff
 from cli.lib.tool.resize import resize_image
 from cli.lib.tool.reshape import reshape_image, parse_point, parse_shape
 from cli.lib.tool.histogram import compute_histogram
 from cli.lib.tool.pick import pick_color
+from cli.lib.tool.split import split_strip
 from cli.lib.curve.levels import levels_clip
 from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -387,6 +389,14 @@ def main():
     raw2tiff_parser.add_argument('--input', '-i', required=True, help='Input RAW file path')
     raw2tiff_parser.add_argument('--output', '-o', required=True, help='Output TIFF file path')
 
+    # fff2tiff subcommand
+    fff2tiff_parser = subparsers.add_parser('fff2tiff', help='Hasselblad/Imacon FFF scan to standard TIFF conversion')
+    fff2tiff_parser.add_argument('--input', '-i', required=True, help='Input FFF file path')
+    fff2tiff_parser.add_argument('--output', '-o', required=True, help='Output TIFF file path')
+    fff2tiff_parser.add_argument('--compression', '-z', default='deflate',
+                                 choices=['none', 'deflate', 'lzw'],
+                                 help='Output TIFF compression (default: deflate, lossless)')
+
     # tiff2jpeg subcommand
     tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF to JPEG format conversion')
     tiff_parser.add_argument('--input', '-i', required=True, help='Input TIFF file path')
@@ -453,6 +463,30 @@ def main():
     reshape_parser.add_argument('--point3', '-p3', required=True, help='Bottom-right crop anchor point (x,y format, e.g., 101,134)')
     reshape_parser.add_argument('--point4', '-p4', required=True, help='Bottom-left crop anchor point (x,y format, e.g., 8,132)')
     reshape_parser.add_argument('--shape', '-s', required=True, help='Output canvas dimensions (width,height format, e.g., 6000,4000)')
+
+    # tool split subcommand
+    split_parser = tool_subparsers.add_parser('split', help='Auto-split a film strip scan into individual frames')
+    split_parser.add_argument('--input', '-i', required=True, help='Input strip image (.tif/.tiff/.fff)')
+    split_parser.add_argument('--output', '-o', required=True, help='Output directory for per-frame TIFFs')
+    split_parser.add_argument('--orientation', default='auto',
+                              choices=['auto', 'horizontal', 'vertical'],
+                              help='Strip long axis (default: auto from aspect ratio)')
+    split_parser.add_argument('--rotate', '-r', type=int, choices=[0, 90, 180, 270], default=0,
+                              help='Per-frame output rotation, clockwise degrees (default: 0)')
+    split_parser.add_argument('--trim-baffle', action='store_true',
+                              help='Crop off the dark scanner baffle border (keeps sprockets/film). Default keeps the entire short edge')
+    split_parser.add_argument('--frames', '-n', type=int, default=None,
+                              help='Force this many equal-size frames (override for "kelp" strips with large blank/over-exposed regions). Default auto-detects')
+    split_parser.add_argument('--drop-kelp', action='store_true',
+                              help='Discard pure-kelp regions (uniform blank/over-exposed film) and keep only the parts with real image content')
+    split_parser.add_argument('--compression', '-z', default='deflate',
+                              choices=['none', 'deflate', 'lzw'],
+                              help='Output TIFF compression (default: deflate)')
+    split_parser.add_argument('--prefix', default='frame', help='Output filename prefix (default: frame)')
+    split_parser.add_argument('--preview', default=None,
+                              help='Write an annotated overlay PNG to this path (boxes drawn over a thumbnail)')
+    split_parser.add_argument('--dry-run', action='store_true',
+                              help='Detect and report frames (and write preview) without writing frame files')
 
     # curve subcommand
     curve_parser = subparsers.add_parser('curve', help='Curve adjustment tools')
@@ -1034,6 +1068,11 @@ def main():
     elif args.command == 'raw2tiff':
         raw_to_tiff(args.input, args.output)
 
+    elif args.command == 'fff2tiff':
+        success = fff_to_tiff(args.input, args.output, compression=args.compression)
+        if not success:
+            sys.exit(1)
+
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
 
@@ -1171,6 +1210,22 @@ def main():
 
             sys.stdout.write(json.dumps(hist))
             sys.stdout.write("\n")
+        elif args.tool_command == 'split':
+            success = split_strip(
+                input_path=args.input,
+                output_dir=args.output,
+                orientation=args.orientation,
+                rotate=args.rotate,
+                trim_baffle=args.trim_baffle,
+                frames=args.frames,
+                drop_kelp=args.drop_kelp,
+                compression=args.compression,
+                prefix=args.prefix,
+                preview=args.preview,
+                dry_run=args.dry_run,
+            )
+            if not success:
+                sys.exit(1)
         else:
             tool_parser.print_help()
             sys.exit(1)

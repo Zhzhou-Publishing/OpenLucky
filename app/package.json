@@ -1,9 +1,10 @@
 {
   "name": "openlucky-app",
-  "version": "1.4.3-rc.7",
+  "version": "1.4.3-rc.8",
   "description": "",
   "main": "main.js",
   "scripts": {
+    "test": "node --test \"shared/__tests__/**/*.test.js\"",
     "dev": "vite",
     "dev:electron": "electron .",
     "dev:hot": "concurrently \"npm run dev\" \"npm run dev:electron\" --kill-others",

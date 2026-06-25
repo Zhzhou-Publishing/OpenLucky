@@ -13,6 +13,30 @@ EDGE_OPTIONS = {'width', 'height', 'long-edge', 'short-edge'}
 MODE_OPTIONS = {'ratio', 'fixed-value'}
 
 
+# 扫描仪 TIFF 常带第4个(IR)通道且缺 ExtraSamples 标签，会被 Chromium/sharp 误当
+# alpha 通道。处理流水线只需要 RGB，故读入后立即丢弃多余通道。
+# TODO(IR): 以后改为「读入时暂存 IR、输出时回填」——下面两个函数是统一的丢弃入口。
+def drop_extra_channel(img):
+    """Drop a 4th+ band (scanner IR / alpha) so only the first 3 (RGB/BGR)
+    remain. Order-agnostic and a no-op for <=3-channel or non-3D arrays."""
+    if img is not None and img.ndim == 3 and img.shape[2] > 3:
+        return img[:, :, :3]
+    return img
+
+
+def is_multichannel_tiff(path):
+    """Cheap header peek (no pixel decode): True for a TIFF whose first page
+    carries more than 3 samples (e.g. a scanner RGB+IR scan)."""
+    if Path(path).suffix.lower() not in ('.tif', '.tiff'):
+        return False
+    try:
+        import tifffile
+        with tifffile.TiffFile(str(path)) as tif:
+            return tif.pages[0].samplesperpixel > 3
+    except Exception:
+        return False
+
+
 def read_image_safe(filepath):
     """
     Read image file safely, supporting Chinese paths on Windows.
@@ -249,7 +273,21 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
                 print(f"RAW converted to TIFF (no resize): {output_path}")
                 return True
             else:
-                # 非RAW格式：直接复制到工作目录
+                # 非RAW格式：默认直接复制。但含第4个(IR)通道的扫描仪 TIFF 需要
+                # 解码后丢弃 IR 再写回，否则会把 IR 一路带进工作目录。
+                if is_multichannel_tiff(input_path):
+                    img = read_image_safe(str(input_path))
+                    if img is None:
+                        print(f"Error: Failed to read image '{input_path}'")
+                        return False
+                    img = drop_extra_channel(img)  # BGRA → BGR；cv2.imencode 写出标准 RGB
+                    success, encoded_img = cv2.imencode('.tif', img)
+                    if not success or not write_image_safe(str(output_path), encoded_img):
+                        print(f"Error: Failed to write image '{output_path}'")
+                        return False
+                    print(f"Copied without IR channel (no resize): {output_path}")
+                    return True
+
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(str(input_path), str(output_path))
                 print(f"Copied (no resize): {output_path}")
@@ -278,7 +316,8 @@ def resize_image(input_path, output_path, edge='long-edge', mode='fixed-value', 
                 print(f"Error: Failed to read image '{input_path}'")
                 return False
 
-            # 转换为RGB（OpenCV默认是BGR）
+            # 先丢弃第4个(IR)通道，仅保留RGB；再做 BGR→RGB（OpenCV默认是BGR）
+            img = drop_extra_channel(img)
             if len(img.shape) == 3 and img.shape[2] == 3:
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 

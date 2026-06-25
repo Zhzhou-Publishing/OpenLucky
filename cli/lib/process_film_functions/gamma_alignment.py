@@ -50,7 +50,9 @@ def apply_gamma_alignment(
     h, w = img.shape[:2]
 
     # 1. 采样与计算中位数
-    if roi is not None:
+    # roi 可能是 (None, None, None, None)（未指定白点区域时），需同时排除，
+    # 否则 round(None) 抛 TypeError。
+    if roi is not None and all(c is not None for c in roi):
         x1, y1, x2, y2 = [int(round(c)) for c in roi]
         sample_area = img[max(0, y1) : min(h, y2), max(0, x1) : min(w, x2)]
         if sample_area.size == 0:
