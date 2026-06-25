@@ -475,6 +475,10 @@ def main():
                               help='Per-frame output rotation, clockwise degrees (default: 0)')
     split_parser.add_argument('--trim-baffle', action='store_true',
                               help='Crop off the dark scanner baffle border (keeps sprockets/film). Default keeps the entire short edge')
+    split_parser.add_argument('--frames', '-n', type=int, default=None,
+                              help='Force this many equal-size frames (override for "kelp" strips with large blank/over-exposed regions). Default auto-detects')
+    split_parser.add_argument('--drop-kelp', action='store_true',
+                              help='Discard pure-kelp regions (uniform blank/over-exposed film) and keep only the parts with real image content')
     split_parser.add_argument('--compression', '-z', default='deflate',
                               choices=['none', 'deflate', 'lzw'],
                               help='Output TIFF compression (default: deflate)')
@@ -1213,6 +1217,8 @@ def main():
                 orientation=args.orientation,
                 rotate=args.rotate,
                 trim_baffle=args.trim_baffle,
+                frames=args.frames,
+                drop_kelp=args.drop_kelp,
                 compression=args.compression,
                 prefix=args.prefix,
                 preview=args.preview,

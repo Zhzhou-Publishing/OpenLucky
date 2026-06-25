@@ -133,6 +133,96 @@ def test_detect_frames_various_120_aspect_ratios(fh):
     assert len(detect_frames(arr)["boxes"]) == 4
 
 
+def _make_kelp_strip(specs, fh=270, gap=30, band_w=140, sprocket_w=15,
+                     baffle_w=15, topb=40, botb=40, kelp_tail=0, seed=0):
+    """Strip whose frames are individually 'normal' (textured), 'blank'
+    (unexposed clear base: bright + smooth, identical to an inter-frame gap) or
+    'black' (fully exposed: dark + smooth)."""
+    rng = np.random.default_rng(seed)
+    W = 2 * baffle_w + 2 * sprocket_w + band_w
+    sl0, sl1 = baffle_w, baffle_w + sprocket_w
+    b0, b1 = sl1, sl1 + band_w
+    sr0, sr1 = b1, b1 + sprocket_w
+
+    def base(fill):
+        r = np.full(W, 0.10)
+        r[sl0:sl1] = 0.90
+        r[sr0:sr1] = 0.90
+        r[b0:b1] = fill
+        return r
+
+    rows = [base(0.10) for _ in range(topb)]
+    for k, spec in enumerate(specs):
+        for _ in range(fh):
+            r = base(0.45)
+            if spec == "normal":
+                r[b0:b1] = np.clip(rng.normal(0.45, 0.12, b1 - b0), 0, 1)
+            elif spec == "blank":
+                r[b0:b1] = 0.85
+            elif spec == "black":
+                r[b0:b1] = 0.05
+            rows.append(r)
+        if k < len(specs) - 1:
+            rows += [base(0.85) for _ in range(gap)]
+    # Optional gapless "kelp" stretch (uniform, fully-exposed mid-grey) directly
+    # after the frames -- no inter-frame gap, mimics a dead section of film.
+    rows += [base(0.40) for _ in range(kelp_tail)]
+    rows += [base(0.10) for _ in range(botb)]
+    return (np.array(rows) * 65535).astype(np.uint16)
+
+
+def test_kelp_single_blank_frame_recovered():
+    """A single unexposed (clear) frame mid-strip is still counted -- the pitch
+    comes from the narrow gaps so the merged bright block can't corrupt it."""
+    arr = _make_kelp_strip(["normal", "normal", "blank", "normal", "normal", "normal"])
+    assert len(detect_frames(arr)["boxes"]) == 6
+
+
+def test_kelp_fully_black_frames_detected():
+    """Fully exposed (dark) frames split fine; regression for the std-floor fix
+    (uniform bright gaps must not be crushed to zero score)."""
+    arr = _make_kelp_strip(["black"] * 6)
+    assert len(detect_frames(arr)["boxes"]) == 6
+
+
+def test_kelp_all_blank_is_low_confidence():
+    """An all-clear strip has no detectable boundaries -> flagged, not silently
+    mis-split."""
+    arr = _make_kelp_strip(["blank"] * 6)
+    det = detect_frames(arr)
+    assert det["low_confidence"] is True
+
+
+def test_frames_override_forces_count():
+    """--frames divides the long axis into N equal parts regardless of content
+    (the escape hatch for ambiguous kelp strips)."""
+    arr = _make_kelp_strip(["blank"] * 6)        # undetectable automatically
+    det = detect_frames(arr, frames=6)
+    assert len(det["boxes"]) == 6 and det["forced"] is True
+    H = arr.shape[0]
+    assert det["boxes"][0][1] == 0 and det["boxes"][-1][3] == H
+
+
+def test_drop_kelp_discards_gapless_kelp_tail():
+    """A real frame followed by a long gapless kelp stretch: --drop-kelp keeps
+    only the textured frame and trims the kelp away."""
+    arr = _make_kelp_strip(["normal"], kelp_tail=2400)
+    keep = detect_frames(arr, drop_kelp=True)["boxes"]
+    full = detect_frames(arr, drop_kelp=False)["boxes"]
+    assert len(keep) == 1 and len(full) == 1
+    # the kept frame is much shorter than the whole strip (kelp trimmed off)
+    kept_h = keep[0][3] - keep[0][1]
+    full_h = full[0][3] - full[0][1]
+    assert kept_h < 0.6 * full_h
+
+
+def test_drop_kelp_preserves_smooth_gap_bounded_frame():
+    """A smooth (low-texture) but real frame bounded by inter-frame gaps must be
+    kept under --drop-kelp -- it is not kelp."""
+    specs = ["normal", "normal", "black", "normal", "normal", "normal"]
+    assert len(detect_frames(_make_kelp_strip(specs), drop_kelp=True)["boxes"]) == 6
+
+
 def test_detect_frames_fully_exposed_wide_sprockets():
     """Wide, fully-exposed bright sprocket bands must not break detection: the
     central projection band stays clear of them (no sprocket-pitch false gaps)."""

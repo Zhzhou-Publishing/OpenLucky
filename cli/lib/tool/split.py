@@ -52,9 +52,9 @@ _PROJ_INSET = 0.2          # central film fraction used to gauge image brightnes
 _SPROCKET_SPIKE = 1.06     # cross > this * central median => still in a sprocket
 _STRONG_FRAC = 0.78        # gap candidate kept as "strong" if score >= frac*max
 _PHASE_TOL = 0.12          # grid inlier tolerance, as fraction of pitch
-_REFILL_FACTOR = 1.6       # span > factor*pitch => interpolate missing gap(s)
 _MIN_FRAME_FRAC = 0.55     # reject frames shorter than frac*pitch
 _MIN_CAND_WIDTH = 15       # ignore gap runs thinner than this (pixel noise)
+_STD_FLOOR = 1e-3          # floor for the texture scale (avoid eps/eps blowup)
 
 
 def _otsu(v):
@@ -88,6 +88,14 @@ def _runs(mask):
         else:
             i += 1
     return out
+
+
+def _smooth(a, win):
+    """Centered moving average with edge padding (window forced odd)."""
+    win = max(1, int(win) | 1)
+    pad = win // 2
+    k = np.ones(win) / win
+    return np.convolve(np.pad(a, (pad, pad), mode="edge"), k, mode="valid")[:len(a)]
 
 
 def _to_gray01(arr):
@@ -145,7 +153,37 @@ def _bands(cross):
     return fx0, fx1, p0, p1
 
 
-def detect_frames(arr, orientation="auto", trim_baffle=False):
+def _filter_kelp(spans, content, thr, min_content, bridge, pad):
+    """Drop pure-kelp regions and keep only the textured (content) parts.
+
+    For each detected frame span, find runs where the texture profile `content`
+    exceeds `thr`, bridge runs separated by less than `bridge` (a smooth band
+    inside one frame is not a frame break), drop runs shorter than `min_content`
+    (these are uniform kelp -- blank or fully exposed -- with no image), and keep
+    the rest padded by `pad`. A large uniform margin at a span edge is trimmed
+    away; a small one (a frame's own smooth border) is kept.
+    """
+    mask = content > thr
+    out = []
+    for a, b in spans:
+        runs = [(a + s, a + e) for s, e in _runs(mask[a:b])]
+        merged = []
+        for s, e in runs:
+            if merged and s - merged[-1][1] <= bridge:
+                merged[-1] = (merged[-1][0], e)
+            else:
+                merged.append((s, e))
+        for s, e in merged:
+            if e - s < min_content:
+                continue
+            ns = a if (s - a) <= pad else max(a, s - pad)
+            ne = b if (b - e) <= pad else min(b, e + pad)
+            out.append((ns, ne))
+    return out
+
+
+def detect_frames(arr, orientation="auto", trim_baffle=False, frames=None,
+                  drop_kelp=False):
     """Detect frame boxes in a strip scan.
 
     Cuts are made straight through the middle of each inter-frame gap, so the
@@ -156,8 +194,15 @@ def detect_frames(arr, orientation="auto", trim_baffle=False):
     Gap detection projects over the central band of the film -- this sidesteps
     the sprockets entirely, so no sprocket detection is performed.
 
-    Returns a dict: {long_axis, film_band, proj_band, pitch, boxes}
-    where boxes is a list of (x0, y0, x1, y1) in pixel coordinates.
+    frames: when set, bypass detection and divide the long axis into that many
+    equal parts. Use for "kelp" strips -- large unexposed (clear) or fully
+    exposed regions whose frame layout cannot be inferred from content.
+
+    drop_kelp: discard pure-kelp regions (large uniform, blank or fully exposed)
+    and keep only the textured/content parts within each detected frame.
+
+    Returns a dict: {long_axis, film_band, proj_band, pitch, boxes, forced,
+    low_confidence}; boxes is a list of (x0, y0, x1, y1) in pixel coordinates.
     """
     g = _to_gray01(arr)
     H, W = g.shape[:2]
@@ -171,27 +216,55 @@ def detect_frames(arr, orientation="auto", trim_baffle=False):
     fx0, fx1, p0, p1 = _bands(cross)
     cmin = float(cross.min())
 
+    N = H if long_y else W
+    short_full = W if long_y else H
+    cx0, cx1 = (fx0, fx1) if trim_baffle else (0, short_full)
+
+    def _boxes(spans):
+        if long_y:
+            return [(cx0, a, cx1, b) for a, b in spans]
+        return [(a, cx0, b, cx1) for a, b in spans]
+
+    def _result(boxes, pitch, forced=False, low_confidence=False):
+        return {"long_axis": "y" if long_y else "x",
+                "film_band": [fx0, fx1], "proj_band": [p0, p1],
+                "pitch": int(pitch), "boxes": boxes,
+                "forced": forced, "low_confidence": low_confidence}
+
+    # Manual override: divide the long axis into `frames` equal parts.
+    if frames and frames > 0:
+        cuts = [round(i * N / frames) for i in range(frames + 1)]
+        spans = list(zip(cuts[:-1], cuts[1:]))
+        return _result(_boxes(spans), round(N / frames), forced=True)
+
     # 2. long-axis gap score on the central projection band
     band = g[:, p0:p1] if long_y else g[p0:p1, :]
     row_mean = band.mean(axis=1) if long_y else band.mean(axis=0)
     row_std = band.std(axis=1) if long_y else band.std(axis=0)
-    N = len(row_mean)
-    std_p98 = np.percentile(row_std, 98) or 1.0
+    # Floor the texture scale: a perfectly uniform band (clean or very
+    # high-contrast film) yields row_std ~1e-16, and dividing that epsilon by an
+    # equally tiny percentile would wrongly zero the smoothness term and crush
+    # every bright row's score. The floor keeps uniform rows scored as smooth.
+    std_p98 = max(float(np.percentile(row_std, 98)), _STD_FLOOR)
     score = row_mean * (1.0 - np.clip(row_std / std_p98, 0, 1))
     thr = max(_otsu(score),
               np.median(score) + 0.4 * (score.max() - np.median(score)))
     is_gap = score > thr
+
+    # Texture (content) profile for drop_kelp: smoothed horizontal variation.
+    # Real image content has texture; kelp -- blank (clear) or fully exposed
+    # (dense) -- and inter-frame gaps are uniform (near-zero).
+    NL = len(row_std)
+    content = _smooth(row_std, max(15, int(0.01 * NL)))
     baffle = row_mean < (cmin + 0.45 * (np.median(row_mean) - cmin))
 
     # image extent along the long axis (between the end baffles)
     nonb = np.where(~baffle)[0]
     if len(nonb) == 0:
-        return {"long_axis": "y" if long_y else "x",
-                "film_band": [fx0, fx1], "proj_band": [p0, p1],
-                "pitch": 0, "boxes": []}
+        return _result([], 0, low_confidence=True)
     y0, y1 = int(nonb[0]), int(nonb[-1])
 
-    # 3. candidates -> strong -> pitch -> RANSAC phase grid
+    # 3. candidates -> narrow gaps -> pitch -> phase grid
     cand = [((a + b) // 2, (b - a + 1), float(score[a:b + 1].max()))
             for a, b in _runs(is_gap) if (b - a + 1) >= _MIN_CAND_WIDTH]
     if cand:
@@ -201,33 +274,45 @@ def detect_frames(arr, orientation="auto", trim_baffle=False):
         strong = []
     strong_c = sorted(c for c, _, _ in strong)
 
-    # Typical (narrow) inter-frame gap width. The median is robust to a gap that
-    # merged with adjacent bright frame content (e.g. sky) into one wide run.
+    # Typical inter-frame gap width; median is robust to a gap that merged with
+    # adjacent bright content into one wide run. "narrow" gaps are the real
+    # inter-frame gaps -- a blank/unexposed frame merges with its neighbouring
+    # gaps into one WIDE bright block, which we must keep out of the geometry.
     gap_w = int(np.median([w for _, w, _ in strong])) if strong else _MIN_CAND_WIDTH
+    narrow_c = sorted(c for c, w, _ in strong if w <= 1.6 * gap_w)
 
-    pitch = int(np.median(np.diff(strong_c))) if len(strong_c) >= 2 else (y1 - y0)
+    # Frame pitch from the narrow gaps: the smallest spacing the others are
+    # ~multiples of. Robust to gaps the scan missed (e.g. on both sides of a
+    # blank frame, which otherwise halves a naive median).
+    if len(narrow_c) >= 2:
+        diffs = np.diff(narrow_c)
+        med = float(np.median(diffs))
+        base = [int(d) for d in diffs if d >= 0.3 * med]
+        pitch = min(base) if base else int(med)
+    elif len(strong_c) >= 2:
+        pitch = int(np.median(np.diff(strong_c)))
+    else:
+        pitch = (y1 - y0)
 
-    # RANSAC phase: the regular grid the gaps sit on. Using the grid (a consensus
-    # over all gaps) keeps a single contaminated/shifted gap candidate from
-    # dragging a frame boundary into bright content.
-    ph = strong_c[0] % pitch if strong_c else 0
-    if len(strong_c) >= 2 and pitch > 0:
+    # Phase: the regular grid the narrow gaps sit on (consensus over all of them,
+    # so one shifted/merged candidate can't drag a boundary into bright content).
+    ph = narrow_c[0] % pitch if narrow_c else (strong_c[0] % pitch if strong_c else 0)
+    if len(narrow_c) >= 2 and pitch > 0:
         tol = _PHASE_TOL * pitch
-        best = (-1.0, ph)
-        for c0, _, _ in strong:
+        best = (-1, ph)
+        for c0 in narrow_c:
             cph = c0 % pitch
-            w = sum(s for c, _, s in strong
-                    if abs(((c - cph + pitch / 2) % pitch) - pitch / 2) <= tol)
-            if w > best[0]:
-                best = (w, cph)
+            cnt = sum(1 for c in narrow_c
+                      if abs(((c - cph + pitch / 2) % pitch) - pitch / 2) <= tol)
+            if cnt > best[0]:
+                best = (cnt, cph)
         ph = best[1]
 
-    # Gap positions from the fitted grid, snapped to a *narrow* clean candidate
-    # when one sits nearby (sub-pixel accuracy), else the pure grid line. Near
-    # the strip ends we only accept a real (snapped) gap, never an interpolated
-    # phantom that would slice into a partial frame.
-    narrow = [(c, w) for c, w, _ in strong if w <= 1.6 * gap_w]
-    gaps = []
+    # Gap positions from the fitted grid, snapped to a narrow clean candidate
+    # when one sits nearby (sub-pixel accuracy), else the pure grid line (this
+    # interpolates gaps the scan missed, e.g. on both sides of a blank frame).
+    # Near the strip ends we only accept a real (snapped) gap, never a phantom.
+    gaps, n_interp = [], 0
     if pitch > 0:
         snap_tol = _PHASE_TOL * pitch
         k0 = int(np.floor((y0 - ph) / pitch))
@@ -236,14 +321,15 @@ def detect_frames(arr, orientation="auto", trim_baffle=False):
             line = ph + k * pitch
             if line <= y0 or line >= y1:
                 continue
-            near = [(abs(c - line), c) for c, _ in narrow if abs(c - line) <= snap_tol]
+            near = [(abs(c - line), c) for c in narrow_c if abs(c - line) <= snap_tol]
             at_end = line <= y0 + 0.3 * pitch or line >= y1 - 0.3 * pitch
             if near:
                 gaps.append(min(near)[1])
             elif not at_end:
                 gaps.append(int(line))
+                n_interp += 1
     else:
-        gaps = strong_c
+        gaps = list(narrow_c)
     gaps = sorted(set(gaps))
 
     # 4. Cut straight through the middle of each inter-frame gap: a frame is the
@@ -260,16 +346,33 @@ def detect_frames(arr, orientation="auto", trim_baffle=False):
         spans[0] = (0, spans[0][1])
         spans[-1] = (spans[-1][0], N)
 
-    short_full = W if long_y else H
-    cx0, cx1 = (fx0, fx1) if trim_baffle else (0, short_full)
-    if long_y:
-        boxes = [(cx0, a, cx1, b) for a, b in spans]
-    else:
-        boxes = [(a, cx0, b, cx1) for a, b in spans]
+    if drop_kelp:
+        # Discard pure-kelp regions, keeping only textured parts -- but ONLY for
+        # spans that lack a reliable surrounding gap structure. A smooth but real
+        # frame (e.g. water/sky) is bounded by real inter-frame gaps and must be
+        # kept; kelp has no such structure. So a span is "kelp-suspect" only when
+        # there are no reliable gaps at all, or the span is oversized (it spans a
+        # gapless kelp stretch). Otsu splits the texture profile content/uniform.
+        c_thr = max(_otsu(content), 0.12 * float(content.max()))
+        reliable = len(narrow_c) >= 2
+        kp = dict(thr=c_thr,
+                  min_content=max(2 * (max(15, int(0.01 * NL)) | 1), int(0.04 * NL)),
+                  bridge=int(0.04 * NL),
+                  pad=max(15, int(0.02 * NL)))
+        filtered = []
+        for a, b in spans:
+            suspect = (not reliable) or (pitch > 0 and (b - a) > 1.5 * pitch)
+            filtered.extend(_filter_kelp([(a, b)], content, **kp) if suspect
+                            else [(a, b)])
+        spans = filtered
 
-    return {"long_axis": "y" if long_y else "x",
-            "film_band": [fx0, fx1], "proj_band": [p0, p1],
-            "pitch": int(pitch), "boxes": boxes}
+    # Low confidence: too few observed gaps to trust the pitch, a collapse to a
+    # single frame, or mostly-interpolated cut lines -- hallmarks of a "kelp"
+    # strip (large blank/over-exposed regions). The caller suggests --frames.
+    low_conf = (len(narrow_c) < 2 or len(spans) <= 1
+                or (len(gaps) > 0 and n_interp > 0.5 * len(gaps)))
+
+    return _result(_boxes(spans), pitch, low_confidence=bool(low_conf))
 
 
 def _rot90_cw(img, degrees):
@@ -299,8 +402,9 @@ def _write_preview(arr, det, preview_path):
 
 
 def split_strip(input_path, output_dir, orientation="auto", rotate=0,
-                trim_baffle=False, compression="deflate",
-                prefix="frame", preview=None, dry_run=False):
+                trim_baffle=False, frames=None, drop_kelp=False,
+                compression="deflate", prefix="frame", preview=None,
+                dry_run=False):
     """Split a strip scan into per-frame TIFFs.
 
     Args:
@@ -310,6 +414,10 @@ def split_strip(input_path, output_dir, orientation="auto", rotate=0,
         rotate: per-frame output rotation, clockwise degrees (0/90/180/270).
         trim_baffle: crop off the dark scanner baffle (keeps sprockets/film).
             Default keeps the entire short edge.
+        frames: force this many equal-size frames (manual override for "kelp"
+            strips with large blank/over-exposed regions). Default auto-detects.
+        drop_kelp: discard pure-kelp regions (uniform blank/over-exposed) and
+            keep only the parts with real image content.
         compression: 'deflate' (default) | 'lzw' | 'none'.
         prefix: output filename prefix.
         preview: optional path to write an annotated overlay PNG.
@@ -338,7 +446,9 @@ def split_strip(input_path, output_dir, orientation="auto", rotate=0,
             page = max(tif.pages, key=lambda p: int(p.shape[0]) * int(p.shape[1]))
             arr = page.asarray()
 
-        det = detect_frames(arr, orientation=orientation, trim_baffle=trim_baffle)
+        det = detect_frames(arr, orientation=orientation,
+                            trim_baffle=trim_baffle, frames=frames,
+                            drop_kelp=drop_kelp)
         boxes = det["boxes"]
 
         if preview:
@@ -351,14 +461,23 @@ def split_strip(input_path, output_dir, orientation="auto", rotate=0,
             "pitch": det["pitch"],
             "film_band": det["film_band"],
             "proj_band": det["proj_band"],
+            "forced": det.get("forced", False),
+            "low_confidence": det.get("low_confidence", False),
             "frame_count": len(boxes),
             "frames": [],
         }
 
         if not boxes:
-            print("Warning: no frames detected.")
+            print("Warning: no frames detected. This looks like a 'kelp' strip "
+                  "(largely blank or fully exposed); pass --frames N to split it "
+                  "into N equal parts.")
             print(json.dumps(manifest, ensure_ascii=False))
             return False
+
+        if det.get("low_confidence") and not det.get("forced"):
+            print(f"Warning: low-confidence detection ({len(boxes)} frame(s)); "
+                  "if this looks wrong (e.g. a blank/over-exposed 'kelp' strip), "
+                  "re-run with --frames N to force the count.")
 
         cmp = _COMPRESSION_MAP[compression]
         if not dry_run:
