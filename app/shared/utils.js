@@ -120,7 +120,16 @@ async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, ti
   if (checkExtension(TIFF_EXTENSIONS, ext)) {
     try {
       const thumbnailPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
-      await sharp(fullPath)
+      // failOn:'none' — scanner TIFFs are often 16-bit RGB+IR (4 samples) with a
+      // MISSING ExtraSamples tag, so libtiff warns ("...doesn't match
+      // SamplesPerPixel" / "error in tile ..."). sharp's default failOn:'warning'
+      // promotes that to a thrown error and the thumbnail falls back to a raw
+      // file://*.tiff URL Chromium can't render. removeAlpha() drops that 4th
+      // (IR) band as a plain extra sample — without it, libvips reads it as alpha
+      // and jpegsave flattens RGB against black, darkening the colours.
+      // limitInputPixels:false allows multi-GB BigTIFF filmstrip scans.
+      await sharp(fullPath, { failOn: 'none', limitInputPixels: false })
+        .removeAlpha()
         .resize(300, 200, { fit: 'cover' })
         .jpeg({ quality: 80 })
         .toFile(thumbnailPath)

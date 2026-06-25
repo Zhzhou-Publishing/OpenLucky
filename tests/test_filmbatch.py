@@ -16,7 +16,9 @@ def test_filmbatch_non_raw_default_output(
     default_out = none_raw_input_dir / "output"
     assert default_out.is_dir()
 
-    inputs = sorted(p.name for p in none_raw_input_dir.iterdir() if p.is_file())
+    # Exclude the .preset.json sidecar the run writes into the input dir.
+    inputs = sorted(p.name for p in none_raw_input_dir.iterdir()
+                    if p.is_file() and not p.name.startswith("."))
     outputs = sorted(p.name for p in default_out.iterdir() if p.is_file())
     for name in inputs:
         assert name in outputs, f"missing output for input {name}"
@@ -37,7 +39,9 @@ def test_filmbatch_non_raw_explicit_output(
     )
     assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
 
-    inputs = [p.name for p in none_raw_input_dir.iterdir() if p.is_file()]
+    # Exclude the .preset.json sidecar the run writes into the input dir.
+    inputs = [p.name for p in none_raw_input_dir.iterdir()
+              if p.is_file() and not p.name.startswith(".")]
     outputs = [p.name for p in output_dir.iterdir() if p.is_file()]
     for name in inputs:
         assert name in outputs

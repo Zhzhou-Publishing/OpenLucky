@@ -29,6 +29,7 @@ let sharpToFileImpl = async () => ({})
 function sharpFactory(input) {
   sharpCalls.push(input)
   const chain = {
+    removeAlpha: () => chain,
     resize: () => chain,
     jpeg: () => chain,
     png: () => chain,

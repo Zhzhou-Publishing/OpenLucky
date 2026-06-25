@@ -166,6 +166,10 @@ def read_image_safe(filepath):
         if img_raw is None:
             raise ValueError(f"Cannot decode TIFF image: {filepath}")
 
+        # 丢弃第4个(IR)通道，仅保留RGB（TODO(IR): 以后暂存+回填）
+        if img_raw.ndim == 3 and img_raw.shape[2] > 3:
+            img_raw = img_raw[:, :, :3]
+
         is_16bit = img_raw.dtype == np.uint16
         return img_raw, is_16bit, False
 

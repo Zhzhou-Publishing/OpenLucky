@@ -29,6 +29,8 @@ import cv2
 import numpy as np
 import rawpy
 
+from cli.lib.tool.resize import read_image_safe
+
 SUPPORTED_TYPES = {"rgbl"}
 SUPPORTED_MODES = {"log", "linear"}
 
@@ -118,13 +120,19 @@ def load_image_for_histogram(input_path):
             )
         return img
 
-    img = cv2.imread(str(input_path))
+    # read_image_safe (numpy.fromfile + IMREAD_UNCHANGED), not bare cv2.imread:
+    #  - cv2.imread can't open Unicode/CJK paths on Windows (e.g. "D:\02 猫煞"),
+    #    so every image in a non-ASCII folder failed to histogram.
+    #  - IMREAD_UNCHANGED preserves 16-bit depth, which the 65536-bin path below
+    #    needs; bare imread silently downconverts to 8-bit. Mirrors pick.py.
+    img = read_image_safe(str(input_path))
     if img is None:
         raise ValueError(f"Failed to read image: {input_path}")
 
     if img.ndim == 2:
         img = np.stack([img, img, img], axis=-1)
     elif img.ndim == 3 and img.shape[2] >= 3:
+        # [:, :, :3] drops any 4th band (e.g. scanner IR/alpha); BGR->RGB.
         img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2RGB)
 
     return img

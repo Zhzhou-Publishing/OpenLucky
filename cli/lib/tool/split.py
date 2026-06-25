@@ -446,6 +446,10 @@ def split_strip(input_path, output_dir, orientation="auto", rotate=0,
             page = max(tif.pages, key=lambda p: int(p.shape[0]) * int(p.shape[1]))
             arr = page.asarray()
 
+        # 丢弃第4个(IR)通道，仅保留RGB（TODO(IR): 以后暂存+回填）
+        if arr.ndim == 3 and arr.shape[2] > 3:
+            arr = arr[:, :, :3]
+
         det = detect_frames(arr, orientation=orientation,
                             trim_baffle=trim_baffle, frames=frames,
                             drop_kelp=drop_kelp)

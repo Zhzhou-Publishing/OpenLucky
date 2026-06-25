@@ -29,7 +29,17 @@ function register() {
           const tempDir = tempDirObj.name
 
           const convertedPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
-          const buffer = await sharp(fullPath).jpeg({ quality: 95 }).toBuffer()
+          // failOn:'none' so libtiff warnings on 16-bit RGB+IR scanner TIFFs
+          // (4 samples, missing ExtraSamples tag) don't abort the convert
+          // (default failOn:'warning' would throw → unrenderable file://*.tiff).
+          // removeAlpha() drops the 4th (IR) band as a plain extra sample;
+          // otherwise libvips treats it as alpha and jpegsave flattens RGB
+          // against black, darkening the colours. limitInputPixels:false for
+          // multi-GB BigTIFF filmstrip scans.
+          const buffer = await sharp(fullPath, { failOn: 'none', limitInputPixels: false })
+            .removeAlpha()
+            .jpeg({ quality: 95 })
+            .toBuffer()
           fs.writeFileSync(convertedPath, buffer)
           imageUrl = `file://${convertedPath}`
         } catch (err) {
