@@ -1,6 +1,7 @@
 """Tests for `cli.openlucky filmparam`."""
 import json
 
+import cv2
 import pytest
 
 
@@ -40,6 +41,27 @@ def test_filmparam_non_raw_with_8_values(run_cli, random_none_raw_input, output_
     assert entry["contrast_r"] == 1.2
     assert entry["contrast_g"] == 1.3
     assert entry["contrast_b"] == 1.4
+
+
+@pytest.mark.slow
+def test_filmparam_exposure_is_monotonic(run_cli, random_none_raw_input, output_dir):
+    """Higher --exposure must yield a brighter image. The exposure stage runs
+    after the auto-levels normalization; if it is ever reordered before that
+    per-channel min-max stretch (a scale-invariant transform), the gain is
+    cancelled and exposure becomes a no-op. This guards that ordering."""
+    means = []
+    for ev in (-2.0, 0.0, 2.0):
+        out = output_dir / f"ev_{ev}.png"
+        res = run_cli(
+            "filmparam",
+            "-i", str(random_none_raw_input),
+            "-o", str(out),
+            "--param", "110,220,210,1.0,1.0",
+            "--exposure", str(ev),
+        )
+        assert res.returncode == 0, f"stdout: {res.stdout}\nstderr: {res.stderr}"
+        means.append(float(cv2.imread(str(out)).mean()))
+    assert means[0] < means[1] < means[2], f"exposure not monotonic: {means}"
 
 
 @pytest.mark.slow

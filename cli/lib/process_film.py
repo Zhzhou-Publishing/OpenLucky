@@ -309,14 +309,6 @@ def process_film_bytestream_with_params(
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
     )
 
-    # 调整曝光：走 LUT 通道，未命中时回退到原始函数。ev=0 时跳过避免量化损失。
-    if exposure_ev != 0.0:
-        img = apply_lut(
-            f"common.apply-exposure-{exposure_ev_mode}",
-            img,
-            ev=exposure_ev,
-        )
-
     # 4. Gamma correction：同样走 LUT 通道。gamma=1.0 时跳过避免量化损失。
     # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
     if preset_gamma != 1.0:
@@ -386,6 +378,17 @@ def process_film_bytestream_with_params(
             (img[:, :, i] - low) * (1.0 / denominator) * combined_contrast,
             0,
             1.0,
+        )
+
+    # 5.5 曝光调整（最终亮度增益）：必须放在自动色阶之后。自动色阶按通道做
+    # min-max 拉伸，是尺度不变变换，会把曝光的纯增益精确约掉；放在它之后，曝光
+    # 才能作为可预测的最终亮度控制生效。走 LUT 通道，未命中时回退到原始函数；
+    # LUT 与回退函数均把输出钳在 [0,1]，编码安全。ev=0 时跳过避免量化损失。
+    if exposure_ev != 0.0:
+        img = apply_lut(
+            f"common.apply-exposure-{exposure_ev_mode}",
+            img,
+            ev=exposure_ev,
         )
 
     # 6. Rotate image if needed (before encoding)
