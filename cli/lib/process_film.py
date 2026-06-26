@@ -6,7 +6,7 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
-from cli.lib.curve.s_curve import auto_pk, power_curve_raw
+from cli.lib.curve.s_curve import auto_pk, auto_latitude_curve, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
 
 
@@ -322,7 +322,9 @@ def process_film_bytestream_with_params(
     # （增对比），k=1 恒等。power_curve_raw 内部 np.power(float32, python_float)
     # 可能升到 float64，否则后面 cv2.cvtColor 会因 CV_64F 报错。
     # auto 模式：tone_pivot 和 tone_curve 各自独立可以是 float 或 'auto'/'auto:STR'。
-    # 任一为 auto 就调一次 auto_pk，把手动那一侧的值塞进去覆盖。
+    # 轴心 p 由 auto_pk 取中位数；曝光反差 k 走"宽容度自动"——以保住高光阴影
+    # 为目标（在裁切预算内取最自然的对比），不是 auto_pk 的"增对比到目标"逻辑，
+    # 后者对偏软的负片会给 k>1 打爆高光，正是用户每次手动拉到 -100 的原因。
     pivot_is_auto = (tone_pivot == 'auto')
     curve_is_auto = isinstance(tone_curve, str) and tone_curve.startswith('auto')
     if pivot_is_auto or curve_is_auto:
@@ -334,13 +336,18 @@ def process_film_bytestream_with_params(
             if roi_complete
             else None
         )
-        # 手动 pivot 时传给 auto_pk 让 k 反解与之自洽；手动 curve 时丢掉 auto_k
+        # 手动 pivot 时传给 auto_pk 让其与之自洽；auto 时取 ROI 中位数。
         pivot_override = None if pivot_is_auto else float(tone_pivot)
-        auto_p, auto_k = auto_pk(
-            img, roi=roi, strength=strength, pivot=pivot_override
-        )
+        auto_p, _ = auto_pk(img, roi=roi, strength=strength, pivot=pivot_override)
         eff_pivot = auto_p  # = pivot_override when manual
-        eff_curve = auto_k if curve_is_auto else float(tone_curve)
+        if curve_is_auto:
+            # contrast=preset_contrast：让宽容度算法预测下游 auto-levels 的实际裁切。
+            eff_curve = auto_latitude_curve(
+                img, eff_pivot, roi=roi,
+                contrast=preset_contrast, strength=strength,
+            )
+        else:
+            eff_curve = float(tone_curve)
     else:
         eff_pivot, eff_curve = tone_pivot, tone_curve
     img = power_curve_raw(img, p=eff_pivot, k=eff_curve).astype(np.float32)

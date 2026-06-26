@@ -88,6 +88,66 @@ def auto_pk(image, roi=None, strength=1.0, q=5, pivot=None):
     return p, k
 
 
+def auto_latitude_curve(image, pivot, roi=None, contrast=1.0, strength=1.0,
+                        budget_hi=1.5, budget_lo=1.0, k_min=0.45, k_max=1.0,
+                        steps=12, max_samples=200000):
+    """自动求"宽容度矫正"的曝光反差 k（保住高光阴影）。
+
+    与 auto_pk 不同：auto_pk 以"把对比拉到目标"为目标，对已经偏软的负片扫描
+    常给出 k>1（增对比），把高光打爆。这里只在保宽容度的区间 k<=1.0 取值，并
+    选"在裁切预算内最大的 k"——即用最自然的对比，前提是预测的**最终**裁切
+    （经过下游 auto-levels 拉伸与 contrast 之后）不超预算。需要压缩才压缩：会
+    裁切的图给更强的反 S，不会裁切的图保持 k≈1.0。
+
+    参数:
+    ----------
+    image : ndarray  (H, W, 3)，值域 [0,1]，stage-7 tone 之前的状态。
+    pivot : float     曲线轴心 p（用 auto_pk 求出的中位数）。
+    roi   : (x1,y1,x2,y2) or None  统计区域，None 为全图。
+    contrast : float  下游 auto-levels 的对比系数，用于准确预测最终裁切。
+    strength : float in [0,1]  软化系数，1.0 全力，0.0 退化为 k=1.0（不矫正）。
+    budget_hi / budget_lo : float  高光 / 阴影裁切像素占比预算（%）。
+    k_min / k_max : float  k 取值范围；上限 1.0 保证永不反向增对比。
+    """
+    if roi is not None:
+        x1, y1, x2, y2 = roi
+        h, w = image.shape[:2]
+        x1 = max(0, min(w, int(round(x1)))); x2 = max(0, min(w, int(round(x2))))
+        y1 = max(0, min(h, int(round(y1)))); y2 = max(0, min(h, int(round(y2))))
+        sample = image[y1:y2, x1:x2] if (x2 - x1 >= 2 and y2 - y1 >= 2) else image
+    else:
+        sample = image
+
+    flat = sample.reshape(-1, sample.shape[-1]).astype(np.float64, copy=False)
+    # 等距抽样而非 INTER_AREA 缩放：均值缩放会抹平极端像素、低估裁切；等距抽样
+    # 保持数值分布，裁切占比无偏。
+    if flat.shape[0] > max_samples:
+        flat = flat[:: flat.shape[0] // max_samples]
+    p = float(np.clip(pivot, 0.01, 0.99))
+
+    def clip_pct(k):
+        toned = power_curve_raw(flat, p, k)
+        hi = lo = 0.0
+        for c in range(toned.shape[-1]):
+            ch = toned[:, c]
+            c_lo = np.percentile(ch, 0.01)
+            c_hi = np.percentile(ch, 99.99)
+            st = np.clip((ch - c_lo) / max(c_hi - c_lo, 1e-5) * contrast, 0.0, 1.0)
+            hi = max(hi, float(np.mean(st > 253.0 / 255.0) * 100.0))
+            lo = max(lo, float(np.mean(st < 2.0 / 255.0) * 100.0))
+        return lo, hi
+
+    best = k_min
+    for k in np.linspace(k_max, k_min, steps):  # 最大 k 优先 → 取最自然对比
+        lo, hi = clip_pct(float(k))
+        if hi <= budget_hi and lo <= budget_lo:
+            best = float(k)
+            break
+
+    strength = float(np.clip(strength, 0.0, 1.0))
+    return float(1.0 - strength * (1.0 - best))  # strength<1 软化回 k=1.0
+
+
 def power_curve_raw(image, p=0.5, k=1.0):
     """
     底层 Power Curve 实现，直接暴露数学参数。
