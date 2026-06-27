@@ -6,7 +6,7 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
-from cli.lib.curve.s_curve import auto_pk, power_curve_raw
+from cli.lib.curve.s_curve import auto_pk, auto_latitude_curve, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
 
 
@@ -288,7 +288,7 @@ def process_film_bytestream_with_params(
             # 应用偏移
             gains[0] = awb_gains[0] * (1.0 + shift_x)  # 红
             gains[2] = awb_gains[2] * (1.0 - shift_x)  # 蓝
-            gains[1] = awb_gains[1] * (1.0 + shift_y)  # 绿
+            gains[1] = awb_gains[1] * (1.0 - shift_y)  # 绿
 
     # --- 3.3 再次归一化 (防溢出) ---
     # 无论怎么调，确保最亮的那个通道在应用增益后刚好是 1.0
@@ -309,14 +309,6 @@ def process_film_bytestream_with_params(
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
     )
 
-    # 调整曝光：走 LUT 通道，未命中时回退到原始函数。ev=0 时跳过避免量化损失。
-    if exposure_ev != 0.0:
-        img = apply_lut(
-            f"common.apply-exposure-{exposure_ev_mode}",
-            img,
-            ev=exposure_ev,
-        )
-
     # 4. Gamma correction：同样走 LUT 通道。gamma=1.0 时跳过避免量化损失。
     # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
     if preset_gamma != 1.0:
@@ -330,7 +322,9 @@ def process_film_bytestream_with_params(
     # （增对比），k=1 恒等。power_curve_raw 内部 np.power(float32, python_float)
     # 可能升到 float64，否则后面 cv2.cvtColor 会因 CV_64F 报错。
     # auto 模式：tone_pivot 和 tone_curve 各自独立可以是 float 或 'auto'/'auto:STR'。
-    # 任一为 auto 就调一次 auto_pk，把手动那一侧的值塞进去覆盖。
+    # 轴心 p 由 auto_pk 取中位数；曝光反差 k 走"宽容度自动"——以保住高光阴影
+    # 为目标（在裁切预算内取最自然的对比），不是 auto_pk 的"增对比到目标"逻辑，
+    # 后者对偏软的负片会给 k>1 打爆高光，正是用户每次手动拉到 -100 的原因。
     pivot_is_auto = (tone_pivot == 'auto')
     curve_is_auto = isinstance(tone_curve, str) and tone_curve.startswith('auto')
     if pivot_is_auto or curve_is_auto:
@@ -342,13 +336,18 @@ def process_film_bytestream_with_params(
             if roi_complete
             else None
         )
-        # 手动 pivot 时传给 auto_pk 让 k 反解与之自洽；手动 curve 时丢掉 auto_k
+        # 手动 pivot 时传给 auto_pk 让其与之自洽；auto 时取 ROI 中位数。
         pivot_override = None if pivot_is_auto else float(tone_pivot)
-        auto_p, auto_k = auto_pk(
-            img, roi=roi, strength=strength, pivot=pivot_override
-        )
+        auto_p, _ = auto_pk(img, roi=roi, strength=strength, pivot=pivot_override)
         eff_pivot = auto_p  # = pivot_override when manual
-        eff_curve = auto_k if curve_is_auto else float(tone_curve)
+        if curve_is_auto:
+            # contrast=preset_contrast：让宽容度算法预测下游 auto-levels 的实际裁切。
+            eff_curve = auto_latitude_curve(
+                img, eff_pivot, roi=roi,
+                contrast=preset_contrast, strength=strength,
+            )
+        else:
+            eff_curve = float(tone_curve)
     else:
         eff_pivot, eff_curve = tone_pivot, tone_curve
     img = power_curve_raw(img, p=eff_pivot, k=eff_curve).astype(np.float32)
@@ -386,6 +385,17 @@ def process_film_bytestream_with_params(
             (img[:, :, i] - low) * (1.0 / denominator) * combined_contrast,
             0,
             1.0,
+        )
+
+    # 5.5 曝光调整（最终亮度增益）：必须放在自动色阶之后。自动色阶按通道做
+    # min-max 拉伸，是尺度不变变换，会把曝光的纯增益精确约掉；放在它之后，曝光
+    # 才能作为可预测的最终亮度控制生效。走 LUT 通道，未命中时回退到原始函数；
+    # LUT 与回退函数均把输出钳在 [0,1]，编码安全。ev=0 时跳过避免量化损失。
+    if exposure_ev != 0.0:
+        img = apply_lut(
+            f"common.apply-exposure-{exposure_ev_mode}",
+            img,
+            ev=exposure_ev,
         )
 
     # 6. Rotate image if needed (before encoding)
