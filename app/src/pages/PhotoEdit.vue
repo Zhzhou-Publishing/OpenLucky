@@ -304,9 +304,9 @@ function currentToneForIpc() {
 }
 // 渐变贴在 slider 轨道上，给用户一个色温/色调拉杆方向的视觉锚点：
 //   色温 -50 偏冷蓝 / 0 中性 / +50 偏暖琥珀
-//   色调 -50 偏品红 / 0 中性 / +50 偏绿（CLI 里 +y 是抬绿色增益）
+//   色调 -50 偏绿 / 0 中性 / +50 偏品红（与 Lightroom 方向一致）
 const WB_TEMP_GRADIENT = 'linear-gradient(to right, #4a90e2 0%, #cccccc 50%, #f5a623 100%)'
-const WB_TINT_GRADIENT = 'linear-gradient(to right, #e91e63 0%, #cccccc 50%, #4caf50 100%)'
+const WB_TINT_GRADIENT = 'linear-gradient(to right, #4caf50 0%, #cccccc 50%, #e91e63 100%)'
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
 // 旋转操作：先发 IPC，成功后再旋转选区坐标，避免 IPC 失败时选区被错误旋转

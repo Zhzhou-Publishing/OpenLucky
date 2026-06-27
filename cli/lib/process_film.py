@@ -288,7 +288,7 @@ def process_film_bytestream_with_params(
             # 应用偏移
             gains[0] = awb_gains[0] * (1.0 + shift_x)  # 红
             gains[2] = awb_gains[2] * (1.0 - shift_x)  # 蓝
-            gains[1] = awb_gains[1] * (1.0 + shift_y)  # 绿
+            gains[1] = awb_gains[1] * (1.0 - shift_y)  # 绿
 
     # --- 3.3 再次归一化 (防溢出) ---
     # 无论怎么调，确保最亮的那个通道在应用增益后刚好是 1.0
