@@ -39,6 +39,7 @@
              :class="{ 'eyedropper-active': eyedropperActive, 'area-select-active': areaSelectActive }"
              :style="{ height: imageDisplayHeight }"
              @wheel="onImageDisplayWheel"
+             @mousemove="onImageDisplayMouseMove"
              @contextmenu.prevent="onContextMenu">
           <div class="image-wrapper"
                :style="imageWrapperStyle"
@@ -648,6 +649,29 @@ function startEyedropper() {
 
 function exitEyedropper() {
   eyedropperActive.value = false
+}
+
+let hintShowTimer = null
+function onImageDisplayMouseMove(e) {
+  const hints = e.currentTarget.querySelectorAll('.eyedropper-hint, .area-select-hint')
+  if (hints.length === 0) return
+  const buffer = 6
+  for (const hint of hints) {
+    const rect = hint.getBoundingClientRect()
+    const hovering = e.clientX >= rect.left - buffer &&
+                     e.clientX <= rect.right + buffer &&
+                     e.clientY >= rect.top - buffer &&
+                     e.clientY <= rect.bottom + buffer
+    if (hovering) {
+      clearTimeout(hintShowTimer)
+      hint.classList.add('hint-hidden')
+    } else {
+      clearTimeout(hintShowTimer)
+      hintShowTimer = setTimeout(() => {
+        hint.classList.remove('hint-hidden')
+      }, 200)
+    }
+  }
 }
 
 async function onImageClick(e) {
@@ -2115,6 +2139,12 @@ onUnmounted(() => {
   pointer-events: none;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.15s ease;
+}
+
+.eyedropper-hint.hint-hidden,
+.area-select-hint.hint-hidden {
+  opacity: 0;
 }
 
 .image-wrapper {
