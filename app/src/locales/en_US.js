@@ -87,6 +87,10 @@ export default {
       title: 'Select a Preset',
       save: 'Apply',
       pickColor: 'Pick Mask Color'
+    },
+    globalMaskPreset: {
+      confirmMessage: 'Set this pick result as the global roll mask preset?',
+      labelPrefix: 'Global Mask - from'
     }
   },
   bottomMenu: {

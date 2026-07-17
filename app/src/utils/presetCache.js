@@ -5,6 +5,9 @@ const logger = createRendererLogger('PresetCache')
 
 export const presets = ref([])
 
+/** 全局色罩临时预设：吸取一次色罩供整卷使用，同一次 app 会话内跨页面保持 */
+export const globalMaskPreset = ref(null)
+
 export function fetchPresets() {
   return new Promise((resolve, reject) => {
     if (!window.require) {

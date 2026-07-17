@@ -87,6 +87,10 @@ export default {
       title: '选择预设',
       save: '套用',
       pickColor: '吸管色罩'
+    },
+    globalMaskPreset: {
+      confirmMessage: '是否将此取色结果设为整卷全局色罩预设？',
+      labelPrefix: '全局色罩-来自'
     }
   },
   bottomMenu: {

@@ -210,7 +210,7 @@
       @cancel="onPresetModalCancel"
     >
       <select v-model="selectedModalPreset" class="preset-modal-select">
-        <option v-for="p in globalPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
+        <option v-for="p in presetOptions" :key="p.value" :value="p.value">{{ p.label }}</option>
       </select>
     </Modal>
   </div>
@@ -228,7 +228,7 @@ import Tabs from '../components/Tabs.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
-import { presets as globalPresets } from '../utils/presetCache'
+import { presets as globalPresets, globalMaskPreset } from '../utils/presetCache'
 import { createRendererLogger } from '../utils/rendererLogger'
 
 const logger = createRendererLogger('PhotoEdit')
@@ -726,6 +726,18 @@ function applyPickResult(picked) {
   input4.value = 2.2
   input5.value = 1.1
   apply()
+  if (window.confirm(t('photoEdit.globalMaskPreset.confirmMessage'))) {
+    const filename = currentImage.value?.name || ''
+    globalMaskPreset.value = {
+      value: '__global_mask__',
+      label: filename ? `${t('photoEdit.globalMaskPreset.labelPrefix')} ${filename}` : t('photoEdit.globalMaskPreset.labelPrefix'),
+      mask_r: picked.r,
+      mask_g: picked.g,
+      mask_b: picked.b,
+      gamma: 2.2,
+      contrast: 1.1,
+    }
+  }
 }
 
 function copyParams() {
@@ -765,10 +777,16 @@ function pasteParams() {
 const presetModalOpen = ref(false)
 const selectedModalPreset = ref('')
 
+const presetOptions = computed(() => {
+  if (globalMaskPreset.value) {
+    return [globalMaskPreset.value, ...globalPresets.value]
+  }
+  return globalPresets.value
+})
+
 function openPresetModal() {
-  if (globalPresets.value.length > 0) {
-    const stillExists = globalPresets.value.some(p => p.value === selectedModalPreset.value)
-    if (!stillExists) selectedModalPreset.value = globalPresets.value[0].value
+  if (presetOptions.value.length > 0) {
+    selectedModalPreset.value = presetOptions.value[0].value
   }
   presetModalOpen.value = true
 }
@@ -778,7 +796,7 @@ function onPresetModalCancel(source) {
 }
 
 function applyPresetFromModal() {
-  const preset = globalPresets.value.find(p => p.value === selectedModalPreset.value)
+  const preset = presetOptions.value.find(p => p.value === selectedModalPreset.value)
   if (!preset) return
   input1.value = preset.mask_r ?? 255
   input2.value = preset.mask_g ?? 255
@@ -1747,7 +1765,7 @@ const loadPresetForCurrentImage = () => {
     // Auto-prompt the apply-preset modal once we know .preset.json was
     // actually read (so we don't flash it during initial mount races) and
     // there's at least one preset to choose from.
-    if (presetsDataLoaded.value && globalPresets.value.length > 0 && !presetModalOpen.value) {
+    if (presetsDataLoaded.value && presetOptions.value.length > 0 && !presetModalOpen.value) {
       openPresetModal()
     }
   }
