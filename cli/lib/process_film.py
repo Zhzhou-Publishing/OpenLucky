@@ -300,13 +300,15 @@ def process_film_bytestream_with_params(
     img *= gains
     img = np.clip(img, 0, 1.0)
 
-    # --- 插入中间调对齐逻辑 ---
-    # 加法位移实现：在 sin² 权重下把每通道中位数朝目标拉近，幅度被 SHIFT_CAP
-    # 截断；端点严格保留。user_ev_bias 仅在 mode='ev_target' 时起作用。
+    # --- 中间调对齐 ---
+    # 逐通道 gamma 校正，以绿色通道中位数为基准对齐 RGB 中间调。
+    # protect_latitude=True 通过 sin² 权重将校正限制在中间调，保留高光与阴影。
+    # user_ev_bias 仅在 mode='ev_target' 时生效。
     img = apply_gamma_alignment(
         img,
         roi=(wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
+        protect_latitude=True,
     )
 
     # 4. Gamma correction：同样走 LUT 通道。gamma=1.0 时跳过避免量化损失。
