@@ -9,6 +9,16 @@ from cli.lib.lut import apply_lut
 from cli.lib.curve.s_curve import auto_pk, auto_latitude_curve, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
 
+# ── 色彩校正模式 ──────────────────────────────────────────────────────────
+# 每个模式定义 gamma 对齐强度、肤色保护开关、tone 映射强度。
+# 整个链路只传递 color_mode 字符串，内部参数不暴露给前端。
+COLOR_MODES = {
+    "skin_protect": {"gamma_strength": 0.3, "skin_protection": True,  "tone_strength": 0.6},
+    "balanced":     {"gamma_strength": 0.6, "skin_protection": True,  "tone_strength": 1.0},
+    "deep":         {"gamma_strength": 1.0, "skin_protection": False, "tone_strength": 1.0},
+    "preserve":     {"gamma_strength": 0.1, "skin_protection": True,  "tone_strength": 0.2},
+}
+
 
 def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
     """Map a basis-frame ROI back to the actual decoded image's coords.
@@ -124,6 +134,7 @@ def process_film_bytestream_with_params(
     tone_pivot=0.5,
     tone_curve=0.5,
     is_raw=False,
+    color_mode="skin_protect",
 ):
     """
     Process byte stream image, supports RAW format toggle
@@ -304,11 +315,15 @@ def process_film_bytestream_with_params(
     # 逐通道 gamma 校正，以绿色通道中位数为基准对齐 RGB 中间调。
     # protect_latitude=True 通过 sin² 权重将校正限制在中间调，保留高光与阴影。
     # user_ev_bias 仅在 mode='ev_target' 时生效。
+    # strength / skin_protection 由 color_mode 决定。
+    mode_cfg = COLOR_MODES.get(color_mode, COLOR_MODES["skin_protect"])
     img = apply_gamma_alignment(
         img,
         roi=(wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
         protect_latitude=True,
+        strength=mode_cfg["gamma_strength"],
+        skin_protection=mode_cfg["skin_protection"],
     )
 
     # 4. Gamma correction：同样走 LUT 通道。gamma=1.0 时跳过避免量化损失。
@@ -330,7 +345,7 @@ def process_film_bytestream_with_params(
     pivot_is_auto = (tone_pivot == 'auto')
     curve_is_auto = isinstance(tone_curve, str) and tone_curve.startswith('auto')
     if pivot_is_auto or curve_is_auto:
-        strength = 1.0
+        strength = mode_cfg["tone_strength"]
         if isinstance(tone_curve, str) and tone_curve.startswith('auto:'):
             strength = float(tone_curve.split(':', 1)[1])
         roi = (
@@ -450,6 +465,7 @@ def process_film_with_params(
     exposure_ev=0.0,
     tone_pivot=0.5,
     tone_curve=0.5,
+    color_mode="skin_protect",
 ):
     # 1. Read input file as byte stream
     try:
@@ -486,6 +502,7 @@ def process_film_with_params(
         exposure_ev=exposure_ev,
         tone_pivot=tone_pivot,
         tone_curve=tone_curve,
+        color_mode=color_mode,
     )
 
     # 3. Write output byte stream to file

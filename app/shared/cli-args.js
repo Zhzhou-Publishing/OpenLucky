@@ -51,6 +51,13 @@ function appendTone(args, tone) {
   return args
 }
 
+function appendColorMode(args, colorMode) {
+  if (typeof colorMode === 'string' && colorMode.length > 0) {
+    args.push('--color-mode', colorMode)
+  }
+  return args
+}
+
 // ── Command builders ─────────────────────────────────────────────────────────
 
 // `filmparam` (single file) and `filmparambatch` share this shape. Pass
@@ -66,7 +73,8 @@ function buildFilmparamArgs({
   areaBasis = null,
   exposure = null,
   whiteBalance = null,
-  tone = null
+  tone = null,
+  colorMode = null
 }) {
   const args = [command, '--input', input, '--output', output, '--param', param]
   if (rotateClockwise !== null && rotateClockwise !== undefined) {
@@ -76,6 +84,7 @@ function buildFilmparamArgs({
   appendExposure(args, exposure)
   appendWhiteBalance(args, whiteBalance)
   appendTone(args, tone)
+  appendColorMode(args, colorMode)
   return args
 }
 
@@ -195,6 +204,7 @@ module.exports = {
   appendExposure,
   appendWhiteBalance,
   appendTone,
+  appendColorMode,
   buildFilmparamArgs,
   buildFilmbatchArgs,
   buildHistogramArgs,

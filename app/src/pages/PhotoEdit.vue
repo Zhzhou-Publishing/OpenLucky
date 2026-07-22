@@ -76,7 +76,8 @@
           { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
           { id: 'exposure', label: $t('photoEdit.exposureTab') },
           { id: 'tone', label: $t('photoEdit.toneTab') },
-          { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') }
+          { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') },
+          { id: 'color_mode', label: $t('photoEdit.colorModeTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
             <!-- Basic Parameters Tab -->
@@ -184,6 +185,20 @@
               </div>
             </div>
 
+            <!-- Color Mode Tab -->
+            <div v-if="activeTab === 'color_mode'" class="tab-content color-mode-tab">
+              <div class="color-mode-radios">
+                <label v-for="mode in colorModeOptions" :key="mode.value"
+                  class="color-mode-radio"
+                  :class="{ disabled: isAllImagesAffected || isCurrentImageAffected }"
+                  :title="mode.desc">
+                  <input type="radio" :value="mode.value" v-model="colorMode"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                  <span class="radio-label">{{ mode.label }}</span>
+                </label>
+              </div>
+            </div>
+
             <!-- Common Action Buttons -->
             <div class="action-buttons">
               <button @click="apply" class="apply-button" title="Enter"
@@ -266,6 +281,15 @@ const toneCurveUi = ref(0)
 // 默认开启：多数胶片冲扫直接吃自动值即可，需要手动微调再取消勾选。
 const tonePivotAuto = ref(true)
 const toneCurveAuto = ref(true)
+
+// 色彩校正模式
+const colorMode = ref('skin_protect')
+const colorModeOptions = computed(() => [
+  { value: 'skin_protect', label: t('photoEdit.colorModeSkinProtect'), desc: t('photoEdit.colorModeSkinProtectDesc') },
+  { value: 'balanced', label: t('photoEdit.colorModeBalanced'), desc: t('photoEdit.colorModeBalancedDesc') },
+  { value: 'deep', label: t('photoEdit.colorModeDeep'), desc: t('photoEdit.colorModeDeepDesc') },
+  { value: 'preserve', label: t('photoEdit.colorModePreserve'), desc: t('photoEdit.colorModePreserveDesc') },
+])
 
 // UI [-100, 100] → 内部 p ∈ [0.20, 0.80]（线性映射）
 function tonePivotUiToInternal(ui) {
@@ -1283,7 +1307,8 @@ const apply = () => {
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
       whiteBalance: currentWhiteBalanceForIpc(),
-      tone: currentToneForIpc()
+      tone: currentToneForIpc(),
+      colorMode: colorMode.value
     })
 
     // Handle response
@@ -1396,7 +1421,8 @@ const applyAll = () => {
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
       whiteBalance: currentWhiteBalanceForIpc(),
-      tone: currentToneForIpc()
+      tone: currentToneForIpc(),
+      colorMode: colorMode.value
     })
 
     // Handle response
@@ -1746,6 +1772,7 @@ const loadPresetForCurrentImage = () => {
     contrastB.value = preset.contrast_b ?? 1.0
     applyTonePresetToUi(preset)
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
+    colorMode.value = preset.color_mode || 'skin_protect'
   } else {
     // Reset to default if no preset found
     input1.value = 255
@@ -1761,6 +1788,7 @@ const loadPresetForCurrentImage = () => {
     tonePivotAuto.value = true
     toneCurveAuto.value = true
     rotateClockwiseMap.value[currentFileName.value] = 0
+    colorMode.value = 'skin_protect'
 
     // Auto-prompt the apply-preset modal once we know .preset.json was
     // actually read (so we don't flash it during initial mount races) and
@@ -2380,5 +2408,55 @@ onUnmounted(() => {
   background: var(--btn-disabled-bg);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Color Mode Radio Buttons */
+.color-mode-radios {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.color-mode-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.color-mode-radio:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.color-mode-radio input[type="radio"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.color-mode-radio:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(66, 184, 131, 0.1);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.color-mode-radio.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.color-mode-radio .radio-label {
+  white-space: nowrap;
 }
 </style>

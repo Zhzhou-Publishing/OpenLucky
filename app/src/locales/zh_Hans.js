@@ -88,6 +88,15 @@ export default {
       save: '套用',
       pickColor: '吸管色罩'
     },
+    colorModeTab: '色彩模式',
+    colorModeSkinProtect: '保护肤色',
+    colorModeSkinProtectDesc: '人像、乐凯等有个性的胶片',
+    colorModeBalanced: '均衡',
+    colorModeBalancedDesc: '通用，之前的默认行为',
+    colorModeDeep: '深度校正',
+    colorModeDeepDesc: '产品、风光，追求中性色彩',
+    colorModePreserve: '保留原片',
+    colorModePreserveDesc: '几乎跳过校正，完全保留胶片原始色彩特征',
     globalMaskPreset: {
       confirmMessage: '是否将此取色结果设为整卷全局色罩预设？',
       labelPrefix: '全局色罩-来自'

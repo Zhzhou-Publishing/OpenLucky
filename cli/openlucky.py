@@ -318,6 +318,9 @@ def main():
                              help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
     film_parser.add_argument('--tone', required=False, default=None,
                              help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
+    film_parser.add_argument('--color-mode', required=False, default='skin_protect',
+                             choices=['skin_protect', 'balanced', 'deep', 'preserve'],
+                             help='Color correction mode (default: skin_protect)')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -339,6 +342,9 @@ def main():
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
     filmbatch_parser.add_argument('--tone', required=False, default=None,
                                    help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
+    filmbatch_parser.add_argument('--color-mode', required=False, default='skin_protect',
+                                   choices=['skin_protect', 'balanced', 'deep', 'preserve'],
+                                   help='Color correction mode (default: skin_protect)')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -361,6 +367,9 @@ def main():
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
     filmparam_parser.add_argument('--tone', required=False, default=None,
                                    help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
+    filmparam_parser.add_argument('--color-mode', required=False, default='skin_protect',
+                                   choices=['skin_protect', 'balanced', 'deep', 'preserve'],
+                                   help='Color correction mode (default: skin_protect)')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -383,6 +392,9 @@ def main():
                                          help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
     filmparambatch_parser.add_argument('--tone', required=False, default=None,
                                          help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
+    filmparambatch_parser.add_argument('--color-mode', required=False, default='skin_protect',
+                                         choices=['skin_protect', 'balanced', 'deep', 'preserve'],
+                                         help='Color correction mode (default: skin_protect)')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -587,7 +599,8 @@ def main():
             white_balance=white_balance,
             tone_pivot=tone[0] if tone else 0.5,
             tone_curve=tone[1] if tone else 0.5,
-            is_raw=is_raw
+            is_raw=is_raw,
+            color_mode=args.color_mode,
         )
 
         if output_bytes is None:
@@ -721,6 +734,7 @@ def main():
                     white_balance=white_balance,
                     tone_pivot=tone[0] if tone else 0.5,
                     tone_curve=tone[1] if tone else 0.5,
+                    color_mode=args.color_mode,
                 )
 
 
@@ -850,7 +864,8 @@ def main():
             white_balance=white_balance,
             tone_pivot=tone[0] if tone else 0.5,
             tone_curve=tone[1] if tone else 0.5,
-            is_raw=is_raw
+            is_raw=is_raw,
+            color_mode=args.color_mode,
         )
 
         if output_bytes is None:
@@ -887,6 +902,7 @@ def main():
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
             'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
+            'color_mode': args.color_mode,
         }
         # Persist white-point ROI + basis so a later batch save against the
         # original full-res file can replay the same sampling window.
@@ -982,6 +998,7 @@ def main():
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
             'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
+            'color_mode': args.color_mode,
         }
         # Persist ROI + basis alongside the per-file preset so a later
         # batch save against the original full-res file can replay sampling.
@@ -1026,6 +1043,7 @@ def main():
                     white_balance=white_balance,
                     tone_pivot=tone[0] if tone else 0.5,
                     tone_curve=tone[1] if tone else 0.5,
+                    color_mode=args.color_mode,
                 )
                 success_count += 1
 

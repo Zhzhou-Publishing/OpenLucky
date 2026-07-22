@@ -88,6 +88,15 @@ export default {
       save: 'Apply',
       pickColor: 'Pick Mask Color'
     },
+    colorModeTab: 'Color Mode',
+    colorModeSkinProtect: 'Skin Protection',
+    colorModeSkinProtectDesc: 'Portraits, films with strong character like Lucky',
+    colorModeBalanced: 'Balanced',
+    colorModeBalancedDesc: 'General purpose, previous default behavior',
+    colorModeDeep: 'Deep Correction',
+    colorModeDeepDesc: 'Product, landscape, for neutral color accuracy',
+    colorModePreserve: 'Preserve Original',
+    colorModePreserveDesc: 'Minimal correction, fully retain film character',
     globalMaskPreset: {
       confirmMessage: 'Set this pick result as the global roll mask preset?',
       labelPrefix: 'Global Mask - from'
