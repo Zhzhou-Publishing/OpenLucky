@@ -1,11 +1,11 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const { readPresetJson } = require('../shared/utils')
 const { createLogger } = require('../shared/logger')
 
 const logger = createLogger('ReadPresetJson')
 
 function register() {
-  ipcMain.on('read-preset-json', async (event, directoryPath) => {
+  registerHandler('read-preset-json', async (event, directoryPath) => {
     try {
       event.sender.send('preset-json-loaded', { presets: readPresetJson(directoryPath) })
     } catch (error) {

@@ -1,3 +1,4 @@
+const { registerHandler } = require('../ipc/engine')
 const { ipcMain } = require('electron')
 const fs = require('fs')
 const path = require('path')
@@ -16,7 +17,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('PrepareWorkingDirFromSelected')
 
 function register() {
-  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath, options = {}) => {
+  registerHandler('prepare-working-directory-from-selected', async (event, directoryPath, options = {}) => {
     let cancelled = false
 
     const onCancel = () => {
@@ -61,8 +62,6 @@ function register() {
 
         if (cancelled) {
           logger.info('Processing cancelled by user')
-          // throwing skips subsequent images via limit's error path,
-          // but Promise.all will still wait for already-running tasks.
           throw new Error('CANCELLED')
         }
 

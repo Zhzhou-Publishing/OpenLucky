@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
@@ -16,7 +16,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('PrepareWorkingDir')
 
 function register() {
-  ipcMain.on('prepare-working-directory', async (event, directoryPath, options = {}) => {
+  registerHandler('prepare-working-directory', async (event, directoryPath, options = {}) => {
     try {
       const compressPreview = options.compressPreview === true
       const resizeOptions = compressPreview ? { value: 1920 } : {}

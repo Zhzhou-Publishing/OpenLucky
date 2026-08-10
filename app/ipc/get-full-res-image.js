@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const path = require('path')
 const fs = require('fs')
 const sharp = require('sharp')
@@ -14,7 +14,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('GetFullResImage')
 
 function register() {
-  ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
+  registerHandler('get-full-res-image', async (event, { directoryPath, filename }) => {
     try {
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
 
@@ -29,13 +29,6 @@ function register() {
           const tempDir = tempDirObj.name
 
           const convertedPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
-          // failOn:'none' so libtiff warnings on 16-bit RGB+IR scanner TIFFs
-          // (4 samples, missing ExtraSamples tag) don't abort the convert
-          // (default failOn:'warning' would throw → unrenderable file://*.tiff).
-          // removeAlpha() drops the 4th (IR) band as a plain extra sample;
-          // otherwise libvips treats it as alpha and jpegsave flattens RGB
-          // against black, darkening the colours. limitInputPixels:false for
-          // multi-GB BigTIFF filmstrip scans.
           const buffer = await sharp(fullPath, { failOn: 'none', limitInputPixels: false })
             .removeAlpha()
             .jpeg({ quality: 95 })

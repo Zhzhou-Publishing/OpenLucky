@@ -1,7 +1,8 @@
-const { ipcMain, shell } = require('electron')
+const { registerHandler } = require('../ipc/engine')
+const { shell } = require('electron')
 
 function register() {
-  ipcMain.on('open-external', (_, url) => {
+  registerHandler('open-external', (_, url) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
       shell.openExternal(url)
     }

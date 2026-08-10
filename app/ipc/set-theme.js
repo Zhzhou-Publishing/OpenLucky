@@ -1,7 +1,8 @@
-const { ipcMain, nativeTheme } = require('electron')
+const { registerHandler } = require('../ipc/engine')
+const { nativeTheme } = require('electron')
 
 function register() {
-  ipcMain.on('set-theme', (_, themeName) => {
+  registerHandler('set-theme', (_, themeName) => {
     nativeTheme.themeSource = themeName === 'dark' ? 'dark' : 'light'
   })
 }

@@ -1,10 +1,10 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const { getWin } = require('../shared/main-window')
 
 let allowClose = false
 
 function register() {
-  ipcMain.on('confirm-close-response', (_, allow) => {
+  registerHandler('confirm-close', (_, allow) => {
     if (allow) {
       allowClose = true
       const win = getWin()

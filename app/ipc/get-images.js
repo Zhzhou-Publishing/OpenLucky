@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const tmp = require('tmp')
@@ -15,7 +15,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('GetImages')
 
 function register() {
-  ipcMain.on('get-images', async (_, directoryPath) => {
+  registerHandler('get-images', async (_, directoryPath) => {
     try {
       const files = fs.readdirSync(directoryPath)
 

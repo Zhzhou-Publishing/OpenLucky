@@ -1,4 +1,5 @@
-const { ipcMain, dialog } = require('electron')
+const { registerHandler } = require('../ipc/engine')
+const { dialog } = require('electron')
 const fs = require('fs')
 const { getWin } = require('../shared/main-window')
 const { createLogger } = require('../shared/logger')
@@ -6,7 +7,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('SelectDirectory')
 
 function register() {
-  ipcMain.on('select-directory', async () => {
+  registerHandler('select-directory', async () => {
     try {
       const win = getWin()
       if (!win || win.isDestroyed()) return

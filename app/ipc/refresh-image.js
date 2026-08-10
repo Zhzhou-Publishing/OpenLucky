@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const tmp = require('tmp')
 const { readPresetJson, buildThumbnailEntry } = require('../shared/utils')
 const { createLogger } = require('../shared/logger')
@@ -6,7 +6,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('RefreshImage')
 
 function register() {
-  ipcMain.on('refresh-image', async (event, { directoryPath, filename }) => {
+  registerHandler('refresh-image', async (event, { directoryPath, filename }) => {
     try {
       const presets = readPresetJson(directoryPath)
       const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-thumbnail_', unsafeCleanup: true })

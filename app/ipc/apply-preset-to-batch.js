@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
@@ -15,7 +15,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('ApplyPresetToBatch')
 
 function register() {
-  ipcMain.on('apply-preset-to-batch', async (event, { presetFile, inputDir, outputDir }) => {
+  registerHandler('apply-preset-to-batch', async (event, { presetFile, inputDir, outputDir }) => {
     try {
       if (!fs.existsSync(presetFile)) {
         event.sender.send('preset-to-batch-error', { message: 'Preset file not found', error: `Preset file does not exist: ${presetFile}` })

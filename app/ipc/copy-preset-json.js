@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const { createLogger } = require('../shared/logger')
@@ -6,7 +6,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('CopyPresetJson')
 
 function register() {
-  ipcMain.on('copy-preset-json', async (event, { workingDirectory, originalDirectory }) => {
+  registerHandler('copy-preset-json', async (event, { workingDirectory, originalDirectory }) => {
     try {
       const presetJsonSource = path.join(workingDirectory, '.preset.json')
       const presetJsonDest = path.join(originalDirectory, '.preset.json')

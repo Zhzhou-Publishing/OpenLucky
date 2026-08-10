@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const { createLogger } = require('../shared/logger')
@@ -6,7 +6,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('ResetImage')
 
 function register() {
-  ipcMain.on('reset-image', async (event, { workingDirectory, outputDirectory, filename }) => {
+  registerHandler('reset-image', async (event, { workingDirectory, outputDirectory, filename }) => {
     try {
       const presetFile = path.join(workingDirectory, '.preset.json')
       if (fs.existsSync(presetFile)) {

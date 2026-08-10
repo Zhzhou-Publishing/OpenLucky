@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron')
+const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
@@ -14,7 +14,7 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('ApplyPresetToFile')
 
 function register() {
-  ipcMain.on('apply-preset-to-file', async (event, { presetFile, inputFilePath, outputFilePath }) => {
+  registerHandler('apply-preset-to-file', async (event, { presetFile, inputFilePath, outputFilePath }) => {
     try {
       if (!fs.existsSync(presetFile)) {
         event.sender.send('preset-to-file-error', { message: 'Preset file not found', error: `Preset file does not exist: ${presetFile}` })
