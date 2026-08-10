@@ -64,6 +64,7 @@ import Popover from '../components/Popover.vue'
 import Modal from '../components/Modal.vue'
 import { createRendererLogger } from '../utils/rendererLogger'
 import { detectSystemLocale, SUPPORTED_LOCALES } from '../i18n'
+import backend from '../services/backend'
 
 const logger = createRendererLogger('PhotoDirectory')
 
@@ -118,7 +119,6 @@ function onSilenceSystemLanguage() {
 }
 
 // Check if running in Electron environment
-let ipcRenderer = null
 const isElectron = ref(false)
 const openluckyAvailable = ref(true)
 const isCheckingOpenLucky = ref(true)
@@ -126,44 +126,36 @@ const isCheckingOpenLucky = ref(true)
 onMounted(() => {
   checkLanguageMismatch()
 
-  // Multiple checks to detect Electron environment
-  const isElectronEnv = window.process?.type === 'renderer' ||
-                       window?.require?.('electron') ||
-                       navigator.userAgent?.includes('Electron')
-
-  isElectron.value = !!isElectronEnv
+  isElectron.value = backend.isAvailable()
 
   if (isElectron.value) {
-    try {
-      ipcRenderer = window.require('electron').ipcRenderer
-      logger.debug('Electron environment detected, ipcRenderer loaded')
+    logger.debug('Electron environment detected')
 
-      // Check if openlucky is available
-      checkOpenLucky()
+    // Check if openlucky is available
+    checkOpenLucky()
 
-      // Pre-load preset list so PhotoGallery can show it immediately
-      fetchPresets().catch(() => {})
-    } catch (error) {
-      logger.error('Failed to load electron APIs:', error)
-      isElectron.value = false
-    }
+    // Pre-load preset list so PhotoGallery can show it immediately
+    fetchPresets().catch(() => {})
   } else {
     logger.warn('Not running in Electron environment')
     logger.warn('Please run: npm run dev (in terminal 1) && npm run electron (in terminal 2)')
   }
 })
 
-const checkOpenLucky = () => {
-  ipcRenderer.send('check-openlucky')
-
-  ipcRenderer.once('openlucky-checked', (_, result) => {
+const checkOpenLucky = async () => {
+  try {
+    const result = await backend.checkOpenlucky()
     openluckyAvailable.value = result.success
     isCheckingOpenLucky.value = false
 
     if (!result.success) {
       logger.error('openlucky check failed:', result.error)
     }
-  })
+  } catch (error) {
+    logger.error('openlucky check failed:', error)
+    openluckyAvailable.value = false
+    isCheckingOpenLucky.value = false
+  }
 }
 
 const selectedPath = ref('')
@@ -181,8 +173,8 @@ const onButtonClick = () => {
 }
 
 const cancelLoading = () => {
-  if (ipcRenderer) {
-    ipcRenderer.send('cancel-processing')
+  if (backend.isAvailable()) {
+    backend.cancelProcessing()
   }
   isLoading.value = false
   processingProgress.value = ''
@@ -191,7 +183,7 @@ const cancelLoading = () => {
 const selectDirectory = async () => {
   try {
     // Check if running in Electron
-    if (!isElectron.value || !ipcRenderer) {
+    if (!isElectron.value || !backend.isAvailable()) {
       alert('This feature requires running in Electron environment\n\nRun these commands in two terminals:\nTerminal 1: npm run dev\nTerminal 2: npm run electron')
       return
     }
@@ -200,78 +192,56 @@ const selectDirectory = async () => {
     logger.info('Sending select-directory request...')
 
     // Request directory selection from main process
-    ipcRenderer.send('select-directory')
+    const result = await backend.selectDirectory()
 
-    // Listen for the selected directory response
-    ipcRenderer.once('directory-selected', (_, result) => {
-      logger.info('Received directory-selected response:', result)
-      selectedPath.value = result.path
+    // Cancelled — leave loading state off
+    if (result.canceled) {
+      logger.info('Directory selection cancelled')
+      isLoading.value = false
+      return
+    }
 
-      // Print to console as requested
-      logger.info('Selected directory:', result.path)
+    logger.info('Received directory-selected response:', result)
+    selectedPath.value = result.path
+    logger.info('Selected directory:', result.path)
 
-      // Prepare working directory from selected directory
-      isLoading.value = true
-      ipcRenderer.send('prepare-working-directory-from-selected', result.path, { compressPreview: compressPreview.value })
-    })
-
-    // Handle working directory preparation success
-    ipcRenderer.once('working-directory-from-selected-prepared', (_, result) => {
-      logger.info('Working directory prepared:', result.workingDirectory)
-      logger.info('Output directory:', result.outputDirectory)
-      logger.info('Original directory:', result.originalDirectory)
+    // Prepare working directory from selected directory.
+    // progress channels (title / progress / clear / restore) are wired through
+    // the facade and cleaned up automatically when the operation settles —
+    // fixing the pre-facade leaky listeners.
+    try {
+      const prepared = await backend.prepareWorkingDirectoryFromSelected(
+        result.path,
+        { compressPreview: compressPreview.value },
+        {
+          progress: {
+            'window-title-update': (_e, { title }) => { document.title = title },
+            'processing-progress-update': (_e, { progress }) => { processingProgress.value = progress },
+            'processing-progress-clear': () => { processingProgress.value = '' },
+            'window-title-restore': () => { document.title = 'OpenLucky Desktop App' }
+          }
+        }
+      )
+      logger.info('Working directory prepared:', prepared.workingDirectory)
+      logger.info('Output directory:', prepared.outputDirectory)
+      logger.info('Original directory:', prepared.originalDirectory)
       isLoading.value = false
 
       // Navigate to PhotoGallery page with working directory
       router.push({
         path: '/photo-gallery',
         query: {
-          workingDirectory: result.workingDirectory,
-          outputDirectory: result.outputDirectory,
-          originalDirectory: result.originalDirectory,
+          workingDirectory: prepared.workingDirectory,
+          outputDirectory: prepared.outputDirectory,
+          originalDirectory: prepared.originalDirectory,
           compressPreview: compressPreview.value ? '1' : ''
         }
       })
-    })
-
-    // Handle window title update
-    ipcRenderer.on('window-title-update', (_, { title }) => {
-      document.title = title
-    })
-
-    // Handle processing progress update
-    ipcRenderer.on('processing-progress-update', (_, { progress }) => {
-      processingProgress.value = progress
-    })
-
-    // Handle processing progress clear
-    ipcRenderer.on('processing-progress-clear', () => {
-      processingProgress.value = ''
-    })
-
-    // Handle window title restore
-    ipcRenderer.on('window-title-restore', () => {
-      document.title = 'OpenLucky Desktop App'
-    })
-
-    // Handle working directory preparation error
-    ipcRenderer.once('working-directory-from-selected-error', (_, error) => {
+    } catch (error) {
       logger.error('Error preparing working directory:', error)
-      alert('Failed to prepare working directory: ' + error.error)
+      alert('Failed to prepare working directory: ' + (error && error.error ? error.error : error))
       isLoading.value = false
-    })
-
-    // Handle cancellation
-    ipcRenderer.once('directory-cancelled', () => {
-      logger.info('Directory selection cancelled')
-      isLoading.value = false
-    })
-
-    // Handle errors
-    ipcRenderer.once('directory-error', (_, error) => {
-      logger.error('Directory selection error:', error)
-      isLoading.value = false
-    })
+    }
 
   } catch (error) {
     logger.error('Error selecting directory:', error)

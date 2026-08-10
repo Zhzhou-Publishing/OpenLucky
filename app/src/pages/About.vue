@@ -52,6 +52,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from '../utils/theme'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import backend from '../services/backend'
 
 const { locale } = useI18n()
 const { theme, setTheme } = useTheme()
@@ -66,8 +67,8 @@ const licenseUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/blob/main/LIC
 const issuesUrl = 'https://github.com/Zhzhou-Publishing/OpenLucky/issues'
 
 function openExternal(url) {
-  if (window.require) {
-    window.require('electron').ipcRenderer.send('open-external', url)
+  if (backend.isAvailable()) {
+    backend.openExternal(url)
   } else {
     window.open(url, '_blank', 'noopener,noreferrer')
   }

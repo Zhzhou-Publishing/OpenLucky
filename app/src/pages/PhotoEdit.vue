@@ -245,11 +245,9 @@ import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
 import { presets as globalPresets, globalMaskPreset } from '../utils/presetCache'
 import { createRendererLogger } from '../utils/rendererLogger'
+import backend, { path } from '../services/backend'
 
 const logger = createRendererLogger('PhotoEdit')
-
-// Get path module for Electron environment
-const path = window.require ? window.require('path') : { basename: (p) => p }
 
 const router = useRouter()
 const route = useRoute()
@@ -388,7 +386,7 @@ function clearHistogramCache() {
 }
 
 async function fetchHistogramFor(directoryPath, filename, area) {
-  if (!directoryPath || !filename || !window.require) {
+  if (!directoryPath || !filename || !backend.isAvailable()) {
     histogramData.value = null
     return
   }
@@ -407,8 +405,7 @@ async function fetchHistogramFor(directoryPath, filename, area) {
   }
   const seq = ++histogramRequestSeq
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    const result = await ipcRenderer.invoke('compute-histogram', {
+    const result = await backend.computeHistogram({
       directoryPath,
       filename,
       downsampling: HISTOGRAM_BINS,
@@ -721,8 +718,7 @@ async function onImageClick(e) {
   exitEyedropper()
   startAreaSelect()
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-    const result = await ipcRenderer.invoke('pick-color', {
+    const result = await backend.pickColor({
       filePath: path.join(workingDirectory.value, currentImage.value.name),
       x: pixelX,
       y: pixelY,
@@ -1181,15 +1177,18 @@ const getImageUrlWithTimestamp = (image) => {
 // Helper function to update image timestamp and trigger reactivity
 // Reset current image: remove preset entry, delete output file, restore
 // all UI parameters to defaults, and refresh the display.
-const resetImage = () => {
+const resetImage = async () => {
   if (!currentImage.value || !workingDirectory.value) return
-  if (!window.require) return
+  if (!backend.isAvailable()) return
 
-  const ipcRenderer = window.require('electron').ipcRenderer
   const imageName = currentImage.value.name
 
-  ipcRenderer.once('image-reset', (_, result) => {
-    if (result.filename !== imageName) return
+  try {
+    await backend.resetImage({
+      workingDirectory: workingDirectory.value,
+      outputDirectory: outputDirectory.value,
+      filename: imageName
+    })
     // Reset UI parameters
     input1.value = 255
     input2.value = 255
@@ -1217,63 +1216,40 @@ const resetImage = () => {
     refreshImage(imageName)
     loadFullResImage()
     loadPresets()
-  })
-
-  ipcRenderer.once('image-reset-error', (_, result) => {
-    if (result.filename !== imageName) return
-    logger.error('Error resetting image:', result.error)
-  })
-
-  ipcRenderer.send('reset-image', {
-    workingDirectory: workingDirectory.value,
-    outputDirectory: outputDirectory.value,
-    filename: imageName
-  })
+  } catch (result) {
+    logger.error('Error resetting image:', result && result.error)
+  }
 }
 
 // After apply succeeds, the on-disk thumbnail/output for `imageName`
 // has changed. Ask main to rebuild the entry (so image.url points at
 // fresh content + bumps the timestamp) and patch our images array in
 // place. Both the thumbnail strip and the main pic re-render together.
-const refreshImage = (imageName) => {
+const refreshImage = async (imageName) => {
   const imageIndex = images.value.findIndex(img => img.name === imageName)
-  if (imageIndex === -1 || !window.require) return
-  const ipcRenderer = window.require('electron').ipcRenderer
-
-  const onRefreshed = (_, result) => {
-    if (result.filename !== imageName) return
-    cleanup()
+  if (imageIndex === -1 || !backend.isAvailable()) return
+  try {
+    const result = await backend.refreshImage({
+      directoryPath: workingDirectory.value,
+      filename: imageName
+    })
     const idx = images.value.findIndex(img => img.name === imageName)
     if (idx === -1) return
     const ts = Date.now()
     images.value[idx] = { ...images.value[idx], ...result.entry, timestamp: ts }
     triggerImagesReactivity()
+  } catch (result) {
+    logger.error('Error refreshing image:', result && result.error)
   }
-  const onError = (_, result) => {
-    if (result.filename !== imageName) return
-    cleanup()
-    logger.error('Error refreshing image:', result.error)
-  }
-  const cleanup = () => {
-    ipcRenderer.removeListener('image-refreshed', onRefreshed)
-    ipcRenderer.removeListener('image-refresh-error', onError)
-  }
-
-  ipcRenderer.on('image-refreshed', onRefreshed)
-  ipcRenderer.on('image-refresh-error', onError)
-  ipcRenderer.send('refresh-image', {
-    directoryPath: workingDirectory.value,
-    filename: imageName
-  })
 }
 
-const apply = () => {
+const apply = async () => {
   if (!currentImage.value || !workingDirectory.value) {
     logger.error('No current image or working directory')
     return
   }
 
-  if (!window.require) {
+  if (!backend.isAvailable()) {
     logger.error('Not running in Electron')
     return
   }
@@ -1281,23 +1257,22 @@ const apply = () => {
   // Reset global isSaveAllClicked state
   setSaveAllClicked(false)
 
+  const imageName = currentImage.value.name
+
+  // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
+  const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
+
+  // Mark image as affected to disable controls
+  affectedImages.add(imageName)
+
+  // Send request to main process
+  // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
+  // IPC 包根本到不了主进程。
+  const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
+  const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
+
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    const imageName = currentImage.value.name;
-
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
-
-    // Mark image as affected to disable controls
-    affectedImages.add(imageName)
-
-    // Send request to main process
-    // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
-    // IPC 包根本到不了主进程。
-    const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
-    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
-    ipcRenderer.send('apply-filmparam', {
+    const result = await backend.applyFilmparam({
       inputPath: workingDirectory.value,
       outputPath: outputDirectory.value,
       filename: imageName,
@@ -1311,80 +1286,44 @@ const apply = () => {
       colorMode: colorMode.value
     })
 
-    // Handle response
-    ipcRenderer.once('filmparam-apply-started', (_, result) => {
-      logger.info(result.message)
-    })
+    // Success — matched to this image by filename (facade does the matching).
+    affectedImages.delete(imageName)
 
-    ipcRenderer.once('filmparam-apply-progress', (_, result) => {
-      logger.debug(result.data)
-    })
+    // 旋转操作：IPC 成功后旋转白点选区坐标
+    if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+      rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
+      pendingRotation.value = null
+    }
 
-    // 使用一个命名的函数，方便处理逻辑
-    const handleResponse = (_, result) => {
-      // 关键：由于是全局频道，所有的 apply 请求都会触发这个 handleResponse
-      // 我们必须判断返回的结果是不是当前这张图
-      // result.outputFile 是完整路径，需要从中提取文件名
-      const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
-      logger.debug(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
-      if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        affectedImages.delete(imageName);
-
-        // 旋转操作：IPC 成功后旋转白点选区坐标
-        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
-          rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
-          pendingRotation.value = null
-        }
-
-        // 始终刷新缩略图和 presetsData（用户可能已切走），只有当前展示的图片才刷新主图和直方图
-        refreshImage(imageName);
-        if (currentImage.value && currentImage.value.name === imageName) {
-          pendingApplyImage.value = imageName
-          clearHistogramCache();
-          loadFullResImage();
-          loadPresets();
-        } else {
-          loadPresets({ skipLoadCurrent: true });
-        }
-
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-success', handleResponse);
-
-    const handleError = (_, error) => {
-      logger.error('Error applying film parameters:', error)
-      // 关键：同样要判断是不是当前这张图的错误
-      // error.outputFile 是完整路径，需要从中提取文件名
-      const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
-      if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
-        // Re-enable controls immediately on error
-        affectedImages.delete(imageName);
-        // IPC 失败时清除待旋转标记，避免选区被错误旋转
-        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
-          pendingRotation.value = null
-        }
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-error', handleError);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-error', handleError);
+    // 始终刷新缩略图和 presetsData（用户可能已切走），只有当前展示的图片才刷新主图和直方图
+    refreshImage(imageName)
+    if (currentImage.value && currentImage.value.name === imageName) {
+      pendingApplyImage.value = imageName
+      clearHistogramCache()
+      loadFullResImage()
+      loadPresets()
+    } else {
+      loadPresets({ skipLoadCurrent: true })
+    }
   } catch (error) {
+    logger.error('Error applying film parameters:', error && error.error ? error.error : error)
     // Re-enable controls immediately on error
-    affectedImages.delete(imageName);
-    pendingRotation.value = null;
+    affectedImages.delete(imageName)
+    // IPC 失败时清除待旋转标记，避免选区被错误旋转
+    if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+      pendingRotation.value = null
+    }
   }
 }
 
 
-const applyAll = () => {
+const applyAll = async () => {
   if (!workingDirectory.value) {
     logger.error('No working directory')
     return
   }
 
-  if (!window.require) {
+  if (!backend.isAvailable()) {
     logger.error('Not running in Electron')
     return
   }
@@ -1392,76 +1331,58 @@ const applyAll = () => {
   // Reset global isSaveAllClicked state
   setSaveAllClicked(false)
 
+  // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
+  const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
+
+  // Mark all images as affected to disable controls
+  images.value.forEach(img => affectedImages.add(img.name))
+
+  // Send request to main process
+  // applyAll 走 filmparambatch，CLI 只能接一个 --area，这里复用当前图片的选区作为整批的取样窗口；
+  // 其它图各自的选区暂不生效（saveAll 那条原图通路里再统一处理）。
+  const areaForIpc = currentImage.value ? unwrapArea(areaSelectionsByName.value[currentImage.value.name]) : null
+  const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
+
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
-
-    // Mark all images as affected to disable controls
-    images.value.forEach(img => affectedImages.add(img.name))
-
-    // Remove existing listeners to avoid duplicates
-    ipcRenderer.removeAllListeners('filmparambatch-apply-started')
-    ipcRenderer.removeAllListeners('filmparambatch-apply-progress')
-    ipcRenderer.removeAllListeners('filmparambatch-apply-success')
-    ipcRenderer.removeAllListeners('filmparambatch-apply-error')
-
-    // Send request to main process
-    // applyAll 走 filmparambatch，CLI 只能接一个 --area，这里复用当前图片的选区作为整批的取样窗口；
-    // 其它图各自的选区暂不生效（saveAll 那条原图通路里再统一处理）。
-    const areaForIpc = currentImage.value ? unwrapArea(areaSelectionsByName.value[currentImage.value.name]) : null
-    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
-    ipcRenderer.send('apply-filmparambatch', {
-      inputPath: workingDirectory.value,
-      outputPath: outputDirectory.value,
-      params: params,
-      rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc,
-      areaBasis: areaBasisForIpc,
-      exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc(),
-      tone: currentToneForIpc(),
-      colorMode: colorMode.value
+    const result = await backend.applyFilmparambatch(
+      {
+        inputPath: workingDirectory.value,
+        outputPath: outputDirectory.value,
+        params: params,
+        rotateClockwise: currentRotateClockwise.value,
+        area: areaForIpc,
+        areaBasis: areaBasisForIpc,
+        exposure: exposure.value,
+        whiteBalance: currentWhiteBalanceForIpc(),
+        tone: currentToneForIpc(),
+        colorMode: colorMode.value
+      },
+      {
+        progress: {
+          'filmparambatch-apply-progress': (_e, p) => logger.debug(p.data)
+        }
+      }
+    )
+    logger.info(result.message)
+    pendingApplyImage.value = currentImage.value?.name || null
+    clearHistogramCache()
+    // Update all image timestamps to refresh display without reloading page
+    images.value.forEach(img => {
+      img.timestamp = Date.now()
     })
-
-    // Handle response
-    ipcRenderer.once('filmparambatch-apply-started', (_, result) => {
-      logger.info(result.message)
-    })
-
-    ipcRenderer.once('filmparambatch-apply-progress', (_, result) => {
-      logger.debug(result.data)
-    })
-
-    ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
-      logger.info(result.message)
-      pendingApplyImage.value = currentImage.value?.name || null
-      clearHistogramCache()
-      // Update all image timestamps to refresh display without reloading page
-      images.value.forEach(img => {
-        img.timestamp = Date.now()
-      })
-      triggerImagesReactivity()
-      loadFullResImage()
-      // Reload presets and enable controls
-      loadPresets()
-      affectedImages.clear()
-    })
-
-    ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
-      logger.error('Error applying film parameters to all images:', error)
-      // Re-enable controls immediately on error
-      affectedImages.clear()
-    })
+    triggerImagesReactivity()
+    loadFullResImage()
+    // Reload presets and enable controls
+    loadPresets()
+    affectedImages.clear()
   } catch (error) {
-    logger.error('Error applying film parameters to all images:', error)
+    logger.error('Error applying film parameters to all images:', error && error.message ? error.message : error)
     // Re-enable controls immediately on error
     affectedImages.clear()
   }
 }
 
-const saveAll = () => {
+const saveAll = async () => {
   if (hasUnappliedImages.value) {
     logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
@@ -1471,7 +1392,7 @@ const saveAll = () => {
     return
   }
 
-  if (!window.require) {
+  if (!backend.isAvailable()) {
     logger.error('Not running in Electron')
     return
   }
@@ -1479,56 +1400,34 @@ const saveAll = () => {
   // Set global isSaveAllClicked state
   setSaveAllClicked(true)
 
+  // Mark all images as affected to disable controls
+  images.value.forEach(img => affectedImages.add(img.name))
+
+  // Prepare the output directory path
+  const outputDir = path.join(originalDirectory.value, 'output')
+
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    // Mark all images as affected to disable controls
-    images.value.forEach(img => affectedImages.add(img.name))
-
-    // Remove existing listeners to avoid duplicates
-    ipcRenderer.removeAllListeners('preset-to-batch-started')
-    ipcRenderer.removeAllListeners('preset-to-batch-progress')
-    ipcRenderer.removeAllListeners('preset-to-batch-success')
-    ipcRenderer.removeAllListeners('preset-to-batch-error')
-
-    // Prepare the output directory path
-    const outputDir = path.join(originalDirectory.value, 'output')
-
-    // Send request to main process
-    ipcRenderer.send('apply-preset-to-batch', {
-      presetFile: path.join(workingDirectory.value, '.preset.json'),
-      inputDir: originalDirectory.value,
-      outputDir: outputDir
+    const result = await backend.applyPresetToBatch(
+      {
+        presetFile: path.join(workingDirectory.value, '.preset.json'),
+        inputDir: originalDirectory.value,
+        outputDir: outputDir
+      },
+      {
+        progress: {
+          'preset-to-batch-progress': (_e, p) => logger.debug(p.data)
+        }
+      }
+    )
+    logger.info(result.message)
+    // Update all image timestamps to refresh display without reloading page
+    images.value.forEach(img => {
+      img.timestamp = Date.now()
     })
-
-    // Handle started
-    ipcRenderer.once('preset-to-batch-started', (_, result) => {
-      logger.info(result.message)
-    })
-
-    // Handle progress
-    ipcRenderer.on('preset-to-batch-progress', (_, result) => {
-      logger.debug(result.data)
-    })
-
-    // Handle success
-    ipcRenderer.once('preset-to-batch-success', (_, result) => {
-      logger.info(result.message)
-      // Update all image timestamps to refresh display without reloading page
-      images.value.forEach(img => {
-        img.timestamp = Date.now()
-      })
-      triggerImagesReactivity()
-      affectedImages.clear()
-    })
-
-    // Handle error
-    ipcRenderer.once('preset-to-batch-error', (_, result) => {
-      logger.error('Error saving all files:', result.message, result.error)
-      affectedImages.clear()
-    })
+    triggerImagesReactivity()
+    affectedImages.clear()
   } catch (error) {
-    logger.error('Error saving all files:', error)
+    logger.error('Error saving all files:', error && error.message, error && error.error)
     affectedImages.clear()
   }
 }
@@ -1539,15 +1438,9 @@ const loadFullResImage = async () => {
     return
   }
 
-  if (window.require) {
+  if (backend.isAvailable()) {
     try {
-      const ipcRenderer = window.require('electron').ipcRenderer
-
-      // Remove existing listeners to avoid duplicates
-      ipcRenderer.removeAllListeners('full-res-image-loaded')
-      ipcRenderer.removeAllListeners('full-res-image-error')
-
-      ipcRenderer.send('get-full-res-image', {
+      const result = await backend.getFullResImage({
         directoryPath: workingDirectory.value,
         filename: currentImage.value.name
       })
@@ -1556,30 +1449,22 @@ const loadFullResImage = async () => {
       // identical to the thumbnail's. After apply, refreshImage rebuilds
       // image.url and bumps timestamp; both views flip together.
       const ts = currentImage.value.timestamp || Date.now()
-
-      ipcRenderer.once('full-res-image-loaded', (_, result) => {
-        fullResImageUrl.value = result.url + '?t=' + ts
-      })
-
-      ipcRenderer.once('full-res-image-error', (_, error) => {
-        logger.error('Error loading full resolution image:', error)
-        // Check if this is a RAW file not yet converted
-        if (currentImage.value.isRaw && error.error === 'RAW file not yet converted') {
-          // Show placeholder for RAW file still converting
-          const width = previousImageDimensions.value.width
-          const height = previousImageDimensions.value.height
-          const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="${width}" height="${height}" fill="#3c3c3c"/>
-            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">RAW file converting...</text>
-          </svg>`
-          fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
-        } else {
-          fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
-        }
-      })
+      fullResImageUrl.value = result.url + '?t=' + ts
     } catch (error) {
       logger.error('Error loading full resolution image:', error)
-      fullResImageUrl.value = currentImage.value.url
+      // Check if this is a RAW file not yet converted
+      if (currentImage.value.isRaw && error && error.error === 'RAW file not yet converted') {
+        // Show placeholder for RAW file still converting
+        const width = previousImageDimensions.value.width
+        const height = previousImageDimensions.value.height
+        const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${width}" height="${height}" fill="#3c3c3c"/>
+          <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">RAW file converting...</text>
+        </svg>`
+        fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
+      } else {
+        fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
+      }
     }
   } else {
     fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
@@ -1697,12 +1582,9 @@ const loadImages = async () => {
       return
     }
 
-    if (window.require) {
-      const ipcRenderer = window.require('electron').ipcRenderer
-
-      ipcRenderer.send('get-images', workingDirectory.value, workingDirectory.value)
-
-      ipcRenderer.once('images-loaded', (_, result) => {
+    if (backend.isAvailable()) {
+      try {
+        const result = await backend.getImages(workingDirectory.value)
         images.value = result.images.map(img => ({
           ...img,
           timestamp: Date.now()
@@ -1714,12 +1596,10 @@ const loadImages = async () => {
           }
         }
         isLoading.value = false
-      })
-
-      ipcRenderer.once('images-error', (_, error) => {
+      } catch (error) {
         logger.error('Error loading images:', error)
         isLoading.value = false
-      })
+      }
     } else {
       logger.warn('Not running in Electron, showing demo data')
       isLoading.value = false
@@ -1732,26 +1612,17 @@ const loadImages = async () => {
 
 const loadPresets = async ({ skipLoadCurrent = false } = {}) => {
   try {
-    if (!workingDirectory.value || !window.require) {
+    if (!workingDirectory.value || !backend.isAvailable()) {
       return
     }
 
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    ipcRenderer.send('read-preset-json', workingDirectory.value)
-
-    ipcRenderer.once('preset-json-loaded', (_, result) => {
-      presetsData.value = result.presets || {}
-      presetsDataLoaded.value = true
-      if (!skipLoadCurrent) loadPresetForCurrentImage()
-    })
-
-    ipcRenderer.once('preset-json-error', (_, error) => {
-      logger.error('Error loading preset json:', error)
-      presetsDataLoaded.value = true
-    })
+    const result = await backend.readPresetJson(workingDirectory.value)
+    presetsData.value = result.presets || {}
+    presetsDataLoaded.value = true
+    if (!skipLoadCurrent) loadPresetForCurrentImage()
   } catch (error) {
     logger.error('Error loading preset json:', error)
+    presetsDataLoaded.value = true
   }
 }
 

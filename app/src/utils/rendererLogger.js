@@ -1,10 +1,4 @@
-import log from 'electron-log'
+// Renderer logger — re-exported from the backend facade. Existing call sites
+// keep working unchanged.
 
-export function createRendererLogger(scope) {
-  return {
-    debug: (...args) => log.debug(`[${scope}]`, ...args),
-    info: (...args) => log.info(`[${scope}]`, ...args),
-    warn: (...args) => log.warn(`[${scope}]`, ...args),
-    error: (...args) => log.error(`[${scope}]`, ...args),
-  }
-}
+export { createRendererLogger } from '../services/backend/logger'

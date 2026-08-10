@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import Navbar from './components/Navbar.vue'
 import twemoji from '@twemoji/api'
 import { globalState } from './utils/globalState'
+import backend from './services/backend'
 import './utils/theme' // 初始化主题系统（读 localStorage → 设置 dark class）
 
 const route = useRoute()
@@ -24,11 +25,11 @@ const { t } = useI18n()
 const PROTECTED_PATHS = ['/photo-gallery', '/photo-edit']
 
 let observer = null
-let ipcRenderer = null
+let offConfirmClose = null
 const onConfirmClose = () => {
   const guarded = PROTECTED_PATHS.includes(route.path) && !globalState.isSaveAllClicked
   if (!guarded || window.confirm(t('navbar.closeConfirm'))) {
-    ipcRenderer.send('confirm-close-response', true)
+    backend.confirmCloseResponse(true)
   }
 }
 
@@ -44,9 +45,8 @@ const parseTwemoji = () => {
 }
 
 onMounted(() => {
-  if (window.require) {
-    ipcRenderer = window.require('electron').ipcRenderer
-    ipcRenderer.on('confirm-close', onConfirmClose)
+  if (backend.isAvailable()) {
+    offConfirmClose = backend.onConfirmClose(onConfirmClose)
   }
 
   // 初始化 Twemoji
@@ -69,8 +69,8 @@ onUnmounted(() => {
   if (observer) {
     observer.disconnect()
   }
-  if (ipcRenderer) {
-    ipcRenderer.removeListener('confirm-close', onConfirmClose)
+  if (offConfirmClose) {
+    offConfirmClose()
   }
 })
 </script>

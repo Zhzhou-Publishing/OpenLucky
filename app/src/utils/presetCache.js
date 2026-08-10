@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { createRendererLogger } from './rendererLogger'
+import backend from '../services/backend'
 
 const logger = createRendererLogger('PresetCache')
 
@@ -9,29 +10,16 @@ export const presets = ref([])
 export const globalMaskPreset = ref(null)
 
 export function fetchPresets() {
-  return new Promise((resolve, reject) => {
-    if (!window.require) {
-      resolve(presets.value)
-      return
-    }
-    try {
-      const ipcRenderer = window.require('electron').ipcRenderer
-      const onLoaded = (_, result) => {
-        ipcRenderer.removeListener('presets-error', onError)
-        presets.value = result.presets || []
-        resolve(presets.value)
-      }
-      const onError = (_, error) => {
-        ipcRenderer.removeListener('presets-loaded', onLoaded)
-        logger.error('Error loading presets:', error)
-        reject(error)
-      }
-      ipcRenderer.once('presets-loaded', onLoaded)
-      ipcRenderer.once('presets-error', onError)
-      ipcRenderer.send('get-presets')
-    } catch (error) {
+  if (!backend.isAvailable()) {
+    return Promise.resolve(presets.value)
+  }
+  return backend.getPresets()
+    .then((result) => {
+      presets.value = result.presets || []
+      return presets.value
+    })
+    .catch((error) => {
       logger.error('Error loading presets:', error)
-      reject(error)
-    }
-  })
+      throw error
+    })
 }

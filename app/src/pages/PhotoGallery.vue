@@ -70,18 +70,13 @@ import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
 import { presets as globalPresets } from '../utils/presetCache'
 import { createRendererLogger } from '../utils/rendererLogger'
+import backend, { path } from '../services/backend'
 
 const logger = createRendererLogger('PhotoGallery')
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
-
-// Get path module from Node.js in Electron
-let path = null
-if (window.require) {
-  path = window.require('path')
-}
 
 const images = ref([])
 const isLoading = ref(true)
@@ -106,17 +101,16 @@ const hasUnappliedImages = computed(() => {
   return images.value.some(img => !presetsData.value[img.name])
 })
 
-const loadPresetJson = () => {
-  if (!workingDirectory.value || !window.require) return
-  const ipcRenderer = window.require('electron').ipcRenderer
-  ipcRenderer.send('read-preset-json', workingDirectory.value)
-  ipcRenderer.once('preset-json-loaded', (_, result) => {
+const loadPresetJson = async () => {
+  if (!workingDirectory.value || !backend.isAvailable()) return
+  try {
+    const result = await backend.readPresetJson(workingDirectory.value)
     presetsData.value = result.presets || {}
     presetsDataLoaded.value = true
-  })
-  ipcRenderer.once('preset-json-error', () => {
+  } catch (error) {
+    logger.error('Error reading preset json:', error)
     presetsDataLoaded.value = true
-  })
+  }
 }
 
 const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
@@ -176,27 +170,20 @@ const applyPreset = async () => {
     hasUnappliedChanges.value = false
 
     // Check if running in Electron
-    if (window.require) {
-      const ipcRenderer = window.require('electron').ipcRenderer
-
-      // Remove existing listeners to avoid duplicates
-      ipcRenderer.removeAllListeners('preset-apply-started')
-      ipcRenderer.removeAllListeners('preset-apply-progress')
-      ipcRenderer.removeAllListeners('preset-apply-success')
-      ipcRenderer.removeAllListeners('preset-apply-error')
-
-      // Listen for apply started
-      ipcRenderer.once('preset-apply-started', (_, result) => {
-        logger.info('Preset apply started:', result.message)
-      })
-
-      // Listen for progress updates
-      ipcRenderer.on('preset-apply-progress', (_, result) => {
-        logger.debug('Progress:', result.data)
-      })
-
-      // Listen for success
-      ipcRenderer.once('preset-apply-success', async (_, result) => {
+    if (backend.isAvailable()) {
+      try {
+        const result = await backend.applyPreset(
+          {
+            inputPath: workingDirectory.value,
+            outputPath: outputDirectory.value,
+            preset: selectedPreset.value
+          },
+          {
+            progress: {
+              'preset-apply-progress': (_e, p) => logger.debug('Progress:', p.data)
+            }
+          }
+        )
         logger.info('Preset applied successfully:', result.message)
         isApplyingPreset.value = false
 
@@ -208,26 +195,16 @@ const applyPreset = async () => {
 
         // Refresh images to show from .preset.json output_dir
         loadImages()
-      })
-
-      // Listen for errors
-      ipcRenderer.once('preset-apply-error', (_, result) => {
-        logger.error('Error applying preset:', result.message)
-        if (result.error) {
+      } catch (result) {
+        logger.error('Error applying preset:', result && result.message)
+        if (result && result.error) {
           logger.error('Error details:', result.error)
         }
         isApplyingPreset.value = false
 
         // Restore original window title
         document.title = originalWindowTitle.value
-      })
-
-      // Send request to main process
-      ipcRenderer.send('apply-preset', {
-        inputPath: workingDirectory.value,
-        outputPath: outputDirectory.value,
-        preset: selectedPreset.value
-      })
+      }
     } else {
       // Fallback for non-Electron environment
       logger.warn('Not running in Electron, cannot apply preset')
@@ -258,22 +235,16 @@ const loadImages = async () => {
     }
 
     // Check if running in Electron
-    if (window.require) {
-      const ipcRenderer = window.require('electron').ipcRenderer
-
-      // Request images from main process, pass workingDirectory
-      ipcRenderer.send('get-images', workingDirectory.value)
-
-      ipcRenderer.once('images-loaded', (_, result) => {
+    if (backend.isAvailable()) {
+      try {
+        const result = await backend.getImages(workingDirectory.value)
         images.value = result.images
         isLoading.value = false
         loadPresetJson()
-      })
-
-      ipcRenderer.once('images-error', (_, error) => {
+      } catch (error) {
         logger.error('Error loading images:', error)
         isLoading.value = false
-      })
+      }
     } else {
       // Fallback for non-Electron environment
       logger.warn('Not running in Electron, showing demo data')
@@ -297,7 +268,7 @@ watch(globalPresets, (list) => {
   }
 }, { immediate: true })
 
-const saveAll = () => {
+const saveAll = async () => {
   if (hasUnappliedImages.value) {
     logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
@@ -307,7 +278,7 @@ const saveAll = () => {
     return
   }
 
-  if (!window.require) {
+  if (!backend.isAvailable()) {
     logger.error('Not running in Electron')
     return
   }
@@ -322,64 +293,40 @@ const saveAll = () => {
   document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.saving')}`
 
   try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
     // Set saving all state to disable controls
     isSavingAll.value = true
-
-    // Remove existing listeners to avoid duplicates
-    ipcRenderer.removeAllListeners('preset-to-batch-started')
-    ipcRenderer.removeAllListeners('preset-to-batch-progress')
-    ipcRenderer.removeAllListeners('preset-to-batch-success')
-    ipcRenderer.removeAllListeners('preset-to-batch-error')
 
     // Prepare the output directory path
     const outputDir = path.join(originalDirectoryPath.value, 'output')
 
-    // Send request to main process
-    ipcRenderer.send('apply-preset-to-batch', {
-      presetFile: path.join(workingDirectory.value, '.preset.json'),
-      inputDir: originalDirectoryPath.value,
-      outputDir: outputDir
-    })
-
-    // Handle started
-    ipcRenderer.once('preset-to-batch-started', (_, result) => {
-      logger.info(result.message)
-    })
-
-    // Handle progress - update window title with current file being processed
-    ipcRenderer.on('preset-to-batch-progress', (_, result) => {
-      logger.debug(result.data)
-
-      // Update window title with current file path being processed
-      if (result.file) {
-        const filePath = path.join(originalDirectoryPath.value, result.file)
-        document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.saving')} ${filePath}`
+    // Send request to main process; progress channel cleaned up on settle
+    const result = await backend.applyPresetToBatch(
+      {
+        presetFile: path.join(workingDirectory.value, '.preset.json'),
+        inputDir: originalDirectoryPath.value,
+        outputDir: outputDir
+      },
+      {
+        progress: {
+          'preset-to-batch-progress': (_e, r) => {
+            logger.debug(r.data)
+            if (r.file) {
+              const filePath = path.join(originalDirectoryPath.value, r.file)
+              document.title = `${t('windowTitle.baseTitle')} - ${t('windowTitle.saving')} ${filePath}`
+            }
+          }
+        }
       }
-    })
+    )
+    logger.info(result.message)
+    isSavingAll.value = false
 
-    // Handle success
-    ipcRenderer.once('preset-to-batch-success', (_, result) => {
-      logger.info(result.message)
-      isSavingAll.value = false
+    // Restore original window title
+    document.title = originalWindowTitle.value
 
-      // Restore original window title
-      document.title = originalWindowTitle.value
-
-      loadImages()
-    })
-
-    // Handle error
-    ipcRenderer.once('preset-to-batch-error', (_, result) => {
-      logger.error('Error saving all files:', result.message, result.error)
-      isSavingAll.value = false
-
-      // Restore original window title
-      document.title = originalWindowTitle.value
-    })
+    loadImages()
   } catch (error) {
-    logger.error('Error saving all files:', error)
+    logger.error('Error saving all files:', error && error.message, error && error.error)
     isSavingAll.value = false
 
     // Restore original window title
@@ -387,14 +334,12 @@ const saveAll = () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Initialize window title
   originalWindowTitle.value = t('windowTitle.baseTitle')
   document.title = originalWindowTitle.value
 
-  if (window.require) {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
+  if (backend.isAvailable()) {
     // Check if working directory was provided by PhotoDirectory
     if (route.query.workingDirectory) {
       // Use the provided working directory directly
@@ -412,9 +357,11 @@ onMounted(() => {
       // Fallback to old behavior for backward compatibility
       originalDirectoryPath.value = directoryPath.value
       compressPreview.value = route.query.compressPreview === '1'
-      ipcRenderer.send('prepare-working-directory', directoryPath.value, { compressPreview: compressPreview.value })
-
-      ipcRenderer.once('working-directory-prepared', (_, result) => {
+      try {
+        const result = await backend.prepareWorkingDirectory(
+          directoryPath.value,
+          { compressPreview: compressPreview.value }
+        )
         workingDirectory.value = result.workingDirectory
         // Use the outputDirectory from result if available, otherwise compute it
         if (result.outputDirectory) {
@@ -423,12 +370,10 @@ onMounted(() => {
           outputDirectory.value = path.join(workingDirectory.value, 'output')
         }
         loadImages()
-      })
-
-      ipcRenderer.once('working-directory-error', (_, error) => {
+      } catch (error) {
         logger.error('Error preparing working directory:', error)
         isLoading.value = false
-      })
+      }
     }
   }
 
