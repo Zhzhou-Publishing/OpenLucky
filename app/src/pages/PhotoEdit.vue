@@ -39,6 +39,7 @@
              :class="{ 'eyedropper-active': eyedropperActive, 'area-select-active': areaSelectActive }"
              :style="{ height: imageDisplayHeight }"
              @wheel="onImageDisplayWheel"
+             @mousemove="onImageDisplayMouseMove"
              @contextmenu.prevent="onContextMenu">
           <div class="image-wrapper"
                :style="imageWrapperStyle"
@@ -75,7 +76,8 @@
           { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
           { id: 'exposure', label: $t('photoEdit.exposureTab') },
           { id: 'tone', label: $t('photoEdit.toneTab') },
-          { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') }
+          { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') },
+          { id: 'color_mode', label: $t('photoEdit.colorModeTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
             <!-- Basic Parameters Tab -->
@@ -183,6 +185,20 @@
               </div>
             </div>
 
+            <!-- Color Mode Tab -->
+            <div v-if="activeTab === 'color_mode'" class="tab-content color-mode-tab">
+              <div class="color-mode-radios">
+                <label v-for="mode in colorModeOptions" :key="mode.value"
+                  class="color-mode-radio"
+                  :class="{ disabled: isAllImagesAffected || isCurrentImageAffected }"
+                  :title="mode.desc">
+                  <input type="radio" :value="mode.value" v-model="colorMode"
+                    :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                  <span class="radio-label">{{ mode.label }}</span>
+                </label>
+              </div>
+            </div>
+
             <!-- Common Action Buttons -->
             <div class="action-buttons">
               <button @click="apply" class="apply-button" title="Enter"
@@ -209,7 +225,7 @@
       @cancel="onPresetModalCancel"
     >
       <select v-model="selectedModalPreset" class="preset-modal-select">
-        <option v-for="p in globalPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
+        <option v-for="p in presetOptions" :key="p.value" :value="p.value">{{ p.label }}</option>
       </select>
     </Modal>
   </div>
@@ -227,7 +243,7 @@ import Tabs from '../components/Tabs.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import Modal from '../components/Modal.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
-import { presets as globalPresets } from '../utils/presetCache'
+import { presets as globalPresets, globalMaskPreset } from '../utils/presetCache'
 import { createRendererLogger } from '../utils/rendererLogger'
 
 const logger = createRendererLogger('PhotoEdit')
@@ -265,6 +281,15 @@ const toneCurveUi = ref(0)
 // 默认开启：多数胶片冲扫直接吃自动值即可，需要手动微调再取消勾选。
 const tonePivotAuto = ref(true)
 const toneCurveAuto = ref(true)
+
+// 色彩校正模式
+const colorMode = ref('skin_protect')
+const colorModeOptions = computed(() => [
+  { value: 'skin_protect', label: t('photoEdit.colorModeSkinProtect'), desc: t('photoEdit.colorModeSkinProtectDesc') },
+  { value: 'balanced', label: t('photoEdit.colorModeBalanced'), desc: t('photoEdit.colorModeBalancedDesc') },
+  { value: 'deep', label: t('photoEdit.colorModeDeep'), desc: t('photoEdit.colorModeDeepDesc') },
+  { value: 'preserve', label: t('photoEdit.colorModePreserve'), desc: t('photoEdit.colorModePreserveDesc') },
+])
 
 // UI [-100, 100] → 内部 p ∈ [0.20, 0.80]（线性映射）
 function tonePivotUiToInternal(ui) {
@@ -650,6 +675,29 @@ function exitEyedropper() {
   eyedropperActive.value = false
 }
 
+let hintShowTimer = null
+function onImageDisplayMouseMove(e) {
+  const hints = e.currentTarget.querySelectorAll('.eyedropper-hint, .area-select-hint')
+  if (hints.length === 0) return
+  const buffer = 6
+  for (const hint of hints) {
+    const rect = hint.getBoundingClientRect()
+    const hovering = e.clientX >= rect.left - buffer &&
+                     e.clientX <= rect.right + buffer &&
+                     e.clientY >= rect.top - buffer &&
+                     e.clientY <= rect.bottom + buffer
+    if (hovering) {
+      clearTimeout(hintShowTimer)
+      hint.classList.add('hint-hidden')
+    } else {
+      clearTimeout(hintShowTimer)
+      hintShowTimer = setTimeout(() => {
+        hint.classList.remove('hint-hidden')
+      }, 200)
+    }
+  }
+}
+
 async function onImageClick(e) {
   if (!eyedropperActive.value) return
   if (!currentImage.value) return
@@ -702,6 +750,18 @@ function applyPickResult(picked) {
   input4.value = 2.2
   input5.value = 1.1
   apply()
+  if (window.confirm(t('photoEdit.globalMaskPreset.confirmMessage'))) {
+    const filename = currentImage.value?.name || ''
+    globalMaskPreset.value = {
+      value: '__global_mask__',
+      label: filename ? `${t('photoEdit.globalMaskPreset.labelPrefix')} ${filename}` : t('photoEdit.globalMaskPreset.labelPrefix'),
+      mask_r: picked.r,
+      mask_g: picked.g,
+      mask_b: picked.b,
+      gamma: 2.2,
+      contrast: 1.1,
+    }
+  }
 }
 
 function copyParams() {
@@ -741,10 +801,16 @@ function pasteParams() {
 const presetModalOpen = ref(false)
 const selectedModalPreset = ref('')
 
+const presetOptions = computed(() => {
+  if (globalMaskPreset.value) {
+    return [globalMaskPreset.value, ...globalPresets.value]
+  }
+  return globalPresets.value
+})
+
 function openPresetModal() {
-  if (globalPresets.value.length > 0) {
-    const stillExists = globalPresets.value.some(p => p.value === selectedModalPreset.value)
-    if (!stillExists) selectedModalPreset.value = globalPresets.value[0].value
+  if (presetOptions.value.length > 0) {
+    selectedModalPreset.value = presetOptions.value[0].value
   }
   presetModalOpen.value = true
 }
@@ -754,7 +820,7 @@ function onPresetModalCancel(source) {
 }
 
 function applyPresetFromModal() {
-  const preset = globalPresets.value.find(p => p.value === selectedModalPreset.value)
+  const preset = presetOptions.value.find(p => p.value === selectedModalPreset.value)
   if (!preset) return
   input1.value = preset.mask_r ?? 255
   input2.value = preset.mask_g ?? 255
@@ -1241,7 +1307,8 @@ const apply = () => {
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
       whiteBalance: currentWhiteBalanceForIpc(),
-      tone: currentToneForIpc()
+      tone: currentToneForIpc(),
+      colorMode: colorMode.value
     })
 
     // Handle response
@@ -1354,7 +1421,8 @@ const applyAll = () => {
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
       whiteBalance: currentWhiteBalanceForIpc(),
-      tone: currentToneForIpc()
+      tone: currentToneForIpc(),
+      colorMode: colorMode.value
     })
 
     // Handle response
@@ -1704,6 +1772,7 @@ const loadPresetForCurrentImage = () => {
     contrastB.value = preset.contrast_b ?? 1.0
     applyTonePresetToUi(preset)
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
+    colorMode.value = preset.color_mode || 'skin_protect'
   } else {
     // Reset to default if no preset found
     input1.value = 255
@@ -1719,11 +1788,12 @@ const loadPresetForCurrentImage = () => {
     tonePivotAuto.value = true
     toneCurveAuto.value = true
     rotateClockwiseMap.value[currentFileName.value] = 0
+    colorMode.value = 'skin_protect'
 
     // Auto-prompt the apply-preset modal once we know .preset.json was
     // actually read (so we don't flash it during initial mount races) and
     // there's at least one preset to choose from.
-    if (presetsDataLoaded.value && globalPresets.value.length > 0 && !presetModalOpen.value) {
+    if (presetsDataLoaded.value && presetOptions.value.length > 0 && !presetModalOpen.value) {
       openPresetModal()
     }
   }
@@ -2115,6 +2185,12 @@ onUnmounted(() => {
   pointer-events: none;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.15s ease;
+}
+
+.eyedropper-hint.hint-hidden,
+.area-select-hint.hint-hidden {
+  opacity: 0;
 }
 
 .image-wrapper {
@@ -2332,5 +2408,55 @@ onUnmounted(() => {
   background: var(--btn-disabled-bg);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Color Mode Radio Buttons */
+.color-mode-radios {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.color-mode-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.color-mode-radio:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.color-mode-radio input[type="radio"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.color-mode-radio:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(66, 184, 131, 0.1);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.color-mode-radio.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.color-mode-radio .radio-label {
+  white-space: nowrap;
 }
 </style>

@@ -37,12 +37,14 @@ function register() {
 
       const presetParams = presetObj[presetKey]
       const paramsString = buildParamString(presetParams)
+      const colorMode = presetParams.color_mode || null
 
       const finalOutputPath = coerceRawOutputPath(outputFilePath, isRaw, path.extname)
 
       const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
       const args = [...prefixArgs, ...buildFilmparamArgs({
-        input: inputFilePath, output: finalOutputPath, param: paramsString
+        input: inputFilePath, output: finalOutputPath, param: paramsString,
+        colorMode
       })]
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

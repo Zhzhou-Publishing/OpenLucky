@@ -61,7 +61,8 @@ function register() {
             areaBasis: presetParams.area_basis,
             exposure: presetParams.exposure_ev,
             whiteBalance: presetParams.white_balance,
-            tone: presetParams.tone
+            tone: presetParams.tone,
+            colorMode: presetParams.color_mode
           })]
           logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
