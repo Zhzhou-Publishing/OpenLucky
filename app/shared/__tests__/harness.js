@@ -60,7 +60,11 @@ const electronMock = {
   dialog: { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
   shell: { openExternal: () => {} },
   nativeTheme: { themeSource: 'system' },
-  BrowserWindow: class {}
+  BrowserWindow: class {
+    // select-directory parents its dialog on the requesting window via this;
+    // tests mock dialog to ignore the parent, so null is fine.
+    static fromWebContents() { return null }
+  }
 }
 
 // No-op electron-log replacement.

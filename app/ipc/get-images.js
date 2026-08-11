@@ -2,7 +2,6 @@ const { registerHandler } = require('../ipc/engine')
 const fs = require('fs')
 const path = require('path')
 const tmp = require('tmp')
-const { getWin } = require('../shared/main-window')
 const {
   IMAGE_EXTENSIONS,
   RAW_EXTENSIONS,
@@ -15,7 +14,15 @@ const { createLogger } = require('../shared/logger')
 const logger = createLogger('GetImages')
 
 function register() {
-  registerHandler('get-images', async (_, directoryPath) => {
+  registerHandler('get-images', async (event, directoryPath) => {
+    // Reply to the requesting window (not a hard-coded main-window send) so a
+    // tool window that calls get-images gets its own results back. Matches the
+    // event.sender semantics of the other handlers.
+    const send = (channel, payload) => {
+      if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send(channel, payload)
+      }
+    }
     try {
       const files = fs.readdirSync(directoryPath)
 
@@ -35,16 +42,10 @@ function register() {
         allImageFiles.map(file => buildThumbnailEntry(directoryPath, file, presets, tempDir, timestamp))
       )
 
-      const win = getWin()
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('images-loaded', { images })
-      }
+      send('images-loaded', { images })
     } catch (error) {
       logger.error('Error loading images:', error)
-      const win = getWin()
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('images-error', error.message)
-      }
+      send('images-error', error.message)
     }
   })
 }

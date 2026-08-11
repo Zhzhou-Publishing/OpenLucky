@@ -30,7 +30,7 @@ Vue 页面 ──→ backend facade ──→ IPC 处理器（ipc/*.js）──�
 | `fs` / `fs-read` | 读写文件 | copy-preset-json、read-preset-json、reset-image 等 | Rust `std::fs` |
 | `sharp` | TIFF→JPEG 转码 | get-full-res-image、get-images、refresh-image | **见 §3，优先沉到 Python CLI** |
 | `tmp` | 临时目录 | get-full-res-image、get-images、refresh-image、prepare-* | `std::env::temp_dir()` |
-| `getWin` | 通过主窗口发事件 | get-images、select-directory、confirm-close | Tauri `AppHandle` / window 事件 |
+| `getWin` | 通过主窗口发事件 | confirm-close（关闭拦截应答，已仅剩这一个） | Tauri `AppHandle` / window 事件 |
 | `dialog` | 原生目录选择框 | select-directory | `tauri-plugin-dialog` |
 | `shell` | 打开外部 URL | open-external | `tauri-plugin-opener`（或 `tauri-plugin-shell`） |
 | `nativeTheme` | 主题状态 | set-theme | `tauri-plugin-theme` / window API |
@@ -47,10 +47,10 @@ Vue 页面 ──→ backend facade ──→ IPC 处理器（ipc/*.js）──�
 
 ### 2.1 `dialog` — 仅 select-directory
 - **文件**：`app/ipc/select-directory.js`
-- **Electron 用法**：`dialog.showOpenDialog(win, { properties: ['openDirectory'] })`
-- **Tauri**：`tauri-plugin-dialog` 的 `open({ directory: true })`
+- **Electron 用法**：`dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), { properties: ['openDirectory'] })`
+- **Tauri**：`tauri-plugin-dialog` 的 `open({ directory: true })`（自然挂在调用窗）
 - **⚠️ 注意**：
-  - 通过 `getWin()` 拿窗口，**不是 `event.sender`**。
+  - 对话框父窗 = `BrowserWindow.fromWebContents(event.sender)`（调用窗；为 null 时非模态），结果回发 `event.sender` ——与其它 handler 一致，**Rust 侧直接拿到调用 `Window`**。
   - 三个发射通道：`directory-cancelled`（无 payload）、`directory-selected {path, files}`、`directory-error`（**BARE STRING**，不是对象）。
   - `files` 是 `fs.readdirSync(selectedPath)` 的**原始结果**（含非图片文件）。
 
@@ -66,11 +66,10 @@ Vue 页面 ──→ backend facade ──→ IPC 处理器（ipc/*.js）──�
 - **Tauri**：主题插件或 window API
 - **⚠️ 注意**：**任何非 "dark" 值都映射到 light**。无发射、无 spawn。
 
-### 2.4 `getWin()` 发事件 — get-images / select-directory
+### 2.4 ~~`getWin()` 发事件~~ — 已统一为 `event.sender`
 - **文件**：`app/ipc/get-images.js`、`app/ipc/select-directory.js`
-- **Electron**：`getWin().webContents.send(...)`（**忽略 `event` 参数，用主窗口**）
-- **Tauri**：`AppHandle` 全局窗口事件
-- **⚠️ 注意**：与其它 handler 的 `event.sender.send` 不同——这两个发给主窗口而不是调用者。Rust 侧要注意区分。
+- **现状**：这两个 handler 已改为 `event.sender.send(...)`，与其余 19 个 handler 一致——**不再有"发主窗口而不是调用者"的特殊情况**。`getWin()` 现仅剩 `confirm-close` 使用（见 §2.8）。
+- **Tauri**：无需特殊处理——Rust command 的 `Window` 参数天然是调用窗。
 
 ### 2.5 `ipcMain.once` + `ipcMain.removeListener` — 取消处理
 - **文件**：`app/ipc/prepare-working-directory-from-selected.js`

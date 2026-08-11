@@ -96,39 +96,39 @@ test('refresh-image: emits image-refreshed with a thumbnail entry', async () => 
   assert.match(payload.entry.url, /^file:\/\//)
 })
 
-// ── get-images (uses getWin) ─────────────────────────────────────────────────
+// ── get-images (event.sender) ────────────────────────────────────────────────
 
-test('get-images: sends images-loaded to the window for image files only', async () => {
+test('get-images: sends images-loaded to the calling window for image files only', async () => {
   h.loadHandler('../../ipc/get-images')
   const dir = tmpDir()
   fs.writeFileSync(path.join(dir, 'a.jpg'), 'x')
   fs.writeFileSync(path.join(dir, 'b.arw'), 'x')
   fs.writeFileSync(path.join(dir, 'notes.txt'), 'x') // ignored
-  const win = h.makeWin(); mainWindow.setWin(win)
-  await h.ipc.on['get-images'](null, dir)
-  const { images } = win.find('images-loaded')
+  const ev = h.makeEvent()
+  await h.ipc.on['get-images'](ev, dir)
+  const { images } = ev.find('images-loaded')
   const names = images.map(i => i.name).sort()
   assert.deepEqual(names, ['a.jpg', 'b.arw'])
 })
 
-// ── select-directory (dialog + getWin) ───────────────────────────────────────
+// ── select-directory (dialog + event.sender) ─────────────────────────────────
 
 test('select-directory: cancelled dialog sends directory-cancelled', async () => {
   h.loadHandler('../../ipc/select-directory')
-  const win = h.makeWin(); mainWindow.setWin(win)
+  const ev = h.makeEvent()
   h.electronMock.dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
-  await h.ipc.on['select-directory']()
-  assert.equal(win.channels().includes('directory-cancelled'), true)
+  await h.ipc.on['select-directory'](ev)
+  assert.equal(ev.channels().includes('directory-cancelled'), true)
 })
 
 test('select-directory: selection sends directory-selected with file list', async () => {
   h.loadHandler('../../ipc/select-directory')
   const dir = tmpDir()
   fs.writeFileSync(path.join(dir, 'a.jpg'), 'x')
-  const win = h.makeWin(); mainWindow.setWin(win)
+  const ev = h.makeEvent()
   h.electronMock.dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] })
-  await h.ipc.on['select-directory']()
-  const payload = win.find('directory-selected')
+  await h.ipc.on['select-directory'](ev)
+  const payload = ev.find('directory-selected')
   assert.equal(payload.path, dir)
   assert.deepEqual(payload.files, ['a.jpg'])
 })
