@@ -8,6 +8,7 @@ from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
 from cli.lib.curve.s_curve import auto_pk, auto_latitude_curve, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
+from cli.lib.dust import remove_defects
 
 # ── 色彩校正模式 ──────────────────────────────────────────────────────────
 # 每个模式定义 gamma 对齐强度、肤色保护开关、tone 映射强度。
@@ -135,9 +136,15 @@ def process_film_bytestream_with_params(
     tone_curve=0.5,
     is_raw=False,
     color_mode="skin_protect",
+    dust=None,
+    dust_rois=None,
 ):
     """
     Process byte stream image, supports RAW format toggle
+
+    dust:     (grain_level, dust_size) or None — presence enables dust removal.
+    dust_rois: list of (x1, y1, x2, y2) rects (basis frame when area_basis given,
+              otherwise actual-image pixels). pr/024.dust.md
     """
     # 1. Explicitly decode image
     if is_raw:
@@ -269,6 +276,31 @@ def process_film_bytestream_with_params(
 
     # 3. Color inversion (in 0-1 space, it's 1.0 - img)
     img = 1.0 - img
+
+    # --- 3.0 算法除尘（手动 ROI，见 pr/024.dust.md）---
+    # 灰尘在负片上是近黑点，反转后成中性亮斑。放在反转后、白点采样前，
+    # 避免灰尘把 WP ROI 的白点/色阶顶偏。ROI 与 --area 同坐标系：--area-basis
+    # 存在时按 basis 帧映射到实际解码图，否则按实际像素解释。
+    if dust is not None and dust_rois:
+        h_img, w_img = img.shape[:2]
+        grain_level, dust_size = dust
+        regions = []
+        for rx in dust_rois:
+            if area_basis_w and area_basis_h:
+                mx1, my1, mx2, my2 = resolve_wp_roi_to_actual(
+                    rx,
+                    (int(area_basis_w), int(area_basis_h)),
+                    rotate_clockwise,
+                    (w_img, h_img),
+                )
+            else:
+                mx1, my1, mx2, my2 = rx
+            regions.append(
+                {"shape": "rect", "x1": mx1, "y1": my1, "x2": mx2, "y2": my2}
+            )
+        img = remove_defects(
+            img, regions, {"grain_level": grain_level, "dust_size": dust_size}
+        )
 
     # --- 3.1 采样白点 ---
     # white_point_vec: [r_w, g_w, b_w]
@@ -466,6 +498,8 @@ def process_film_with_params(
     tone_pivot=0.5,
     tone_curve=0.5,
     color_mode="skin_protect",
+    dust=None,
+    dust_rois=None,
 ):
     # 1. Read input file as byte stream
     try:
@@ -503,6 +537,8 @@ def process_film_with_params(
         tone_pivot=tone_pivot,
         tone_curve=tone_curve,
         color_mode=color_mode,
+        dust=dust,
+        dust_rois=dust_rois,
     )
 
     # 3. Write output byte stream to file

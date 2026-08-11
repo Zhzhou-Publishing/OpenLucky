@@ -128,6 +128,67 @@ def parse_area_basis(s):
     return (w, h)
 
 
+def parse_dust(s):
+    """Parse '--dust' argument 'grain_level,dust_size' into (float, int).
+
+    The presence of --dust (not its value) enables dust removal; grain_level is
+    the 粗细 slider (0 fine/aggressive .. 1 coarse/conservative), dust_size is
+    the max dust diameter in px (top-hat kernel + inpaint radius).
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --dust format. Expected 'grain_level,dust_size', got: {s!r}"
+        )
+    try:
+        grain_level = float(parts[0])
+        dust_size = int(parts[1])
+    except ValueError:
+        raise ValueError(
+            f"Invalid --dust values. Expected float,int, got: {s!r}"
+        )
+    if not (0.0 <= grain_level <= 1.0):
+        raise ValueError(
+            f"Invalid --dust grain_level: must be in [0, 1], got {grain_level}"
+        )
+    if not (3 <= dust_size <= 31):
+        raise ValueError(
+            f"Invalid --dust dust_size: must be an odd int in [3, 31], got {dust_size}"
+        )
+    return (grain_level, dust_size)
+
+
+def parse_dust_rois(s):
+    """Parse '--dust-rois' argument 'x1,y1,x2,y2;x1,y1,x2,y2' into a list of
+    4-int tuples (semicolon between ROIs, comma within)."""
+    if s is None:
+        return None
+    rois = []
+    for token in s.split(';'):
+        token = token.strip()
+        if not token:
+            continue
+        parts = [p.strip() for p in token.split(',')]
+        if len(parts) != 4:
+            raise ValueError(
+                f"Invalid --dust-rois ROI. Expected 'x1,y1,x2,y2', got: {token!r}"
+            )
+        try:
+            x1, y1, x2, y2 = (int(p) for p in parts)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --dust-rois values. All four coordinates must be integers, got: {token!r}"
+            )
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError(
+                f"Invalid --dust-rois ROI: must satisfy x2>x1 and y2>y1, got: {token!r}"
+            )
+        rois.append((x1, y1, x2, y2))
+    return rois or None
+
+
 def _parse_curve_strength(token, full_input):
     """Parse 'auto:STRENGTH' suffix on the curve slot. Returns float in [0, 1]."""
     rest = token[len('auto:'):].strip()
@@ -321,6 +382,10 @@ def main():
     film_parser.add_argument('--color-mode', required=False, default='skin_protect',
                              choices=['skin_protect', 'balanced', 'deep', 'preserve'],
                              help='Color correction mode (default: skin_protect)')
+    film_parser.add_argument('--dust', required=False, default=None,
+                             help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
+    film_parser.add_argument('--dust-rois', required=False, default=None,
+                             help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -345,6 +410,10 @@ def main():
     filmbatch_parser.add_argument('--color-mode', required=False, default='skin_protect',
                                    choices=['skin_protect', 'balanced', 'deep', 'preserve'],
                                    help='Color correction mode (default: skin_protect)')
+    filmbatch_parser.add_argument('--dust', required=False, default=None,
+                                   help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
+    filmbatch_parser.add_argument('--dust-rois', required=False, default=None,
+                                   help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -370,6 +439,10 @@ def main():
     filmparam_parser.add_argument('--color-mode', required=False, default='skin_protect',
                                    choices=['skin_protect', 'balanced', 'deep', 'preserve'],
                                    help='Color correction mode (default: skin_protect)')
+    filmparam_parser.add_argument('--dust', required=False, default=None,
+                                   help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
+    filmparam_parser.add_argument('--dust-rois', required=False, default=None,
+                                   help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -395,6 +468,10 @@ def main():
     filmparambatch_parser.add_argument('--color-mode', required=False, default='skin_protect',
                                          choices=['skin_protect', 'balanced', 'deep', 'preserve'],
                                          help='Color correction mode (default: skin_protect)')
+    filmparambatch_parser.add_argument('--dust', required=False, default=None,
+                                         help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
+    filmparambatch_parser.add_argument('--dust-rois', required=False, default=None,
+                                         help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -527,6 +604,8 @@ def main():
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
             tone = parse_tone(args.tone)
+            dust = parse_dust(args.dust)
+            dust_rois = parse_dust_rois(args.dust_rois)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -601,6 +680,8 @@ def main():
             tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw,
             color_mode=args.color_mode,
+            dust=dust,
+            dust_rois=dust_rois,
         )
 
         if output_bytes is None:
@@ -643,6 +724,8 @@ def main():
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
             tone = parse_tone(args.tone)
+            dust = parse_dust(args.dust)
+            dust_rois = parse_dust_rois(args.dust_rois)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -735,6 +818,8 @@ def main():
                     tone_pivot=tone[0] if tone else 0.5,
                     tone_curve=tone[1] if tone else 0.5,
                     color_mode=args.color_mode,
+                    dust=dust,
+                    dust_rois=dust_rois,
                 )
 
 
@@ -784,6 +869,8 @@ def main():
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
             tone = parse_tone(args.tone)
+            dust = parse_dust(args.dust)
+            dust_rois = parse_dust_rois(args.dust_rois)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -866,6 +953,8 @@ def main():
             tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw,
             color_mode=args.color_mode,
+            dust=dust,
+            dust_rois=dust_rois,
         )
 
         if output_bytes is None:
@@ -914,6 +1003,16 @@ def main():
                 preset_config['area_basis'] = {
                     'w': area_basis[0], 'h': area_basis[1],
                 }
+        if dust is not None:
+            preset_config['dust'] = {
+                'grain_level': dust[0],
+                'dust_size': dust[1],
+            }
+            if dust_rois is not None:
+                preset_config['dust_rois'] = [
+                    {'x1': r[0], 'y1': r[1], 'x2': r[2], 'y2': r[3]}
+                    for r in dust_rois
+                ]
         input_path_for_preset = Path(args.input) if args.input else None
         output_path_for_preset = Path(args.output) if args.output else None
         save_preset_to_json(input_path_for_preset, output_path_for_preset, preset_config, preset_name, preset_label)
@@ -925,6 +1024,8 @@ def main():
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
             tone = parse_tone(args.tone)
+            dust = parse_dust(args.dust)
+            dust_rois = parse_dust_rois(args.dust_rois)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1010,6 +1111,16 @@ def main():
                 preset_config['area_basis'] = {
                     'w': area_basis[0], 'h': area_basis[1],
                 }
+        if dust is not None:
+            preset_config['dust'] = {
+                'grain_level': dust[0],
+                'dust_size': dust[1],
+            }
+            if dust_rois is not None:
+                preset_config['dust_rois'] = [
+                    {'x1': r[0], 'y1': r[1], 'x2': r[2], 'y2': r[3]}
+                    for r in dust_rois
+                ]
 
         # Batch processing - collect presets first
         success_count = 0
@@ -1044,6 +1155,8 @@ def main():
                     tone_pivot=tone[0] if tone else 0.5,
                     tone_curve=tone[1] if tone else 0.5,
                     color_mode=args.color_mode,
+                    dust=dust,
+                    dust_rois=dust_rois,
                 )
                 success_count += 1
 
