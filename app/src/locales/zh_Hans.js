@@ -71,6 +71,7 @@ export default {
       pickMaskColor: '吸取色罩颜色',
       pickWhitePointArea: '框选白点采样区',
       clearWhitePointArea: '清除白点采样区',
+      dustRemoval: '除尘',
       rotate: '旋转',
       rotateClockwise: '顺时针 90°',
       rotateCounterClockwise: '逆时针 90°',

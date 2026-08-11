@@ -71,6 +71,7 @@ export default {
       pickMaskColor: '마스크 색상(色相) 추출(抽出)',
       pickWhitePointArea: '화이트 포인트 영역(領域) 선택(選擇)',
       clearWhitePointArea: '화이트 포인트 영역(領域) 지우기',
+      dustRemoval: '먼지 제거',
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°',

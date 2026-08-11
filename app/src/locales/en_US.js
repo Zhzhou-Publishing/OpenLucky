@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'Pick Mask Color',
       pickWhitePointArea: 'Select White-Point Area',
       clearWhitePointArea: 'Clear White-Point Area',
+      dustRemoval: 'Dust Removal',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°',

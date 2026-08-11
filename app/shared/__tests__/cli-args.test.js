@@ -3,6 +3,9 @@ const assert = require('node:assert/strict')
 
 const {
   appendArea,
+  appendAreaBasis,
+  appendDust,
+  appendDustRois,
   appendExposure,
   appendWhiteBalance,
   appendTone,
@@ -91,6 +94,66 @@ test('buildFilmparamArgs: command override produces filmparambatch', () => {
   assert.deepEqual(
     buildFilmparamArgs({ command: 'filmparambatch', input: 'inDir', output: 'outDir', param: '1,1,1,2,3', rotateClockwise: 0 }),
     ['filmparambatch', '--input', 'inDir', '--output', 'outDir', '--param', '1,1,1,2,3', '--rotate-clockwise', '0']
+  )
+})
+
+// ── dust removal (pr/024.dust.md) ────────────────────────────────────────────
+
+test('appendDust pushes --dust only for valid grain_level + integer dust_size', () => {
+  assert.deepEqual(appendDust([], { grain_level: 0.3, dust_size: 9 }), ['--dust', '0.3,9'])
+  assert.deepEqual(appendDust([], null), [])
+  assert.deepEqual(appendDust([], { grain_level: 1.5, dust_size: 9 }), [])
+  assert.deepEqual(appendDust([], { grain_level: 0.3, dust_size: 9.5 }), [])
+})
+
+test('appendDustRois joins rects with ; and validates integers', () => {
+  const rois = [{ x1: 10, y1: 20, x2: 30, y2: 40 }, { x1: 50, y1: 60, x2: 70, y2: 80 }]
+  assert.deepEqual(appendDustRois([], rois), ['--dust-rois', '10,20,30,40;50,60,70,80'])
+  assert.deepEqual(appendDustRois([], []), [])
+  assert.deepEqual(appendDustRois([], null), [])
+  assert.deepEqual(appendDustRois([], [{ x1: 1, y1: 2, x2: 3, y2: 4.5 }]), [])
+})
+
+test('appendAreaBasis pushes only positive integer dimensions', () => {
+  assert.deepEqual(appendAreaBasis([], { w: 6000, h: 4000 }), ['--area-basis', '6000,4000'])
+  assert.deepEqual(appendAreaBasis([], { w: 0, h: 4000 }), [])
+  assert.deepEqual(appendAreaBasis([], null), [])
+})
+
+test('buildFilmparamArgs: dust appended after color-mode in full form', () => {
+  assert.deepEqual(
+    buildFilmparamArgs({
+      input: 'in.jpg', output: 'out.jpg', param: '1,1,1,2,3', rotateClockwise: 0,
+      dust: { grain_level: 0.4, dust_size: 11 },
+      dustRois: [{ x1: 100, y1: 50, x2: 300, y2: 200 }],
+      areaBasis: { w: 6000, h: 4000 }
+    }),
+    [
+      'filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3',
+      '--rotate-clockwise', '0',
+      '--dust', '0.4,11', '--dust-rois', '100,50,300,200',
+      '--area-basis', '6000,4000'
+    ]
+  )
+})
+
+test('buildFilmparamArgs: dust with --area keeps a single --area-basis', () => {
+  const args = buildFilmparamArgs({
+    input: 'in.jpg', output: 'out.jpg', param: '1,1,1,2,3', rotateClockwise: 0,
+    area: { x1: 10, y1: 20, x2: 30, y2: 40 }, areaBasis: { w: 6000, h: 4000 },
+    dust: { grain_level: 0.3, dust_size: 9 },
+    dustRois: [{ x1: 100, y1: 50, x2: 300, y2: 200 }]
+  })
+  const bases = args.filter(a => a === '--area-basis')
+  assert.equal(bases.length, 1)
+  assert.deepEqual(
+    args,
+    [
+      'filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3',
+      '--rotate-clockwise', '0',
+      '--area', '10,20,30,40', '--area-basis', '6000,4000',
+      '--dust', '0.3,9', '--dust-rois', '100,50,300,200'
+    ]
   )
 })
 

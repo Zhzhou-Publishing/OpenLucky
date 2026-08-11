@@ -3,7 +3,7 @@ const { buildFilmparamArgs } = require('../shared/cli-args')
 
 module.exports = {
   register: () => registerEntry('apply-filmparambatch', {
-    buildArgs: ({ inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null, colorMode = null }) =>
+    buildArgs: ({ inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null, colorMode = null, dust = null, dustRois = null }) =>
       buildFilmparamArgs({
         command: 'filmparambatch',
         input: inputPath,
@@ -15,7 +15,9 @@ module.exports = {
         exposure,
         whiteBalance,
         tone,
-        colorMode
+        colorMode,
+        dust,
+        dustRois
       }),
     startedMessage: 'Batch processing started',
     successMessage: 'Batch processing completed successfully',

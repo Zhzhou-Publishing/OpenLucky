@@ -1,14 +1,21 @@
 <template>
   <div id="app">
-    <Navbar />
-    <main class="main-container">
-      <router-view />
-    </main>
+    <template v-if="toolName">
+      <!-- Tool window (pr/025.tool_windows.md): a child window loaded with
+           ?tool=<name> renders ONLY the tool, no app shell. -->
+      <component :is="toolComponent" />
+    </template>
+    <template v-else>
+      <Navbar />
+      <main class="main-container">
+        <router-view />
+      </main>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Navbar from './components/Navbar.vue'
@@ -18,6 +25,17 @@ import backend from './services/backend'
 import './utils/theme' // 初始化主题系统（读 localStorage → 设置 dark class）
 
 const route = useRoute()
+
+// Tool name → component (renderer half of the tool registry; the main process
+// keeps window sizing in app/shared/tools.js).
+const toolViews = {
+  dust: defineAsyncComponent(() => import('./pages/DustTool.vue'))
+}
+
+const toolName = computed(() =>
+  new URLSearchParams(window.location.search).get('tool') || ''
+)
+const toolComponent = computed(() => toolViews[toolName.value] || null)
 const { t } = useI18n()
 
 // Routes that hold loaded image state; closing the window from here

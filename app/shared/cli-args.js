@@ -58,6 +58,38 @@ function appendColorMode(args, colorMode) {
   return args
 }
 
+function appendAreaBasis(args, areaBasis) {
+  if (areaBasis
+      && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h)
+      && areaBasis.w > 0 && areaBasis.h > 0) {
+    args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+  }
+  return args
+}
+
+// `dust` is { grain_level (0-1 粗细 slider), dust_size (px) } — presence of
+// --dust enables dust removal. pr/024.dust.md
+function appendDust(args, dust) {
+  if (dust
+      && typeof dust.grain_level === 'number' && Number.isFinite(dust.grain_level)
+      && dust.grain_level >= 0 && dust.grain_level <= 1
+      && Number.isInteger(dust.dust_size)) {
+    args.push('--dust', `${dust.grain_level},${dust.dust_size}`)
+  }
+  return args
+}
+
+// dustRois are { x1,y1,x2,y2 } rects in the same basis frame as --area
+// (measured on the working-dir preview).
+function appendDustRois(args, dustRois) {
+  if (Array.isArray(dustRois) && dustRois.length > 0
+      && dustRois.every(r => r && Number.isInteger(r.x1) && Number.isInteger(r.y1)
+                              && Number.isInteger(r.x2) && Number.isInteger(r.y2))) {
+    args.push('--dust-rois', dustRois.map(r => `${r.x1},${r.y1},${r.x2},${r.y2}`).join(';'))
+  }
+  return args
+}
+
 // ── Command builders ─────────────────────────────────────────────────────────
 
 // `filmparam` (single file) and `filmparambatch` share this shape. Pass
@@ -74,17 +106,27 @@ function buildFilmparamArgs({
   exposure = null,
   whiteBalance = null,
   tone = null,
-  colorMode = null
+  colorMode = null,
+  dust = null,
+  dustRois = null
 }) {
   const args = [command, '--input', input, '--output', output, '--param', param]
   if (rotateClockwise !== null && rotateClockwise !== undefined) {
     args.push('--rotate-clockwise', rotateClockwise.toString())
   }
+  const hasArea = area && Number.isInteger(area.x1) && Number.isInteger(area.y1)
+    && Number.isInteger(area.x2) && Number.isInteger(area.y2)
+  const hasDustRois = Array.isArray(dustRois) && dustRois.length > 0
   appendArea(args, area, areaBasis)
   appendExposure(args, exposure)
   appendWhiteBalance(args, whiteBalance)
   appendTone(args, tone)
   appendColorMode(args, colorMode)
+  appendDust(args, dust)
+  appendDustRois(args, dustRois)
+  // Dust ROIs are drawn on the same basis frame as --area; emit --area-basis
+  // for them even when there is no white-point --area to measure.
+  if (hasDustRois && !hasArea) appendAreaBasis(args, areaBasis)
   return args
 }
 
@@ -201,10 +243,13 @@ const { coerceRawOutputPath } = require('./formats')
 
 module.exports = {
   appendArea,
+  appendAreaBasis,
   appendExposure,
   appendWhiteBalance,
   appendTone,
   appendColorMode,
+  appendDust,
+  appendDustRois,
   buildFilmparamArgs,
   buildFilmbatchArgs,
   buildHistogramArgs,

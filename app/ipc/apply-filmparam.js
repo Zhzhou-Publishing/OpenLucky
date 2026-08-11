@@ -4,7 +4,7 @@ const { buildFilmparamArgs } = require('../shared/cli-args')
 
 module.exports = {
   register: () => registerEntry('apply-filmparam', {
-    buildArgs: ({ inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null, colorMode = null }) =>
+    buildArgs: ({ inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null, tone = null, colorMode = null, dust = null, dustRois = null }) =>
       buildFilmparamArgs({
         input: path.join(inputPath, filename),
         output: path.join(outputPath, filename),
@@ -15,7 +15,9 @@ module.exports = {
         exposure,
         whiteBalance,
         tone,
-        colorMode
+        colorMode,
+        dust,
+        dustRois
       }),
     startedMessage: 'Processing started',
     successPayload: ({ outputPath, filename }) => ({

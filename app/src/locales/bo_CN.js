@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'གདོས་མཐོང་གི་ཁ་དོག་ལེན།',
       pickWhitePointArea: 'དཀར་ཚེག་གི་ས་ཁྱོན་འདེམས།',
       clearWhitePointArea: 'དཀར་ཚེག་གི་ས་ཁྱོན་སུབ།',
+      dustRemoval: 'རྡུལ་སེལ་བ།',
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°',

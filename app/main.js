@@ -43,6 +43,9 @@ const ipcApplyPresetToFile = require('./ipc/apply-preset-to-file')
 const ipcApplyPresetToBatch = require('./ipc/apply-preset-to-batch')
 const ipcResetImage = require('./ipc/reset-image')
 const ipcSetTheme = require('./ipc/set-theme')
+const ipcOpenToolWindow = require('./ipc/open-tool-window')
+const ipcGetToolContext = require('./ipc/get-tool-context')
+const ipcToolResult = require('./ipc/tool-result')
 
 // ── Update checker constants ────────────────────────────────────────────────
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
@@ -505,6 +508,9 @@ function createWindow() {
     ipcApplyPresetToBatch.register()
     ipcResetImage.register()
     ipcSetTheme.register()
+    ipcOpenToolWindow.register()
+    ipcGetToolContext.register()
+    ipcToolResult.register()
     ipcHandlersRegistered = true
   }
 

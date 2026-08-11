@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'マスクの色を取得',
       pickWhitePointArea: 'ホワイトポイント領域を選択',
       clearWhitePointArea: 'ホワイトポイント領域をクリア',
+      dustRemoval: 'ゴミ除去',
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°',

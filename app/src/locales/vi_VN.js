@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'Lấy màu mặt nạ',
       pickWhitePointArea: 'Chọn vùng điểm trắng',
       clearWhitePointArea: 'Xóa vùng điểm trắng',
+      dustRemoval: 'Loại bỏ bụi',
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°',

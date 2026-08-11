@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'Взять цвет маски',
       pickWhitePointArea: 'Выбрать область белой точки',
       clearWhitePointArea: 'Очистить область белой точки',
+      dustRemoval: 'Удалить пыль',
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°',

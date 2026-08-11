@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'Tomar color de la máscara',
       pickWhitePointArea: 'Seleccionar área de punto blanco',
       clearWhitePointArea: 'Borrar área de punto blanco',
+      dustRemoval: 'Eliminar polvo',
       rotate: 'Rotar',
       rotateClockwise: 'Sentido horario 90°',
       rotateCounterClockwise: 'Sentido antihorario 90°',

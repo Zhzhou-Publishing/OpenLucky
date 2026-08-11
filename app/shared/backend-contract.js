@@ -103,7 +103,9 @@ module.exports = [
         "exposure": "number?=null",
         "whiteBalance": "string?=null",
         "tone": "string?=null",
-        "colorMode": "string?=null"
+        "colorMode": "string?=null",
+        "dust": "null | obj?=null",
+        "dustRois": "null | array?=null"
       }
     },
     "return": {},
@@ -143,7 +145,9 @@ module.exports = [
         "exposure": "number?=null",
         "whiteBalance": "string?=null",
         "tone": "string?=null",
-        "colorMode": "string?=null"
+        "colorMode": "string?=null",
+        "dust": "null | obj?=null",
+        "dustRois": "null | array?=null"
       }
     },
     "return": {},
@@ -386,10 +390,10 @@ module.exports = [
       "success": { "channel": "images-loaded", "payload": { "images": "array" } },
       "error": { "channel": "images-error", "payload": "string" }
     },
-    "protocol": "sends via getWin().webContents.send (not event.sender); images-error payload is a BARE STRING; sharp thumbnails via Promise.all",
+    "protocol": "sends via event.sender (the calling window); images-error payload is a BARE STRING; sharp thumbnails via Promise.all",
     "spawn": null,
     "implementation": "custom-handler",
-    "capabilities": ["sharp", "fs", "tmp", "getWin"]
+    "capabilities": ["sharp", "fs", "tmp"]
   },
   {
     "id": "open-external",
@@ -536,10 +540,10 @@ module.exports = [
       "success": { "channel": "directory-selected", "payload": { "path": "string", "files": "array" } },
       "error": { "channel": "directory-error", "payload": "string" }
     },
-    "protocol": "dialog.showOpenDialog via getWin(); directory-error payload is a BARE STRING; raw directory listing",
+    "protocol": "dialog.showOpenDialog parented on the calling window; replies via event.sender; directory-error payload is a BARE STRING; raw directory listing",
     "spawn": null,
     "implementation": "custom-handler",
-    "capabilities": ["dialog", "fs", "getWin"]
+    "capabilities": ["dialog", "fs"]
   },
   {
     "id": "set-theme",
@@ -554,5 +558,47 @@ module.exports = [
     "spawn": null,
     "implementation": "custom-handler",
     "capabilities": ["nativeTheme"]
+  },
+  {
+    "id": "open-tool-window",
+    "kind": "custom",
+    "registration": "handle",
+    "channel": "open-tool-window",
+    "label": "OpenToolWindow",
+    "payload": { "type": "single", "props": { "tool": "string", "payload": "object" } },
+    "return": { "windowId": "number|null" },
+    "emit": {},
+    "protocol": "creates a child BrowserWindow for the tool (sized from tools.js); returns the window id, or null when the tool already has a window (singleton, no focus)",
+    "spawn": null,
+    "implementation": "custom-handler",
+    "capabilities": ["window"]
+  },
+  {
+    "id": "get-tool-context",
+    "kind": "custom",
+    "registration": "handle",
+    "channel": "get-tool-context",
+    "label": "GetToolContext",
+    "payload": {},
+    "return": { "payload": "object|null" },
+    "emit": {},
+    "protocol": "returns the payload the calling tool window was opened with, or null for a non-tool window",
+    "spawn": null,
+    "implementation": "custom-handler",
+    "capabilities": ["window"]
+  },
+  {
+    "id": "tool-result",
+    "kind": "custom",
+    "registration": "on",
+    "channel": "tool-result",
+    "label": "ToolResult",
+    "payload": { "type": "single", "props": { "tool": "string", "result": "object" } },
+    "return": {},
+    "emit": {},
+    "protocol": "fire-and-forget from a tool window; forwards {tool, result} to the owning (main) window so it can merge params and refresh",
+    "spawn": null,
+    "implementation": "custom-handler",
+    "capabilities": ["window"]
   }
 ]

@@ -71,6 +71,7 @@ export default {
       pickMaskColor: 'मास्क रंग चुनें',
       pickWhitePointArea: 'व्हाइट पॉइंट क्षेत्र चुनें',
       clearWhitePointArea: 'व्हाइट पॉइंट क्षेत्र साफ़ करें',
+      dustRemoval: 'धूल हटाएँ',
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°',

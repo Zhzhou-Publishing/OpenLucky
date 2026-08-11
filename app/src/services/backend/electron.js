@@ -278,6 +278,30 @@ export function openExternal(url) {
   send('open-external', url)
 }
 
+// ── tool windows (pr/025.tool_windows.md) ────────────────────────────────────
+
+// Open a tool window from the main window; resolves to the window id, or null
+// when the tool already has a window (singleton, no focus).
+export function openToolWindow(tool, payload) {
+  return invoke('open-tool-window', { tool, payload })
+}
+
+// Inside a tool window: return the payload it was opened with.
+export function getToolContext() {
+  return invoke('get-tool-context')
+}
+
+// Inside a tool window: fire-and-forget the finished result back to the main
+// window, which merges it into the photo params and refreshes.
+export function notifyToolResult(tool, result) {
+  send('tool-result', { tool, result })
+}
+
+// On the main window: subscribe to results forwarded by finished tool windows.
+export function onToolResult(handler) {
+  return subscribe('tool-result', handler)
+}
+
 // ── main-push event ───────────────────────────────────────────────────────────
 
 export function onConfirmClose(handler) {

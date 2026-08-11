@@ -502,6 +502,57 @@ function persistAreaSelections() {
   }
 }
 
+// ── 除尘配置（pr/024.dust.md）──
+// dustByName[photoName] = { grain_level, dust_size, regions: [{x1,y1,x2,y2}] }，
+// 与 area 一样按文件名持久化到 sessionStorage；应用时随 applyFilmparam 下发
+// --dust / --dust-rois，由 CLI 写回 .preset.json。
+const dustByName = ref({})
+const DUST_SESSION_STORAGE_KEY = 'photoEditDustConfigs'
+
+function loadDustConfigs() {
+  try {
+    return JSON.parse(sessionStorage.getItem(DUST_SESSION_STORAGE_KEY) || '{}')
+  } catch (err) {
+    logger.error('Failed to load dust configs:', err)
+    return {}
+  }
+}
+
+function persistDustConfigs() {
+  try {
+    sessionStorage.setItem(DUST_SESSION_STORAGE_KEY, JSON.stringify(dustByName.value))
+  } catch (err) {
+    logger.error('Failed to persist dust configs:', err)
+  }
+}
+
+// reactive 嵌套对象不能直接走 Electron structured clone（会被静默丢包），
+// 这里手动展开成纯对象。
+function unwrapDust(d) {
+  if (!d) return null
+  return {
+    grain_level: d.grain_level,
+    dust_size: d.dust_size,
+    regions: (d.regions || []).map(r => ({ x1: r.x1, y1: r.y1, x2: r.x2, y2: r.y2 })),
+  }
+}
+
+let offToolResult = null
+
+// 除尘窗确认后回传（tool-result）：把配置合并进照片 params，若当前照片就是目标
+// 则自动应用，用户关窗后立刻看到除尘效果。
+function handleToolResult({ tool, result }) {
+  if (tool !== 'dust') return
+  const cfg = unwrapDust(result && result.dust)
+  if (!cfg || !result.photo) return
+  dustByName.value = { ...dustByName.value, [result.photo]: cfg }
+  persistDustConfigs()
+  if (currentImage.value && currentImage.value.name === result.photo
+      && !isAllImagesAffected.value && !isCurrentImageAffected.value) {
+    apply()
+  }
+}
+
 function startAreaSelect() {
   if (!currentImage.value || !fullResImageUrl.value) return
   if (isAllImagesAffected.value || isCurrentImageAffected.value) return
@@ -882,6 +933,7 @@ const ctxMenuItems = computed(() => {
     { label: t('photoEdit.contextMenu.pickMaskColor'), action: startEyedropper, disabled: busy || !currentImage.value || !fullResImageUrl.value },
     { label: t('photoEdit.contextMenu.pickWhitePointArea'), action: startAreaSelect, disabled: busy || !currentImage.value || !fullResImageUrl.value },
     { label: t('photoEdit.contextMenu.clearWhitePointArea'), action: clearAreaSelectionForCurrent, disabled: busy || !storedSelectionForCurrent.value },
+    { label: t('photoEdit.contextMenu.dustRemoval'), action: openDustTool, disabled: busy || !currentImage.value },
     { type: 'separator' },
     {
       label: t('photoEdit.contextMenu.rotate'),
@@ -900,6 +952,37 @@ const ctxMenuItems = computed(() => {
 function onContextMenu(e) {
   ctxMenuPos.value = { x: e.clientX, y: e.clientY }
   ctxMenuVisible.value = true
+}
+
+// 除尘入口（临时放在右键菜单，pr/025.tool_windows.md）：打开子窗体 DustTool，
+// 把当前照片的处理参数一并传过去供其预览复用整条管线。
+async function openDustTool() {
+  if (!currentImage.value) return
+  if (isAllImagesAffected.value || isCurrentImageAffected.value) return
+  try {
+    await backend.openToolWindow('dust', buildDustContext())
+  } catch (err) {
+    logger.error('Error opening dust tool:', err)
+  }
+}
+
+function buildDustContext() {
+  const name = currentImage.value.name
+  const areaForIpc = unwrapArea(areaSelectionsByName.value[name])
+  return {
+    photo: name,
+    workingDir: workingDirectory.value,
+    outputDir: outputDirectory.value,
+    params: `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`,
+    rotateClockwise: currentRotateClockwise.value,
+    area: areaForIpc,
+    areaBasis: areaForIpc ? currentAreaBasisForIpc() : null,
+    exposure: exposure.value,
+    whiteBalance: currentWhiteBalanceForIpc(),
+    tone: currentToneForIpc(),
+    colorMode: colorMode.value,
+    dust: unwrapDust(dustByName.value[name]),
+  }
 }
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
@@ -1270,6 +1353,10 @@ const apply = async () => {
   // IPC 包根本到不了主进程。
   const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
   const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
+  const dustForIpc = unwrapDust(dustByName.value[imageName])
+  const dustRoisForIpc = dustForIpc && dustForIpc.regions && dustForIpc.regions.length
+    ? dustForIpc.regions
+    : null
 
   try {
     const result = await backend.applyFilmparam({
@@ -1283,7 +1370,9 @@ const apply = async () => {
       exposure: exposure.value,
       whiteBalance: currentWhiteBalanceForIpc(),
       tone: currentToneForIpc(),
-      colorMode: colorMode.value
+      colorMode: colorMode.value,
+      dust: dustForIpc,
+      dustRois: dustRoisForIpc
     })
 
     // Success — matched to this image by filename (facade does the matching).
@@ -1644,6 +1733,18 @@ const loadPresetForCurrentImage = () => {
     applyTonePresetToUi(preset)
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
     colorMode.value = preset.color_mode || 'skin_protect'
+    // 除尘配置：本会话已配置的优先；否则回退到 .preset.json 里 CLI 持久化的值
+    // （跨会话重启后仍能恢复）。
+    if (!dustByName.value[currentFileName.value] && preset.dust) {
+      dustByName.value = {
+        ...dustByName.value,
+        [currentFileName.value]: {
+          grain_level: preset.dust.grain_level,
+          dust_size: preset.dust.dust_size ?? 9,
+          regions: Array.isArray(preset.dust_rois) ? preset.dust_rois : [],
+        },
+      }
+    }
   } else {
     // Reset to default if no preset found
     input1.value = 255
@@ -1762,6 +1863,8 @@ onMounted(() => {
   loadImages()
   loadPresets()
   areaSelectionsByName.value = loadAreaSelections()
+  dustByName.value = loadDustConfigs()
+  offToolResult = backend.onToolResult(handleToolResult)
   window.addEventListener('keydown', handleKeydown)
   // ResizeObserver 不可用的兜底：监听窗口尺寸变化。
   if (typeof ResizeObserver === 'undefined') {
@@ -1770,6 +1873,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (offToolResult) offToolResult()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
   // 防御：组件卸载时清掉拖拽期间挂在 window 上的临时监听器
