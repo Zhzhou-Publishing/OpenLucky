@@ -99,6 +99,26 @@ def test_per_roi_strength_override():
     assert out[80, 60].max() < 0.85, "per-ROI strength override not honoured"
 
 
+def test_slider_params_maps_grain_level_per_design_spec():
+    """pr/024.dust.md §5: dust_gain = 2.5 + 2.0×g (g=0 → 2.5, g=1 → 4.5);
+    α = 1 at fine, falls to 0 from g≥0.5 (粗档不平滑颗粒)."""
+    from cli.lib.dust import _slider_params
+
+    # 细端 / 中点 / 粗端
+    assert _slider_params(0.0) == (1.0, 2.5)
+    assert _slider_params(0.5) == (0.0, 3.5)
+    assert _slider_params(1.0) == (0.0, 4.5)
+
+    # 细→粗：dust_gain 单调增；α 在 [0, 0.5) 单调降到 0，之后恒为 0
+    gains = [_slider_params(g)[1] for g in (0.0, 0.25, 0.5, 0.75, 1.0)]
+    assert gains == sorted(gains)
+    assert all(_slider_params(g)[0] == 0.0 for g in (0.5, 0.75, 1.0))
+
+    # 输入钳位到 [0, 1]
+    assert _slider_params(-1.0) == (1.0, 2.5)
+    assert _slider_params(2.0) == (0.0, 4.5)
+
+
 def test_detect_dust_mask_shape_and_consistency():
     img = _make()
     roi = {"shape": "rect", "x1": 130, "y1": 70, "x2": 170, "y2": 110}

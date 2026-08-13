@@ -38,8 +38,8 @@ def _disk(size):
 def _slider_params(grain_level):
     """Map the 粗细 slider (0 fine/aggressive .. 1 coarse/conservative).
 
-    fine  (->0): alpha -> 1 (flatten grain),  dust threshold -> ~1.15x grain peak
-    coarse(->1): alpha -> 0 (keep grain),     dust threshold -> ~2.0x grain peak
+    fine  (->0): alpha -> 1 (flatten grain),  dust threshold -> 2.5x grain peak
+    coarse(->1): alpha -> 0 (keep grain),     dust threshold -> 4.5x grain peak
     """
     g = float(np.clip(grain_level, 0.0, 1.0))
     alpha = max(0.0, 1.0 - g / 0.5)      # >= 0.5 → no grain flattening
