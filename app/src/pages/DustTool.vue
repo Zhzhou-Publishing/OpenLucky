@@ -74,7 +74,7 @@
 // 除尘工具窗（pr/024.dust.md / pr/025.tool_windows.md）。
 // 子窗体：主窗锁定，关闭本窗后返回主窗；「确认」把配置经 tool-result 回传，
 // 主窗合并进照片 params 并自动应用。
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue'
 import backend from '../services/backend'
 import Slider from '../components/Slider.vue'
 
@@ -226,7 +226,10 @@ async function runPreview() {
     showingPreview.value = false
     return
   }
-  const c = context.value
+  // context.value 是 ref 包装后的 reactive 代理，其嵌套对象（area / areaBasis）
+  // 也是代理，直接进 IPC 的 structured clone 会抛 "An object could not be cloned"；
+  // toRaw 扒回原始普通对象（同 plainRois）。
+  const c = toRaw(context.value)
   if (!c || rois.value.length === 0) return
   busy.value = true
   try {
@@ -237,7 +240,11 @@ async function runPreview() {
       params: c.params,
       rotateClockwise: c.rotateClockwise,
       area: c.area,
-      areaBasis: naturalDims.value || c.areaBasis,
+      // naturalDims.value 是 ref 包装后的 reactive 代理，直接走 structured
+      // clone 会抛 "An object could not be cloned"；展开成纯对象再传（同 plainRois）。
+      areaBasis: naturalDims.value
+        ? { w: naturalDims.value.w, h: naturalDims.value.h }
+        : c.areaBasis,
       exposure: c.exposure,
       whiteBalance: c.whiteBalance,
       tone: c.tone,
