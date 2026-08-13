@@ -1,30 +1,31 @@
 """Algorithmic dust removal for film positives — no IR channel required.
 
 Dust on a negative blocks light and, after the orange-mask inversion, becomes a
-small, near-neutral *bright* spot. Without an infrared band we can only separate
-dust from real image content heuristically, so this runs inside user-drawn ROIs
-and every ROI gets its own robust statistics:
+small bright spot. Real film dust is *not* neutral — it is yellowish (the
+orange mask bleeds through) and forms soft, irregular clumps. pr/026 showed the
+old "neutral bright spot" assumption + a/b-neutrality filter discarded real
+dust as "coloured highlights", leaving the output unchanged.
 
-  * grain amplitude = MAD of the luminance high-pass (robust to the dust itself);
-  * white top-hat   = L - medianBlur(L) keeps only small bright blobs;
-  * two bands       = tophat >= t_dust  is dust (inpaint); the band between
-                      t_grain..t_dust is grain (attenuated only on the fine end
-                      of the 粗细 slider);
-  * blob filters    = size / circularity / a-b neutrality keep coloured
-                      highlights, stars and reflections out of the mask.
+The detector is now a LOCAL COLOUR ANOMALY: within a user-drawn ROI, a pixel is
+dust when its Lab colour deviates from its neighbourhood (a large median) by
+more than a threshold. Anything that stands out — yellow dust on skin, bright
+dust on black cloth, even a coloured highlight — is treated as dust. Users are
+told to keep ROIs small and avoid starfields / beach backgrounds, where real
+content would be mistaken for anomalies.
+
+  * local background = median blur large enough to swallow a dust clump;
+  * anomaly          = Euclidean Lab distance from that local background;
+  * mask             = anomaly >= threshold, filtered by size / elongation;
+  * repair           = pull masked pixels back to the local background colour.
 
 Only the masked pixels are written back so the rest of the float image keeps
-full precision. The fine-end grain attenuation round-trips the ROI through 8-bit
-Lab — acceptable for the prototype; production should shrink float detail
-instead (see pr/024.dust.md, "修补").
+full precision.
 
-Design: pr/024.dust.md
+Design: pr/024.dust.md (original), pr/026.dust_colorful.md (rewrite rationale).
 """
 
 import cv2
 import numpy as np
-
-_LAB_NEUTRAL = 128.0  # neutral point of a/b in 8-bit Lab
 
 
 def _odd(v):
@@ -38,13 +39,13 @@ def _disk(size):
 def _slider_params(grain_level):
     """Map the 粗细 slider (0 fine/aggressive .. 1 coarse/conservative).
 
-    fine  (->0): alpha -> 1 (flatten grain),  dust threshold -> 2.5x grain peak
-    coarse(->1): alpha -> 0 (keep grain),     dust threshold -> 4.5x grain peak
+    pr/026 rewrite: the slider now scales the colour-anomaly threshold gain.
+    fine  (->0): low threshold — catch faint anomalies (small/soft dust);
+    coarse(->1): high threshold — only strong, obvious anomalies.
     """
     g = float(np.clip(grain_level, 0.0, 1.0))
-    alpha = max(0.0, 1.0 - g / 0.5)      # >= 0.5 → no grain flattening
-    dust_gain = 2.5 + 2.0 * g            # dust must exceed grain amplitude × this
-    return alpha, dust_gain
+    anomaly_gain = 2.0 + 2.0 * g  # fine→2.0 (lenient), coarse→4.0 (strict)
+    return anomaly_gain
 
 
 def remove_defects(img, regions, cfg):
@@ -102,7 +103,17 @@ def detect_dust_mask(img, region, cfg):
 
 
 def _analyze(crop, dust_size, grain_level):
-    """Per-ROI diagnostics: Lab planes, noise floor, top-hat, thresholds, mask."""
+    """Per-ROI diagnostics: Lab planes, local colour anomaly, thresholds, mask.
+
+    pr/026.dust_colorful.md: real negative dust is NOT a neutral bright spot —
+    it is a yellowish, irregular, soft clump. The old white top-hat + a/b
+    neutrality test discarded it as a "coloured highlight". The detector is now
+    a LOCAL COLOUR ANOMALY: a pixel is dust when its Lab colour deviates from
+    its neighbourhood (a large median) by more than a threshold. Anything that
+    stands out against its surroundings — yellow dust on skin, bright dust on
+    black cloth, coloured highlights — is treated as dust. Users are told to
+    keep ROIs small and avoid starfields/beach backgrounds.
+    """
     lab = cv2.cvtColor(
         (np.clip(crop, 0.0, 1.0) * 255.0).astype(np.uint8),
         cv2.COLOR_RGB2LAB,
@@ -111,30 +122,43 @@ def _analyze(crop, dust_size, grain_level):
     A = lab[:, :, 1].astype(np.float32)
     B = lab[:, :, 2].astype(np.float32)
 
-    # White top-hat against a median base: median removes small bright blobs
-    # robustly, so the base is the local "typical" value — grain mostly cancels,
-    # dust keeps its full contrast. (An opening base amplifies grain in textured
-    # areas because it tracks the local minimum instead of the median.)
-    k = _odd(dust_size)
+    # Local background = a median large enough to swallow a dust clump. The
+    # median (not mean) is robust to the anomaly itself, so the background stays
+    # "typical neighbourhood colour" even under the dust.
+    bg_k = _odd(max(dust_size * 3, 15))
     L_u8 = np.clip(np.round(L), 0, 255).astype(np.uint8)
-    tophat = L - cv2.medianBlur(L_u8, k).astype(np.float32)
+    A_u8 = np.clip(np.round(A), 0, 255).astype(np.uint8)
+    B_u8 = np.clip(np.round(B), 0, 255).astype(np.uint8)
+    L_bg = cv2.medianBlur(L_u8, bg_k).astype(np.float32)
+    A_bg = cv2.medianBlur(A_u8, bg_k).astype(np.float32)
+    B_bg = cv2.medianBlur(B_u8, bg_k).astype(np.float32)
 
-    # Grain amplitude = MAD of the luminance high-pass: robust to the very dust
-    # we hunt (dust is rare, so the median is untouched). All thresholds scale
-    # off it, so the algorithm adapts across ISO / film types automatically.
+    # Anomaly distance = Euclidean colour deviation from the local background.
+    dL = L - L_bg
+    dA = A - A_bg
+    dB = B - B_bg
+    anomaly = np.sqrt(dL * dL + dA * dA + dB * dB)
+
+    # Grain amplitude = MAD of the luminance high-pass, used as an adaptive
+    # reference: on noisy (high-grain) frames the threshold rises so texture is
+    # not mistaken for dust.
     hp = L - cv2.GaussianBlur(L, (0, 0), sigmaX=1.5)
     grain = float(1.4826 * np.median(np.abs(hp)))
-    alpha, dust_gain = _slider_params(grain_level)
-    t_grain = max(grain * 0.7, 3.0)
-    t_dust = max(grain * dust_gain, 8.0)
+    anomaly_gain = _slider_params(grain_level)
 
-    raw = (tophat >= t_dust).astype(np.uint8) * 255
-    mask = _filter_components(raw, L, A, B, dust_size)
+    # Anomaly threshold. A dust clump deviates ~25+ in Lab distance, while
+    # grain/texture noise sits below ~15 (measured on real negatives — see
+    # pr/026.dust_colorful.md). Scales with grain so noisy frames stay quiet.
+    t_anomaly = max(grain * anomaly_gain, 20.0)
+
+    raw = (anomaly >= t_anomaly).astype(np.uint8) * 255
+    mask = _filter_components(raw, dust_size)
 
     return {
         "lab": lab, "L": L, "A": A, "B": B,
-        "grain": grain, "tophat": tophat,
-        "alpha": alpha, "t_grain": t_grain, "t_dust": t_dust, "mask": mask,
+        "L_bg": L_bg, "A_bg": A_bg, "B_bg": B_bg,
+        "anomaly": anomaly,
+        "grain": grain, "t_anomaly": t_anomaly, "mask": mask,
     }
 
 
@@ -145,7 +169,7 @@ def _remove_dust_rect(out, region, grain_level, dust_size):
     if x2 - x1 < 2 or y2 - y1 < 2:
         return
 
-    # Crop with a pad so inpainting at the ROI edge still has context.
+    # Crop with a pad so the background median at the ROI edge has context.
     pad = max(2, dust_size // 2) + 2
     px1, py1 = max(0, x1 - pad), max(0, y1 - pad)
     px2, py2 = min(w, x2 + pad), min(h, y2 + pad)
@@ -154,69 +178,61 @@ def _remove_dust_rect(out, region, grain_level, dust_size):
         return
 
     a = _analyze(crop, dust_size, grain_level)
-    L, A, B, lab = a["L"], a["A"], a["B"], a["lab"]
-    tophat, alpha, t_grain, mask = a["tophat"], a["alpha"], a["t_grain"], a["mask"]
+    lab, mask = a["lab"], a["mask"]
+    L, A, B = a["L"], a["A"], a["B"]
+    L_bg, A_bg, B_bg = a["L_bg"], a["A_bg"], a["B_bg"]
 
-    # Grain-band attenuation (fine end only).
-    L_work = L - alpha * np.maximum(tophat - t_grain, 0.0)
+    if not np.any(mask > 0):
+        return  # no anomaly in this ROI -> leave it untouched
 
-    # Inpaint dust on the attenuated L and the original a/b planes.
-    L_u8 = np.clip(np.round(L_work), 0, 255).astype(np.uint8)
-    A_u8, B_u8 = lab[:, :, 1], lab[:, :, 2]
-    if np.any(mask > 0):
-        mask_d = cv2.dilate(mask, _disk(3), iterations=1)
-        radius = max(2, dust_size // 2)
-        L_u8 = cv2.inpaint(L_u8, mask_d, radius, cv2.INPAINT_TELEA)
-        A_u8 = cv2.inpaint(A_u8, mask_d, radius, cv2.INPAINT_TELEA)
-        B_u8 = cv2.inpaint(B_u8, mask_d, radius, cv2.INPAINT_TELEA)
-    else:
-        mask_d = None
+    # Close to fill the hollow outline a large soft clump leaves behind, then
+    # dilate slightly so the repair covers the anomaly's soft edge.
+    mask_c = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, _disk(max(3, dust_size // 2)))
+    mask_d = cv2.dilate(mask_c, _disk(3), iterations=1)
+    m3 = (mask_d > 0).astype(np.float32)[..., None]
 
+    # Repair = pull each masked pixel's colour back to the local background
+    # colour (median replacement). This matches the "soft clump with no hard
+    # edge" real-dust shape better than Telea inpainting, which is designed for
+    # isolated punctate spots.
+    L_r = L * (1.0 - m3[..., 0]) + L_bg * m3[..., 0]
+    A_r = A * (1.0 - m3[..., 0]) + A_bg * m3[..., 0]
+    B_r = B * (1.0 - m3[..., 0]) + B_bg * m3[..., 0]
     rgb_proc = cv2.cvtColor(
-        cv2.merge([L_u8, A_u8, B_u8]), cv2.COLOR_LAB2RGB
+        cv2.merge([
+            np.clip(np.round(L_r), 0, 255).astype(np.uint8),
+            np.clip(np.round(A_r), 0, 255).astype(np.uint8),
+            np.clip(np.round(B_r), 0, 255).astype(np.uint8),
+        ]),
+        cv2.COLOR_LAB2RGB,
     ).astype(np.float32) / 255.0
 
-    if alpha > 0.0:
-        # Grain flattening edits the whole ROI; write it all back.
-        out[py1:py2, px1:px2] = rgb_proc
-    elif mask_d is not None:
-        # Coarse end: only repair the dust pixels, keep float precision elsewhere.
-        m3 = (mask_d > 0).astype(np.float32)[..., None]
-        out[py1:py2, px1:px2] = rgb_proc * m3 + crop * (1.0 - m3)
-    # else: no dust, no flattening -> leave the ROI untouched.
+    # Write back only the repaired pixels; the rest of the float crop keeps
+    # full precision (unchanged).
+    out[py1:py2, px1:px2] = rgb_proc * m3 + crop * (1.0 - m3)
 
 
-def _filter_components(raw, L, A, B, dust_size):
-    """Keep only blobs that look like dust: right size, round-ish, neutral.
+def _filter_components(raw, dust_size):
+    """Keep blobs of plausible dust size and shape (round-ish, not elongated).
 
-    Drops grain clumps (too small), big soft blobs (too large), scratches
-    (elongated — deferred feature), and anything coloured (real highlights,
-    tinted reflections) via the a/b neutrality test.
+    pr/026: the old a/b neutrality + colour-variance tests are GONE — they
+    discarded real (yellowish) dust as "coloured highlights". The colour test
+    now lives in _analyze's anomaly distance, so here we only gate on geometry:
+    not a single-pixel grain clump, not a huge soft region, not a scratch.
     """
     n, labels, stats, _ = cv2.connectedComponentsWithStats(raw, connectivity=8)
     if n <= 1:
         return np.zeros_like(raw)
 
-    min_area = 4.0
-    max_area = float(dust_size * dust_size)
+    min_area = 3.0
+    max_area = float((dust_size * 4) * (dust_size * 4))
     out = np.zeros_like(raw)
 
     for i in range(1, n):
         _, _, bw, bh, area = stats[i]
         if area < min_area or area > max_area:
             continue
-        if bw > 3 * bh or bh > 3 * bw:
-            continue
-
-        ys, xs = np.where(labels == i)
-        a_dev = float(np.mean(np.abs(A[ys, xs] - _LAB_NEUTRAL)))
-        b_dev = float(np.mean(np.abs(B[ys, xs] - _LAB_NEUTRAL)))
-        if a_dev > 28.0 or b_dev > 28.0:
-            continue
-
-        ab_std = float(np.std(A[ys, xs]) + np.std(B[ys, xs]))
-        l_std = float(np.std(L[ys, xs]))
-        if ab_std > 0.5 * (l_std + 1e-6):
+        if bw > 4 * bh or bh > 4 * bw:
             continue
 
         out[labels == i] = 255

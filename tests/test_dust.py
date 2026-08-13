@@ -20,8 +20,6 @@ from tests.tools.make_dust_samples import make_synthetic_positive
 FULL = [{"shape": "rect", "x1": 10, "y1": 10, "x2": 590, "y2": 390}]
 BIG_DUST = [(150, 90), (240, 70), (470, 80), (540, 130)]
 ALL_DUST = [(80, 60), (150, 90), (240, 70), (360, 120), (470, 80), (540, 130)]
-HIGHLIGHT = (300, 250)
-STAR = (130, 220)
 
 
 def _make(grain_amp=0.06):
@@ -51,21 +49,21 @@ def test_fine_end_also_catches_small_dust():
     assert _grain_std(out) < _grain_std(coarse)
 
 
-def test_coloured_highlight_survives():
-    img = _make()
-    for lvl in (0.0, 0.6):
-        out = remove_defects(img, FULL, {"grain_level": lvl, "dust_size": 9})
-        diff = np.abs(out[HIGHLIGHT] - img[HIGHLIGHT]).max()
-        assert diff < 0.03, f"highlight touched at slider {lvl}: diff={diff:.3f}"
+def test_coloured_blob_removed_as_anomaly():
+    """A sizable coloured blob (not a 1px point) is an anomaly and gets pulled
+    back toward its background. Mirrors a real coloured highlight the user
+    would actually lasso in a small ROI."""
+    h, w = 160, 160
+    bg = np.array([0.55, 0.60, 0.62], dtype=np.float32)
+    img = np.zeros((h, w, 3), dtype=np.float32) + bg
+    cy, cx = 80, 80
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    blob = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2.0 * 6.0 ** 2))[..., None]
+    img = np.clip(img + blob * np.array([0.40, -0.15, -0.15], dtype=np.float32), 0, 1)
 
-
-def test_star_survives():
-    img = _make()
-    out = remove_defects(img, FULL, {"grain_level": 0.6, "dust_size": 9})
-    assert np.abs(out[STAR] - img[STAR]).max() < 0.03
-    # Aggressive fine end may dim it a little, but never erase it.
-    outf = remove_defects(img, FULL, {"grain_level": 0.0, "dust_size": 9})
-    assert outf[STAR].max() > 0.5
+    roi = {"shape": "rect", "x1": 30, "y1": 30, "x2": 130, "y2": 130}
+    out = remove_defects(img, [roi], {"grain_level": 0.6, "dust_size": 9})
+    assert np.abs(out[cy, cx] - img[cy, cx]).max() > 0.03
 
 
 def test_roi_scoping_dust_outside_untouched():
@@ -99,24 +97,50 @@ def test_per_roi_strength_override():
     assert out[80, 60].max() < 0.85, "per-ROI strength override not honoured"
 
 
+def test_yellowish_dust_removed_as_colour_anomaly():
+    """pr/026: real negative dust is yellowish (not neutral) after inversion and
+    forms soft clumps, so the old a/b-neutrality filter discarded it. The new
+    colour-anomaly detector must catch a yellowish blotch against a flat
+    skin-like background."""
+    # Flat skin-tone background (~(0.85, 0.72, 0.60)), plus a yellowish dust
+    # clump (~(0.95, 0.92, 0.75)) with a soft edge — the exact shape the old
+    # filter missed (b channel deviates, so b_dev > 28 killed it).
+    h, w = 120, 120
+    bg = np.array([0.85, 0.72, 0.60], dtype=np.float32)
+    img = np.zeros((h, w, 3), dtype=np.float32) + bg
+
+    cy, cx = 60, 60
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    d2 = (xx - cx) ** 2 + (yy - cy) ** 2
+    blob = np.exp(-d2 / (2.0 * 8.0 ** 2))[..., None]  # ~8px soft gaussian
+    img = np.clip(img + blob * np.array([0.10, 0.20, 0.15], dtype=np.float32), 0, 1)
+
+    roi = {"shape": "rect", "x1": 20, "y1": 20, "x2": 100, "y2": 100}
+    out = remove_defects(img, [roi], {"grain_level": 0.3, "dust_size": 9})
+
+    # The yellowish clump's center should be pulled back toward the background.
+    before = img[cy, cx].max()
+    after = out[cy, cx].max()
+    assert after < before - 0.03, f"yellowish dust not removed: before={before:.3f} after={after:.3f}"
+
+
 def test_slider_params_maps_grain_level_per_design_spec():
-    """pr/024.dust.md §5: dust_gain = 2.5 + 2.0×g (g=0 → 2.5, g=1 → 4.5);
-    α = 1 at fine, falls to 0 from g≥0.5 (粗档不平滑颗粒)."""
+    """pr/026 rewrite: the slider maps to an anomaly-threshold gain,
+    fine (->0) lenient → coarse (->1) strict. Pr/024's old (alpha, dust_gain)
+    contract is superseded."""
     from cli.lib.dust import _slider_params
 
-    # 细端 / 中点 / 粗端
-    assert _slider_params(0.0) == (1.0, 2.5)
-    assert _slider_params(0.5) == (0.0, 3.5)
-    assert _slider_params(1.0) == (0.0, 4.5)
+    # 细端 / 中点 / 粗端：gain 单调升
+    assert _slider_params(0.0) == 2.0
+    assert _slider_params(0.5) == 3.0
+    assert _slider_params(1.0) == 4.0
 
-    # 细→粗：dust_gain 单调增；α 在 [0, 0.5) 单调降到 0，之后恒为 0
-    gains = [_slider_params(g)[1] for g in (0.0, 0.25, 0.5, 0.75, 1.0)]
+    gains = [_slider_params(g) for g in (0.0, 0.25, 0.5, 0.75, 1.0)]
     assert gains == sorted(gains)
-    assert all(_slider_params(g)[0] == 0.0 for g in (0.5, 0.75, 1.0))
 
     # 输入钳位到 [0, 1]
-    assert _slider_params(-1.0) == (1.0, 2.5)
-    assert _slider_params(2.0) == (0.0, 4.5)
+    assert _slider_params(-1.0) == 2.0
+    assert _slider_params(2.0) == 4.0
 
 
 def test_detect_dust_mask_shape_and_consistency():
