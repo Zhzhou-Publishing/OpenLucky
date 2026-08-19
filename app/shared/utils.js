@@ -13,7 +13,7 @@ const {
   checkExtension,
   coerceRawOutputPath
 } = require('./formats')
-const { resolveOpenLuckyCommand, buildResizeArgs } = require('./cli-args')
+const { resolveOpenLuckyCommand, buildResizeArgs, buildFff2tiffArgs } = require('./cli-args')
 
 const logger = createLogger('OpenLucky')
 
@@ -197,6 +197,43 @@ function resizeImage(inputPath, outputPath, options = {}) {
   })
 }
 
+// Convert a Hasselblad/Imacon .fff scan (big-endian TIFF container) to a
+// standard TIFF via `fff2tiff`, so Chromium/sharp can render it.
+function convertFffToTiff(inputPath, outputPath) {
+  return new Promise((resolve) => {
+    const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+    const args = [...prefixArgs, ...buildFff2tiffArgs({ input: inputPath, output: outputPath })]
+    logger.info(`Executing: ${command} ${args.join(' ')}`)
+
+    const child = spawn(command, args, {
+      ...spawnOptions,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    })
+
+    let stderrOutput = ''
+
+    child.stderr.on('data', (data) => {
+      stderrOutput += data.toString()
+    })
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true })
+      } else {
+        logger.error('fff2tiff failed:', inputPath, 'Exit code:', code)
+        logger.error('Error output:', stderrOutput)
+        resolve({ success: false, error: stderrOutput })
+      }
+    })
+
+    child.on('error', (err) => {
+      logger.error('fff2tiff error:', inputPath, err.message)
+      resolve({ success: false, error: err.message })
+    })
+  })
+}
+
 module.exports = {
   IMAGE_EXTENSIONS,
   RAW_EXTENSIONS,
@@ -209,5 +246,6 @@ module.exports = {
   resolveImagePath,
   buildThumbnailEntry,
   needsResize,
-  resizeImage
+  resizeImage,
+  convertFffToTiff
 }

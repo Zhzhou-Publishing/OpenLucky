@@ -161,6 +161,12 @@ function buildResizeArgs({ input, output, value }) {
   return args
 }
 
+// `fff2tiff` — convert a Hasselblad/Imacon .fff scan (big-endian TIFF container)
+// to a standard TIFF so Chromium/sharp can render it.
+function buildFff2tiffArgs({ input, output }) {
+  return ['fff2tiff', '-i', input, '-o', output]
+}
+
 // ── Preset → CLI translation ─────────────────────────────────────────────────
 
 // Build the comma-joined --param string from a stored preset entry.
@@ -255,6 +261,7 @@ module.exports = {
   buildHistogramArgs,
   buildPickArgs,
   buildResizeArgs,
+  buildFff2tiffArgs,
   buildParamString,
   resolvePresetKey,
   resolveOpenLuckyCommand,

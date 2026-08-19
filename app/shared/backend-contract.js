@@ -390,10 +390,10 @@ module.exports = [
       "success": { "channel": "images-loaded", "payload": { "images": "array" } },
       "error": { "channel": "images-error", "payload": "string" }
     },
-    "protocol": "sends via event.sender (the calling window); images-error payload is a BARE STRING; sharp thumbnails via Promise.all",
+    "protocol": "sends via event.sender (the calling window); images-error payload is a BARE STRING; manifest-first (readManifest) with disk-scan fallback; entries carry status: ready|pending|error; sharp thumbnails for ready only",
     "spawn": null,
     "implementation": "custom-handler",
-    "capabilities": ["sharp", "fs", "tmp"]
+    "capabilities": ["sharp", "fs", "tmp", "manifest"]
   },
   {
     "id": "open-external",
@@ -455,13 +455,17 @@ module.exports = [
       "title": { "channel": "window-title-update", "payload": { "title": "string" } },
       "clear": { "channel": "processing-progress-clear", "payload": {} },
       "titleRestore": { "channel": "window-title-restore", "payload": {} },
+      "partialReady": { "channel": "working-directory-partial-ready", "payload": { "workingDirectory": "string", "outputDirectory": "string", "originalDirectory": "string", "readyCount": "number", "total": "number" } },
+      "imageReady": { "channel": "working-image-ready", "payload": { "workingDirectory": "string", "name": "string" } },
+      "imageError": { "channel": "working-image-error", "payload": { "workingDirectory": "string", "name": "string", "error": "string" } },
       "success": { "channel": "working-directory-from-selected-prepared", "payload": { "workingDirectory": "string", "outputDirectory": "string", "originalDirectory": "string" } },
-      "error": { "channel": "working-directory-from-selected-error", "payload": { "error": "string" } }
+      "error": { "channel": "working-directory-from-selected-error", "payload": { "workingDirectory": "string", "error": "string" } }
     },
-    "protocol": "same as prepare-working-directory + once('cancel-processing') cancelable; on cancel rmSync working dir + no success/error event",
+    "protocol": "manifest -> progress*/title* -> partial-ready -> image-ready*/image-error* -> complete; once('cancel-processing') single-flight cancelable; on cancel rmSync working dir + no success/error event",
     "spawn": null,
     "implementation": "custom-handler",
-    "capabilities": ["fs", "tmp", "p-limit", "spawn", "cancel"]
+    "moduleState": true,
+    "capabilities": ["fs", "tmp", "p-limit", "spawn", "cancel", "manifest"]
   },
   {
     "id": "read-preset-json",

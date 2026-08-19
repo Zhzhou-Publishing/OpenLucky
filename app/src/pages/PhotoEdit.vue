@@ -22,9 +22,17 @@
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
           <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
-            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name), 'cursor-wait': isAllImagesAffected }"
+            :class="{
+              active: index === currentIndex,
+              affected: affectedImages.has(image.name),
+              'cursor-wait': isAllImagesAffected,
+              'thumbnail-pending': image.status === 'pending',
+              'thumbnail-error': image.status === 'error'
+            }"
             @click="!isAllImagesAffected && selectImage(index)">
-            <img :src="getImageUrlWithTimestamp(image)" :alt="image.name" class="thumbnail" loading="lazy" />
+            <img v-if="image.status === 'ready'" :src="getImageUrlWithTimestamp(image)" :alt="image.name" class="thumbnail" loading="lazy" />
+            <div v-else-if="image.status === 'error'" class="thumbnail placeholder error-placeholder">⚠</div>
+            <div v-else class="thumbnail placeholder loading-placeholder"></div>
             <div v-if="affectedImages.has(image.name)" class="thumbnail-overlay">
               <div class="thumbnail-spinner"></div>
             </div>
@@ -203,9 +211,9 @@
             <div class="action-buttons">
               <button @click="apply" class="apply-button" title="Enter"
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
-              <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
+              <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected || !isJobComplete">{{
                 $t('photoEdit.applyAll') }}</button>
-              <SaveAllButton :is-disabled="isAllImagesAffected || hasUnappliedImages" :has-unapplied-images="hasUnappliedImages" @click="saveAll" />
+              <SaveAllButton :is-disabled="isAllImagesAffected || hasUnappliedImages || !isJobComplete" :has-unapplied-images="hasUnappliedImages" @click="saveAll" />
             </div>
           </template>
         </Tabs>
@@ -1026,8 +1034,17 @@ const isAllImagesAffected = computed(() => {
 // Images whose parameters are not yet recorded in .preset.json. Once even
 // one image is unapplied, SaveAll is blocked.
 const hasUnappliedImages = computed(() => {
-  if (!images.value.length || !presetsDataLoaded.value) return false
-  return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
+  const readyImages = images.value.filter(img => img.status === 'ready')
+  if (!readyImages.length || !presetsDataLoaded.value) return false
+  return readyImages.some(img => !presetsData.value || !presetsData.value[img.name])
+})
+
+// 全部就绪（无 pending）才算加载完成，SaveAll / applyAll 才解锁。
+// 派生自 get-images 读盘结果，不依赖 complete 事件，避免目录很小、job 在
+// 本页订阅前就完成时错过。
+const isJobComplete = computed(() => {
+  if (!images.value.length) return false
+  return images.value.every(img => img.status !== 'pending')
 })
 
 const isCurrentImageApplied = computed(() => {
@@ -1165,6 +1182,8 @@ const goBack = () => {
 }
 
 const selectImage = (index) => {
+  const image = images.value[index]
+  if (image && image.status !== 'ready') return // 未就绪（pending/error）不可切换
   currentIndex.value = index
   resetZoom()
 }
@@ -1407,6 +1426,10 @@ const apply = async () => {
 
 
 const applyAll = async () => {
+  if (!isJobComplete.value) {
+    logger.warn('ApplyAll blocked: working directory still loading')
+    return
+  }
   if (!workingDirectory.value) {
     logger.error('No working directory')
     return
@@ -1472,6 +1495,10 @@ const applyAll = async () => {
 }
 
 const saveAll = async () => {
+  if (!isJobComplete.value) {
+    logger.warn('SaveAll blocked: working directory still loading')
+    return
+  }
   if (hasUnappliedImages.value) {
     logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
@@ -1560,26 +1587,33 @@ const loadFullResImage = async () => {
   }
 }
 
+// 从 start（不含）起，按 step 方向找到下一个 ready 的 index；无则返回 -1。
+// 环形扫描，保持原有 next/previous 的循环切换语义，但只落在 ready 图上。
+const findReadyIndex = (start, step) => {
+  const n = images.value.length
+  if (n === 0) return -1
+  let i = start
+  for (let guard = 0; guard < n; guard++) {
+    i = (i + step + n) % n
+    if (images.value[i] && images.value[i].status === 'ready') return i
+  }
+  return -1
+}
+
 const nextImage = () => {
   if (isAllImagesAffected.value) {
     return
   }
-  if (currentIndex.value < images.value.length - 1) {
-    currentIndex.value++
-  } else {
-    currentIndex.value = 0
-  }
+  const target = findReadyIndex(currentIndex.value, 1)
+  if (target !== -1) currentIndex.value = target
 }
 
 const previousImage = () => {
   if (isAllImagesAffected.value) {
     return
   }
-  if (currentIndex.value > 0) {
-    currentIndex.value--
-  } else {
-    currentIndex.value = images.value.length - 1
-  }
+  const target = findReadyIndex(currentIndex.value, -1)
+  if (target !== -1) currentIndex.value = target
 }
 
 function handleKeydown(event) {
@@ -1859,12 +1893,38 @@ watch(operationAreaRef, (el) => {
   }
 })
 
+// ── early-use incremental updates（全局通道，按 workingDirectory 过滤）─────────
+let offImageReady = null
+let offImageError = null
+
+const handleImageReady = async (payload) => {
+  if (payload.workingDirectory !== workingDirectory.value) return
+  const idx = images.value.findIndex(img => img.name === payload.name)
+  if (idx === -1) return
+  try {
+    const result = await backend.refreshImage({ directoryPath: workingDirectory.value, filename: payload.name })
+    const entry = { ...result.entry, status: 'ready', timestamp: Date.now() }
+    images.value.splice(idx, 1, entry)
+  } catch (error) {
+    logger.error('Error refreshing image thumbnail:', error)
+  }
+}
+
+const handleImageError = (payload) => {
+  if (payload.workingDirectory !== workingDirectory.value) return
+  const idx = images.value.findIndex(img => img.name === payload.name)
+  if (idx === -1) return
+  images.value.splice(idx, 1, { ...images.value[idx], url: null, status: 'error', error: payload.error })
+}
+
 onMounted(() => {
   loadImages()
   loadPresets()
   areaSelectionsByName.value = loadAreaSelections()
   dustByName.value = loadDustConfigs()
   offToolResult = backend.onToolResult(handleToolResult)
+  offImageReady = backend.onImageReady(handleImageReady)
+  offImageError = backend.onImageError(handleImageError)
   window.addEventListener('keydown', handleKeydown)
   // ResizeObserver 不可用的兜底：监听窗口尺寸变化。
   if (typeof ResizeObserver === 'undefined') {
@@ -1874,6 +1934,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (offToolResult) offToolResult()
+  if (offImageReady) offImageReady()
+  if (offImageError) offImageError()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
   // 防御：组件卸载时清掉拖拽期间挂在 window 上的临时监听器
@@ -2090,6 +2152,28 @@ onUnmounted(() => {
   height: 80px;
   object-fit: cover;
   display: block;
+}
+
+.thumbnail.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+
+.thumbnail-item.thumbnail-pending,
+.thumbnail-item.thumbnail-error {
+  cursor: default;
+}
+
+.thumbnail-item.thumbnail-pending:hover,
+.thumbnail-item.thumbnail-error:hover {
+  transform: none;
+}
+
+.thumbnail-item.thumbnail-error .placeholder {
+  font-size: 24px;
 }
 
 /* Main Content Area - Right Side */

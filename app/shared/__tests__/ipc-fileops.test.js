@@ -111,6 +111,31 @@ test('get-images: sends images-loaded to the calling window for image files only
   assert.deepEqual(names, ['a.jpg', 'b.arw'])
 })
 
+test('get-images: manifest-driven dir returns ready/pending/error statuses', async () => {
+  const { writeManifest, recordError } = require('../manifest')
+  h.loadHandler('../../ipc/get-images')
+  const dir = tmpDir()
+  writeManifest(dir, [
+    { name: 'a.jpg', isRaw: false },
+    { name: 'b.arw', isRaw: true },
+    { name: 'c.jpg', isRaw: false }
+  ])
+  recordError(dir, 'c.jpg', 'boom')
+  fs.writeFileSync(path.join(dir, 'a.jpg'), 'x') // only a.jpg on disk
+
+  const ev = h.makeEvent()
+  await h.ipc.on['get-images'](ev, dir)
+  const { images } = ev.find('images-loaded')
+  const byName = Object.fromEntries(images.map(i => [i.name, i]))
+
+  assert.equal(byName['a.jpg'].status, 'ready')
+  assert.equal(byName['b.arw'].status, 'pending')
+  assert.equal(byName['b.arw'].url, null)
+  assert.equal(byName['b.arw'].isRaw, true)
+  assert.equal(byName['c.jpg'].status, 'error')
+  assert.equal(byName['c.jpg'].error, 'boom')
+})
+
 // ── select-directory (dialog + event.sender) ─────────────────────────────────
 
 test('select-directory: cancelled dialog sends directory-cancelled', async () => {

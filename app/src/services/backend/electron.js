@@ -165,11 +165,28 @@ export function prepareWorkingDirectory(directoryPath, options, { progress = {} 
 }
 
 export function prepareWorkingDirectoryFromSelected(directoryPath, options, { progress = {} } = {}) {
+  // Resolves at PARTIAL-READY (not complete): the caller navigates into the
+  // gallery once the first 1/3 is ready, while the background tail keeps
+  // emitting on the job stream channels below.
   return request('prepare-working-directory-from-selected', ['prepare-working-directory-from-selected', directoryPath, options || {}], {
-    successCh: 'working-directory-from-selected-prepared',
+    successCh: 'working-directory-partial-ready',
     errorCh: 'working-directory-from-selected-error',
     progress
   })
+}
+
+// ── early-use job stream (global channels; pages filter by workingDirectory) ──
+
+export function onImageReady(handler) {
+  return subscribe('working-image-ready', handler)
+}
+
+export function onImageError(handler) {
+  return subscribe('working-image-error', handler)
+}
+
+export function onWorkingDirectoryError(handler) {
+  return subscribe('working-directory-from-selected-error', handler)
 }
 
 export function applyPreset({ inputPath, outputPath, preset }, { progress = {} } = {}) {

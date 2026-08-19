@@ -14,7 +14,7 @@
       <button
         @click="handleApplyPreset"
         class="apply-button"
-        :disabled="isLoading || isApplyingPreset || isSavingAll"
+        :disabled="isLoading || isApplyingPreset || isSavingAll || !isJobComplete"
       >
         {{ applyButtonText }}
         <span v-if="hasUnappliedChanges" class="red-dot"></span>
@@ -22,7 +22,7 @@
       <button
         @click="handleSaveAll"
         class="save-all-button"
-        :disabled="isSavingAll || hasUnappliedImages"
+        :disabled="isSavingAll || hasUnappliedImages || !isJobComplete"
         :title="saveAllTitle"
       >
         {{ $t('saveAllButton.saveAll') }}
@@ -68,6 +68,12 @@ const props = defineProps({
   hasUnappliedImages: {
     type: Boolean,
     default: false
+  },
+  // False while the working directory is still lazy-loading in the background;
+  // apply/save-all are locked until everything is ready.
+  isJobComplete: {
+    type: Boolean,
+    default: true
   }
 })
 

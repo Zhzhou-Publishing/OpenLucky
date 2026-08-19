@@ -9,6 +9,8 @@
       <span class="count-badge">{{ $t('photoGallery.imagesCount', { count: images.length }) }}</span>
     </div>
 
+    <div v-if="jobFailed" class="job-failed-banner">⚠ {{ jobFailedMessage }}</div>
+
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
       <p>{{ $t('photoGallery.loading') }}</p>
@@ -25,11 +27,24 @@
         v-for="(image, index) in images"
         :key="index"
         class="image-item"
-        :class="{ 'applying': isApplyingPreset, 'cursor-wait': isSavingAll }"
+        :class="{
+          'applying': isApplyingPreset,
+          'cursor-wait': isSavingAll,
+          'image-pending': image.status === 'pending',
+          'image-error': image.status === 'error'
+        }"
         @click="!isSavingAll && openPhotoEdit(image)"
         @contextmenu.prevent="!isSavingAll && openImage(image)"
       >
-        <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
+        <img
+          v-if="image.status === 'ready'"
+          :src="image.url"
+          :alt="image.name"
+          class="thumbnail"
+          loading="lazy"
+        />
+        <div v-else-if="image.status === 'error'" class="thumbnail placeholder error-placeholder">⚠</div>
+        <div v-else class="thumbnail placeholder loading-placeholder"><div class="mini-spinner"></div></div>
         <div class="image-info">
           <p class="image-name">{{ image.name }}</p>
         </div>
@@ -46,6 +61,7 @@
       :is-saving-all="isSavingAll"
       :images-count="images.length"
       :has-unapplied-images="hasUnappliedImages"
+      :is-job-complete="isJobComplete"
       @update:selected-preset="selectedPreset = $event"
       @apply="applyPreset"
       @save-all="saveAll"
@@ -93,13 +109,28 @@ const presetsData = ref({})
 const presetsDataLoaded = ref(false)
 const compressPreview = ref(false)
 
-// Block SaveAll until every image has an entry in .preset.json. Until we
-// finish reading the file we keep SaveAll disabled to be safe.
+// Block SaveAll until every READY image has an entry in .preset.json. Pending
+// images are still loading (gated by isJobComplete); error images can never be
+// edited, so they don't count. Until we finish reading the file we keep
+// SaveAll disabled to be safe.
 const hasUnappliedImages = computed(() => {
-  if (!images.value.length) return false
+  const readyImages = images.value.filter(img => img.status === 'ready')
+  if (!readyImages.length) return false
   if (!presetsDataLoaded.value) return true
-  return images.value.some(img => !presetsData.value[img.name])
+  return readyImages.some(img => !presetsData.value[img.name])
 })
+
+// 全部就绪（无 pending）才算加载完成，saveAll/applyPreset 才解锁。派生自
+// images（get-images 读盘的结果），不依赖 complete 事件——目录很小、job 在
+// Gallery 订阅前就完成时也不会漏掉。
+const isJobComplete = computed(() => {
+  if (!images.value.length) return false
+  return images.value.every(img => img.status !== 'pending')
+})
+
+// 后台 job 出现全局异常（partial-ready 之后）时置位，避免永久 loading。
+const jobFailed = ref(false)
+const jobFailedMessage = ref('')
 
 const loadPresetJson = async () => {
   if (!workingDirectory.value || !backend.isAvailable()) return
@@ -130,12 +161,19 @@ const goBack = () => {
 }
 
 const openImage = (image) => {
+  // 未就绪（pending/error）不可看大图
+  if (image.status !== 'ready') return
   selectedImage.value = image
 }
 
 const openPhotoEdit = (image) => {
   // Prevent navigation when applying preset
   if (isApplyingPreset.value) {
+    return
+  }
+
+  // 未就绪不可进 Edit（后台还在 lazy load）
+  if (image.status !== 'ready') {
     return
   }
 
@@ -156,6 +194,10 @@ const closeModal = () => {
 }
 
 const applyPreset = async () => {
+  if (!isJobComplete.value) {
+    logger.warn('Apply preset blocked: working directory still loading')
+    return
+  }
   try {
     // Reset global isSaveAllClicked state
     setSaveAllClicked(false)
@@ -269,6 +311,10 @@ watch(globalPresets, (list) => {
 }, { immediate: true })
 
 const saveAll = async () => {
+  if (!isJobComplete.value) {
+    logger.warn('SaveAll blocked: working directory still loading')
+    return
+  }
   if (hasUnappliedImages.value) {
     logger.warn('SaveAll blocked: there are still images without applied parameters')
     return
@@ -334,6 +380,38 @@ const saveAll = async () => {
   }
 }
 
+// ── early-use incremental updates (global channels, filtered by workingDirectory) ──
+
+let unsubImageReady = null
+let unsubImageError = null
+let unsubWorkingDirError = null
+
+const handleImageReady = async (payload) => {
+  if (payload.workingDirectory !== workingDirectory.value) return
+  const idx = images.value.findIndex(img => img.name === payload.name)
+  if (idx === -1) return
+  try {
+    const result = await backend.refreshImage({ directoryPath: workingDirectory.value, filename: payload.name })
+    const entry = { ...result.entry, status: 'ready' }
+    images.value.splice(idx, 1, entry)
+  } catch (error) {
+    logger.error('Error refreshing image thumbnail:', error)
+  }
+}
+
+const handleImageError = (payload) => {
+  if (payload.workingDirectory !== workingDirectory.value) return
+  const idx = images.value.findIndex(img => img.name === payload.name)
+  if (idx === -1) return
+  images.value.splice(idx, 1, { ...images.value[idx], url: null, status: 'error', error: payload.error })
+}
+
+const handleWorkingDirectoryError = (payload) => {
+  if (payload.workingDirectory && payload.workingDirectory !== workingDirectory.value) return
+  jobFailed.value = true
+  jobFailedMessage.value = payload.error || 'Working directory preparation failed'
+}
+
 onMounted(async () => {
   // Initialize window title
   originalWindowTitle.value = t('windowTitle.baseTitle')
@@ -386,6 +464,14 @@ onMounted(async () => {
   }
   window.saveAllKeydownHandler = handleKeydown
   window.addEventListener('keydown', handleKeydown)
+
+  // Subscribe to the early-use job stream for incremental thumbnail swaps and
+  // completion/error signals (handlers filter by workingDirectory).
+  if (backend.isAvailable()) {
+    unsubImageReady = backend.onImageReady(handleImageReady)
+    unsubImageError = backend.onImageError(handleImageError)
+    unsubWorkingDirError = backend.onWorkingDirectoryError(handleWorkingDirectoryError)
+  }
 })
 
 onUnmounted(() => {
@@ -397,6 +483,11 @@ onUnmounted(() => {
     window.removeEventListener('keydown', window.saveAllKeydownHandler)
     delete window.saveAllKeydownHandler
   }
+
+  // Unsubscribe from the early-use job stream
+  if (unsubImageReady) unsubImageReady()
+  if (unsubImageError) unsubImageError()
+  if (unsubWorkingDirError) unsubWorkingDirError()
 })
 </script>
 
@@ -472,6 +563,16 @@ onUnmounted(() => {
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
+}
+
+.job-failed-banner {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: #f8d7da;
+  border: 1px solid #dc3545;
+  color: #721c24;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
 .loading-state {
@@ -563,6 +664,38 @@ onUnmounted(() => {
   height: 100px;
   object-fit: cover;
   display: block;
+}
+
+.thumbnail.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+
+.image-item.image-pending,
+.image-item.image-error {
+  cursor: default;
+}
+
+.image-item.image-pending:hover:not(.applying),
+.image-item.image-error:hover:not(.applying) {
+  transform: none;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.image-item.image-error .placeholder {
+  font-size: 28px;
+}
+
+.mini-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-light);
+  border-top: 3px solid var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 .image-info {

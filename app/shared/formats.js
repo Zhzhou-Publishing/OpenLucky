@@ -14,7 +14,8 @@ const IMAGE_EXTENSIONS = [
   '.webp',
   '.bmp',
   '.tif',
-  '.tiff'
+  '.tiff',
+  '.fff'
 ]
 
 const RAW_EXTENSIONS = [

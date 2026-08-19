@@ -37,6 +37,7 @@ Vue 页面 ──→ backend facade ──→ IPC 处理器（ipc/*.js）──�
 | `window-close-intercept` | 关闭窗口拦截 | confirm-close | Tauri window `onCloseRequested` |
 | `p-limit` | 并发控制 | prepare-* | Rust 并发（`rayon` / async） |
 | `cancel` | 取消处理 | prepare-working-directory-from-selected | Tauri 事件 + 取消标志 |
+| `manifest` | 读写 working dir 的 `.manifest.json` / `.errors.json`（先行使用清单） | prepare-working-directory-from-selected、get-images | `serde_json` + `std::fs`（详见 design/early-use.md §10） |
 | `preset-translate` | preset→CLI 参数翻译 | apply-preset-to-file、apply-preset-to-batch | Rust 复刻 `buildParamString`/`resolvePresetKey` 逻辑 |
 
 ---
