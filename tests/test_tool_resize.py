@@ -3,9 +3,40 @@ import cv2
 import numpy as np
 import pytest
 
+from pathlib import Path
+
+from cli.lib.tool.resize import validate_output_filename
+
 
 def _decode(path):
     return cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+
+
+# ── validate_output_filename (regression: RAW + .tif output) ─────────────────
+# The RAW branch used to compare output_path.stem against input_path.name (the
+# full name WITH extension), so `<stem>.CR2 -> <stem>.tif` always failed and
+# every RAW batch load errored. Tests below pin stem-vs-stem.
+
+@pytest.mark.parametrize("out_name", ["roll.CR2", "roll.tif", "roll.tiff"])
+def test_validate_output_filename_raw_same_name_or_stem(out_name):
+    assert validate_output_filename(Path("roll.CR2"), Path(out_name))
+
+
+@pytest.mark.parametrize("out_name", ["other.tif", "roll.CR2.tif"])
+def test_validate_output_filename_raw_stem_mismatch_returns_false(out_name):
+    assert not validate_output_filename(Path("roll.CR2"), Path(out_name))
+
+
+@pytest.mark.parametrize("out_name", ["other.CR2", "roll2.png"])
+def test_validate_output_filename_raw_bad_extension_raises(out_name):
+    with pytest.raises(ValueError):
+        validate_output_filename(Path("roll.CR2"), Path(out_name))
+
+
+def test_validate_output_filename_non_raw_requires_exact_name():
+    assert validate_output_filename(Path("scan.tiff"), Path("scan.tiff"))
+    with pytest.raises(ValueError):
+        validate_output_filename(Path("scan.tiff"), Path("scan.tif"))
 
 
 @pytest.mark.slow

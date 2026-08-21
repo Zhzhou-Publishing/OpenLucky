@@ -120,8 +120,9 @@ def validate_output_filename(input_path, output_path):
             # 输出文件名与输入完全相同
             return True
         elif output_ext in {'.tif', '.tiff'}:
-            # 输出是原文件名+.tif/.tiff
-            return output_path.stem == input_path.name
+            # 输出是原文件名+.tif/.tiff：比较 stem（去掉扩展名），否则
+            # 永远拿输出 stem 跟输入「带扩展名的全名」比，RAW 批量必失败。
+            return output_path.stem == input_path.stem
         else:
             raise ValueError(
                 f"Invalid output filename for RAW format. "
