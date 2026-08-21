@@ -7,6 +7,7 @@
         {{ $t('photoGallery.refresh') }}
       </button>
       <span class="count-badge">{{ $t('photoGallery.imagesCount', { count: images.length }) }}</span>
+      <span v-if="jobProgress" class="progress-badge" :title="jobPath || jobProgress">{{ jobProgress }}</span>
     </div>
 
     <div v-if="jobFailed" class="job-failed-banner">⚠ {{ jobFailedMessage }}</div>
@@ -86,6 +87,7 @@ import BottomMenuBar from '../components/BottomMenuBar.vue'
 import { setSaveAllClicked } from '../utils/globalState'
 import { presets as globalPresets } from '../utils/presetCache'
 import { createRendererLogger } from '../utils/rendererLogger'
+import { jobProgress, jobPath, refreshTitle } from '../utils/jobProgress'
 import backend, { path } from '../services/backend'
 
 const logger = createRendererLogger('PhotoGallery')
@@ -413,9 +415,10 @@ const handleWorkingDirectoryError = (payload) => {
 }
 
 onMounted(async () => {
-  // Initialize window title
+  // Initialize window title. If a directory load is still running, keep the
+  // persistent `[N/M] <path>` progress title instead of clobbering it.
   originalWindowTitle.value = t('windowTitle.baseTitle')
-  document.title = originalWindowTitle.value
+  refreshTitle()
 
   if (backend.isAvailable()) {
     // Check if working directory was provided by PhotoDirectory
@@ -475,8 +478,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Restore original window title
-  document.title = originalWindowTitle.value
+  // Restore original window title (keeps the load-progress title if a
+  // directory load is still running).
+  refreshTitle()
 
   // Remove keyboard event listener
   if (window.saveAllKeydownHandler) {
@@ -563,6 +567,21 @@ onUnmounted(() => {
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
+}
+
+.progress-badge {
+  max-width: 480px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+  border-radius: 20px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
 }
 
 .job-failed-banner {

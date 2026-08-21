@@ -115,7 +115,7 @@ test('apply-preset: emits started then success, spawning filmbatch', async () =>
   const ev = h.makeEvent()
   h.ipc.on['apply-preset'](ev, { inputPath: 'in', outputPath: 'out', preset: 'kodak' })
   const { args } = h.lastSpawn()
-  assert.deepEqual(args.slice(-7), ['filmbatch', '--input', 'in', '--output', 'out', '--preset', 'kodak'])
+  assert.deepEqual(args.slice(-9), ['filmbatch', '--input', 'in', '--output', 'out', '--preset', 'kodak', '--algo', 'v2'])
   assert.equal(ev.channels()[0], 'preset-apply-started')
   child.close(0)
   assert.equal(ev.channels().includes('preset-apply-success'), true)

@@ -27,7 +27,7 @@
         </template>
         <template v-else>
           <span v-if="isHoveringButton" class="btn-text">{{ $t('photoDirectory.cancel') }}</span>
-          <span v-else class="btn-progress">{{ processingProgress }}</span>
+          <span v-else class="btn-progress" :title="jobPath">{{ jobProgress }}</span>
         </template>
       </button>
 
@@ -59,6 +59,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchPresets } from '../utils/presetCache'
+import { jobProgress, jobPath } from '../utils/jobProgress'
 import CapsuleSwitch from '../components/CapsuleSwitch.vue'
 import Popover from '../components/Popover.vue'
 import Modal from '../components/Modal.vue'
@@ -160,7 +161,6 @@ const checkOpenLucky = async () => {
 
 const selectedPath = ref('')
 const isLoading = ref(false)
-const processingProgress = ref('')
 const compressPreview = ref(false)
 const isHoveringButton = ref(false)
 
@@ -177,7 +177,8 @@ const cancelLoading = () => {
     backend.cancelProcessing()
   }
   isLoading.value = false
-  processingProgress.value = ''
+  // Immediate local clear; the main process also emits processing-progress-clear.
+  jobProgress.value = ''
 }
 
 const selectDirectory = async () => {
@@ -206,21 +207,12 @@ const selectDirectory = async () => {
     logger.info('Selected directory:', result.path)
 
     // Prepare working directory from selected directory.
-    // progress channels (title / progress / clear / restore) are wired through
-    // the facade and cleaned up automatically when the operation settles —
-    // fixing the pre-facade leaky listeners.
+    // Progress/title are handled globally by src/utils/jobProgress.js (subscribed
+    // once at startup), so they keep showing on every page until the load ends.
     try {
       const prepared = await backend.prepareWorkingDirectoryFromSelected(
         result.path,
-        { compressPreview: compressPreview.value },
-        {
-          progress: {
-            'window-title-update': (_e, { title }) => { document.title = title },
-            'processing-progress-update': (_e, { progress }) => { processingProgress.value = progress },
-            'processing-progress-clear': () => { processingProgress.value = '' },
-            'window-title-restore': () => { document.title = 'OpenLucky Desktop App' }
-          }
-        }
+        { compressPreview: compressPreview.value }
       )
       logger.info('Working directory prepared:', prepared.workingDirectory)
       logger.info('Output directory:', prepared.outputDirectory)

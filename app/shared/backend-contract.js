@@ -104,6 +104,7 @@ module.exports = [
         "whiteBalance": "string?=null",
         "tone": "string?=null",
         "colorMode": "string?=null",
+        "algo": "string?=v2",
         "dust": "null | obj?=null",
         "dustRois": "null | array?=null"
       }
@@ -146,6 +147,7 @@ module.exports = [
         "whiteBalance": "string?=null",
         "tone": "string?=null",
         "colorMode": "string?=null",
+        "algo": "string?=v2",
         "dust": "null | obj?=null",
         "dustRois": "null | array?=null"
       }

@@ -108,7 +108,8 @@ function buildFilmparamArgs({
   tone = null,
   colorMode = null,
   dust = null,
-  dustRois = null
+  dustRois = null,
+  algo = 'v2'
 }) {
   const args = [command, '--input', input, '--output', output, '--param', param]
   if (rotateClockwise !== null && rotateClockwise !== undefined) {
@@ -127,12 +128,14 @@ function buildFilmparamArgs({
   // Dust ROIs are drawn on the same basis frame as --area; emit --area-basis
   // for them even when there is no white-point --area to measure.
   if (hasDustRois && !hasArea) appendAreaBasis(args, areaBasis)
+  // Engine selection: v2 (density-domain, default) or v1 (legacy linear).
+  args.push('--algo', algo)
   return args
 }
 
 // `filmbatch` — apply a named preset across a directory.
-function buildFilmbatchArgs({ input, output, preset }) {
-  return ['filmbatch', '--input', input, '--output', output, '--preset', preset]
+function buildFilmbatchArgs({ input, output, preset, algo = 'v2' }) {
+  return ['filmbatch', '--input', input, '--output', output, '--preset', preset, '--algo', algo]
 }
 
 // `tool histogram`

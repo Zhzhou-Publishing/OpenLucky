@@ -177,6 +177,16 @@ export function prepareWorkingDirectoryFromSelected(directoryPath, options, { pr
 
 // ── early-use job stream (global channels; pages filter by workingDirectory) ──
 
+// Persistent load progress, streamed for the WHOLE prepare job (not just until
+// the 1/3 partial-ready gate) so any page can keep the title/buttons in sync.
+export function onJobProgress(handler) {
+  return subscribe('processing-progress-update', handler)
+}
+
+export function onJobProgressClear(handler) {
+  return subscribe('processing-progress-clear', handler)
+}
+
 export function onImageReady(handler) {
   return subscribe('working-image-ready', handler)
 }

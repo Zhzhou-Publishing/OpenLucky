@@ -121,10 +121,20 @@ function register() {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
         const workingName = workingFileName(file)
         const destPath = path.join(workingDirectory, workingName)
+        const fileLabel = path.basename(srcPath)
 
         if (job.cancelled) {
           throw new Error('CANCELLED')
         }
+
+        // Emit the file name as soon as processing STARTS, so the title/button
+        // shows "which image is being worked on" during the whole conversion —
+        // not only after it completes (concurrent batches finish in bursts, so a
+        // completion-only event flashes past and the filename is never readable).
+        send('processing-progress-update', {
+          progress: `[${readyCount}/${totalImages}] ${fileLabel}`,
+          path: srcPath
+        })
 
         let result
         if (ext === '.fff') {
@@ -147,25 +157,6 @@ function register() {
           // Incremental event — no thumbnail here; the renderer calls
           // refreshImage to fetch the entry (keeps the job thin, reads disk).
           send('working-image-ready', { workingDirectory, name: workingName })
-          if (!partialReadySent) {
-            // Progress shows the LOADED count (readyCount), same metric as the
-            // threshold below — so the number on screen is what drives entry.
-            const progress = `[${readyCount}/${totalImages}] ${srcPath}`
-            send('processing-progress-update', { progress })
-            send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
-            if (readyCount >= threshold) {
-              partialReadySent = true
-              send('processing-progress-clear', {})
-              send('window-title-restore', {})
-              send('working-directory-partial-ready', {
-                workingDirectory,
-                outputDirectory,
-                originalDirectory: directoryPath,
-                readyCount,
-                total: totalImages
-              })
-            }
-          }
         } else {
           logger.error('Failed to process image (resize/copy):', file, result.error)
           recordError(workingDirectory, workingName, result.error || 'unknown error')
@@ -173,6 +164,22 @@ function register() {
             workingDirectory,
             name: workingName,
             error: result.error || 'unknown error'
+          })
+        }
+
+        // Updated count for this image (success or failure), streamed until the
+        // whole job finishes so the title/button keep showing the file.
+        const count = `[${readyCount}/${totalImages}]`
+        send('processing-progress-update', { progress: `${count} ${fileLabel}`, path: srcPath })
+
+        if (!partialReadySent && readyCount >= threshold) {
+          partialReadySent = true
+          send('working-directory-partial-ready', {
+            workingDirectory,
+            outputDirectory,
+            originalDirectory: directoryPath,
+            readyCount,
+            total: totalImages
           })
         }
       }))
@@ -183,13 +190,16 @@ function register() {
         throw new Error('CANCELLED')
       }
 
+      // Whole job done — clear the persistent progress/title the renderer has
+      // been showing on every page.
+      send('processing-progress-clear', {})
+      send('window-title-restore', {})
+
       // Defensive: partial-ready must always fire before complete — otherwise
       // the facade (which resolves on it) hangs when every image failed or the
       // directory was empty, so readyCount never reached the threshold.
       if (!partialReadySent) {
         partialReadySent = true
-        send('processing-progress-clear', {})
-        send('window-title-restore', {})
         send('working-directory-partial-ready', {
           workingDirectory,
           outputDirectory,

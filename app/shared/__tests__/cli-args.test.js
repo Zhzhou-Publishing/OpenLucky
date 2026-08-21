@@ -63,7 +63,7 @@ test('appendWhiteBalance / appendTone push only non-empty strings', () => {
 test('buildFilmparamArgs: minimal single-file form (apply-filmparam)', () => {
   assert.deepEqual(
     buildFilmparamArgs({ input: 'in.jpg', output: 'out.jpg', param: '1,1,1,2,3', rotateClockwise: 0 }),
-    ['filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3', '--rotate-clockwise', '0']
+    ['filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3', '--rotate-clockwise', '0', '--algo', 'v2']
   )
 })
 
@@ -78,7 +78,8 @@ test('buildFilmparamArgs: full single-file form with all optionals in order', ()
       'filmparam', '--input', 'in.jpg', '--output', 'out.tif', '--param', '1,1,1,2,3',
       '--rotate-clockwise', '90',
       '--area', '10,20,30,40', '--area-basis', '6000,4000',
-      '--exposure', '0.5', '--white-balance', 'auto', '--tone', 'auto'
+      '--exposure', '0.5', '--white-balance', 'auto', '--tone', 'auto',
+      '--algo', 'v2'
     ]
   )
 })
@@ -86,14 +87,14 @@ test('buildFilmparamArgs: full single-file form with all optionals in order', ()
 test('buildFilmparamArgs: omits --rotate-clockwise when not provided (apply-preset-to-file)', () => {
   assert.deepEqual(
     buildFilmparamArgs({ input: 'in.jpg', output: 'out.jpg', param: '1,1,1,2,3' }),
-    ['filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3']
+    ['filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3', '--algo', 'v2']
   )
 })
 
 test('buildFilmparamArgs: command override produces filmparambatch', () => {
   assert.deepEqual(
     buildFilmparamArgs({ command: 'filmparambatch', input: 'inDir', output: 'outDir', param: '1,1,1,2,3', rotateClockwise: 0 }),
-    ['filmparambatch', '--input', 'inDir', '--output', 'outDir', '--param', '1,1,1,2,3', '--rotate-clockwise', '0']
+    ['filmparambatch', '--input', 'inDir', '--output', 'outDir', '--param', '1,1,1,2,3', '--rotate-clockwise', '0', '--algo', 'v2']
   )
 })
 
@@ -132,7 +133,8 @@ test('buildFilmparamArgs: dust appended after color-mode in full form', () => {
       'filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3',
       '--rotate-clockwise', '0',
       '--dust', '0.4,11', '--dust-rois', '100,50,300,200',
-      '--area-basis', '6000,4000'
+      '--area-basis', '6000,4000',
+      '--algo', 'v2'
     ]
   )
 })
@@ -152,7 +154,8 @@ test('buildFilmparamArgs: dust with --area keeps a single --area-basis', () => {
       'filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3',
       '--rotate-clockwise', '0',
       '--area', '10,20,30,40', '--area-basis', '6000,4000',
-      '--dust', '0.3,9', '--dust-rois', '100,50,300,200'
+      '--dust', '0.3,9', '--dust-rois', '100,50,300,200',
+      '--algo', 'v2'
     ]
   )
 })
@@ -162,7 +165,18 @@ test('buildFilmparamArgs: dust with --area keeps a single --area-basis', () => {
 test('buildFilmbatchArgs', () => {
   assert.deepEqual(
     buildFilmbatchArgs({ input: 'inDir', output: 'outDir', preset: 'kodak' }),
-    ['filmbatch', '--input', 'inDir', '--output', 'outDir', '--preset', 'kodak']
+    ['filmbatch', '--input', 'inDir', '--output', 'outDir', '--preset', 'kodak', '--algo', 'v2']
+  )
+})
+
+test('buildFilmparamArgs: algo can be overridden back to v1', () => {
+  assert.deepEqual(
+    buildFilmparamArgs({ input: 'in.jpg', output: 'out.jpg', param: '1,1,1,2,3', algo: 'v1' }),
+    ['filmparam', '--input', 'in.jpg', '--output', 'out.jpg', '--param', '1,1,1,2,3', '--algo', 'v1']
+  )
+  assert.deepEqual(
+    buildFilmbatchArgs({ input: 'inDir', output: 'outDir', preset: 'kodak', algo: 'v1' }),
+    ['filmbatch', '--input', 'inDir', '--output', 'outDir', '--preset', 'kodak', '--algo', 'v1']
   )
 })
 

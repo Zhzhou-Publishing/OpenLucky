@@ -186,6 +186,37 @@ test('prepare-working-directory-from-selected: emits an initial [0/N] progress s
   assert.equal(progressMsgs[0], '[0/1]')
 })
 
+test('prepare-working-directory-from-selected: progress streams the WHOLE job and clears only at completion', async () => {
+  h.loadHandler('../../ipc/prepare-working-directory-from-selected')
+  h.setImageSize(() => ({ width: 640, height: 480 })) // copy, no resize
+  const dir = tmpDir('olk-src-')
+  for (let i = 0; i < 6; i++) {
+    fs.writeFileSync(path.join(dir, `img${i}.jpg`), 'img')
+  }
+
+  const ev = h.makeEvent()
+  await h.ipc.on['prepare-working-directory-from-selected'](ev, dir)
+
+  const progressMsgs = ev.sent
+    .filter(m => m.channel === 'processing-progress-update')
+    .map(m => m.payload.progress)
+  // Initial [0/6], then a START event + a completion event per image. Partial
+  // ready fires at ceil(6/3)=2 but progress must stream past it (the whole-job
+  // title/button contract).
+  assert.equal(progressMsgs[0], '[0/6]')
+  assert.ok(progressMsgs.length > 6, `progress should stream for the whole job`)
+  // The fix: at least one message carries the file being processed (start event).
+  assert.ok(
+    progressMsgs.some(m => /\[[0-9]+\/6\] img[0-5]\.jpg$/.test(m)),
+    `expected a per-file progress message, got: ${JSON.stringify(progressMsgs)}`
+  )
+  // The final completion reaches the full count.
+  assert.ok(progressMsgs.some(m => m.startsWith('[6/6] ')))
+
+  // Progress is cleared once, only when the whole job finishes.
+  assert.equal(ev.sent.filter(m => m.channel === 'processing-progress-clear').length, 1)
+})
+
 test('prepare-working-directory: a read error surfaces working-directory-error', async () => {
   h.loadHandler('../../ipc/prepare-working-directory')
   const ev = h.makeEvent()
