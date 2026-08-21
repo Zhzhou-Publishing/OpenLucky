@@ -386,6 +386,9 @@ def main():
                              help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
     film_parser.add_argument('--dust-rois', required=False, default=None,
                              help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
+    film_parser.add_argument('--algo', required=False, default='v1',
+                             choices=['v1', 'v2'],
+                             help='Inversion engine: "v1" (legacy linear, default) or "v2" (density-domain, design/film-color-v2.md).')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -414,6 +417,9 @@ def main():
                                    help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
     filmbatch_parser.add_argument('--dust-rois', required=False, default=None,
                                    help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
+    filmbatch_parser.add_argument('--algo', required=False, default='v1',
+                                   choices=['v1', 'v2'],
+                                   help='Inversion engine: "v1" (legacy linear, default) or "v2" (density-domain, design/film-color-v2.md).')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -443,6 +449,9 @@ def main():
                                    help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
     filmparam_parser.add_argument('--dust-rois', required=False, default=None,
                                    help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
+    filmparam_parser.add_argument('--algo', required=False, default='v1',
+                                   choices=['v1', 'v2'],
+                                   help='Inversion engine: "v1" (legacy linear, default) or "v2" (density-domain, design/film-color-v2.md).')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -472,6 +481,9 @@ def main():
                                          help='Enable dust removal: "grain_level,dust_size", e.g. "0.3,9". grain_level 0=fine (flatten grain)..1=coarse (dust only); dust_size = max dust diameter px.')
     filmparambatch_parser.add_argument('--dust-rois', required=False, default=None,
                                          help='Dust removal ROIs, semicolon-separated "x1,y1,x2,y2;x1,y1,x2,y2" (same frame as --area).')
+    filmparambatch_parser.add_argument('--algo', required=False, default='v1',
+                                         choices=['v1', 'v2'],
+                                         help='Inversion engine: "v1" (legacy linear, default) or "v2" (density-domain, design/film-color-v2.md).')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -682,6 +694,8 @@ def main():
             color_mode=args.color_mode,
             dust=dust,
             dust_rois=dust_rois,
+            algo=args.algo,
+            saturation=preset.get('saturation', 1.0),
         )
 
         if output_bytes is None:
@@ -820,6 +834,8 @@ def main():
                     color_mode=args.color_mode,
                     dust=dust,
                     dust_rois=dust_rois,
+                    algo=args.algo,
+                    saturation=preset.get('saturation', 1.0),
                 )
 
 
@@ -955,6 +971,8 @@ def main():
             color_mode=args.color_mode,
             dust=dust,
             dust_rois=dust_rois,
+            algo=args.algo,
+            saturation=1.0,
         )
 
         if output_bytes is None:
@@ -1157,6 +1175,8 @@ def main():
                     color_mode=args.color_mode,
                     dust=dust,
                     dust_rois=dust_rois,
+                    algo=args.algo,
+                    saturation=1.0,
                 )
                 success_count += 1
 

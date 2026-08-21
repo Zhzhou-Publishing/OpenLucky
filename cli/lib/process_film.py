@@ -8,6 +8,16 @@ from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
 from cli.lib.curve.s_curve import auto_pk, auto_latitude_curve, power_curve_raw
 from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
+from cli.lib.process_film_functions.density import (
+    apply_post_gamma_adjustments,
+    auto_base_mask,
+    decrosstalk,
+    estimate_density_limits,
+    mask_to_density,
+    normalize_density,
+    subtract_mask,
+    to_density,
+)
 from cli.lib.dust import remove_defects
 
 # ── 色彩校正模式 ──────────────────────────────────────────────────────────
@@ -138,6 +148,8 @@ def process_film_bytestream_with_params(
     color_mode="skin_protect",
     dust=None,
     dust_rois=None,
+    algo="v1",
+    saturation=1.0,
 ):
     """
     Process byte stream image, supports RAW format toggle
@@ -145,7 +157,40 @@ def process_film_bytestream_with_params(
     dust:     (grain_level, dust_size) or None — presence enables dust removal.
     dust_rois: list of (x1, y1, x2, y2) rects (basis frame when area_basis given,
               otherwise actual-image pixels). pr/024.dust.md
+    algo:     "v1" (default, legacy linear-domain) or "v2" (density-domain,
+              see design/film-color-v2.md). v1 behaviour is byte-identical.
+    saturation: multiplier (1.0 = neutral); used by v2 post-gamma colour.
     """
+    # v2 engine: density-domain inversion. See design/film-color-v2.md.
+    if algo == "v2":
+        return _process_film_v2_bytestream(
+            input_bytes,
+            is_raw=is_raw,
+            mask_r=preset_mask_r,
+            mask_g=preset_mask_g,
+            mask_b=preset_mask_b,
+            preset_gamma=preset_gamma,
+            preset_contrast=preset_contrast,
+            preset_contrast_r=preset_contrast_r,
+            preset_contrast_g=preset_contrast_g,
+            preset_contrast_b=preset_contrast_b,
+            rotate_clockwise=rotate_clockwise,
+            wp_roi_x1=wp_roi_x1,
+            wp_roi_y1=wp_roi_y1,
+            wp_roi_x2=wp_roi_x2,
+            wp_roi_y2=wp_roi_y2,
+            area_basis_w=area_basis_w,
+            area_basis_h=area_basis_h,
+            white_balance=white_balance,
+            exposure_ev=exposure_ev,
+            tone_pivot=tone_pivot,
+            tone_curve=tone_curve,
+            color_mode=color_mode,
+            saturation=saturation,
+            dust=dust,
+            dust_rois=dust_rois,
+        )
+
     # 1. Explicitly decode image
     if is_raw:
         # Process RAW format: use rawpy engine
@@ -474,6 +519,210 @@ def process_film_bytestream_with_params(
     return encoded_img.tobytes() if success else None
 
 
+def _process_film_v2_bytestream(
+    input_bytes,
+    is_raw=False,
+    mask_r=0.0,
+    mask_g=0.0,
+    mask_b=0.0,
+    preset_gamma=1.0,
+    preset_contrast=1.0,
+    preset_contrast_r=1.0,
+    preset_contrast_g=1.0,
+    preset_contrast_b=1.0,
+    rotate_clockwise=0,
+    wp_roi_x1=None,
+    wp_roi_y1=None,
+    wp_roi_x2=None,
+    wp_roi_y2=None,
+    area_basis_w=None,
+    area_basis_h=None,
+    white_balance="auto",
+    exposure_ev=0.0,
+    tone_pivot=0.5,
+    tone_curve=0.5,
+    color_mode="skin_protect",
+    saturation=1.0,
+    dust=None,
+    dust_rois=None,
+):
+    """v2 engine: density-domain inversion.
+
+    See design/film-color-v2.md. Key differences from v1:
+      - works in optical density (-log10(T)) where the mask is *subtracted*,
+        not divided (additive in log domain);
+      - Status M decross-talk matrix (default on);
+      - per-channel D-min/D-max normalization, which both inverts the negative
+        and restores each channel's dynamic range;
+      - manual white-balance (x, y) applied as post-gamma temperature/tint,
+        AFTER normalization and mid-tone alignment (fixes the v1 direction bug);
+      - per-channel contrast applied as density endpoint offsets (decision 1);
+      - exposure as an additive density shift before normalization.
+    """
+    # ── decode (identical input assumptions to v1) ──────────────────────────
+    if is_raw:
+        with rawpy.imread(io.BytesIO(input_bytes)) as raw:
+            img = (
+                raw.postprocess(
+                    demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD,
+                    fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
+                    gamma=(1, 1),
+                    no_auto_bright=True,
+                    output_bps=16,
+                    use_camera_wb=True,
+                    bright=1.0,
+                ).astype(np.float32)
+                / 65535.0
+            )
+        is_16bit_target = True
+    else:
+        nparr = np.frombuffer(input_bytes, np.uint8)
+        img_raw = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+        if img_raw is None:
+            return None
+        img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2RGB).astype(np.float32)
+        max_val = 65535.0 if img_raw.dtype == np.uint16 else 255.0
+        img /= max_val
+        is_16bit_target = img_raw.dtype == np.uint16
+
+    # ── ROI remap (basis frame -> actual frame), same as v1 ─────────────────
+    roi_complete = (
+        wp_roi_x1 is not None
+        and wp_roi_y1 is not None
+        and wp_roi_x2 is not None
+        and wp_roi_y2 is not None
+    )
+    if roi_complete and area_basis_w and area_basis_h:
+        h_actual, w_actual = img.shape[:2]
+        wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2 = resolve_wp_roi_to_actual(
+            (wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
+            (int(area_basis_w), int(area_basis_h)),
+            rotate_clockwise,
+            (w_actual, h_actual),
+        )
+    roi = (wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2) if roi_complete else None
+
+    # ── mask: eyedropper value preferred; auto 99-percentile as fallback ────
+    mask = np.array([mask_r, mask_g, mask_b], dtype=np.float32)
+    if not np.isfinite(mask).all() or mask.min() <= 0.0:
+        mask = np.clip(auto_base_mask(img), 1.0, 255.0)
+    mask_density = mask_to_density(mask)
+
+    # ── density domain: subtract mask, then decross-talk ────────────────────
+    d = to_density(img)
+    d_net = subtract_mask(d, mask_density[None, None, :])
+    d_true = decrosstalk(d_net)  # Status M, default on
+
+    # Endpoints estimated from clean density so exposure below does not
+    # rescale them (limits are computed independently of the render).
+    d_min, d_max = estimate_density_limits(d_true, roi=roi)
+
+    # Decision 1: per-channel contrast becomes density endpoint offsets.
+    # contrast > 1 narrows the range around its midpoint (steeper = more
+    # contrast); contrast < 1 widens it. Each channel scales the global value.
+    channel_contrasts = [
+        preset_contrast * preset_contrast_r,
+        preset_contrast * preset_contrast_g,
+        preset_contrast * preset_contrast_b,
+    ]
+    for i in range(3):
+        mid = (d_min[i] + d_max[i]) / 2.0
+        half = (d_max[i] - d_min[i]) / 2.0 / max(channel_contrasts[i], 1e-3)
+        d_min[i] = mid - half
+        d_max[i] = mid + half
+
+    # Exposure as an additive density shift before normalization: +1 EV lifts
+    # density by log10(2), brightening the positive against the fixed limits.
+    if exposure_ev != 0.0:
+        d_true = d_true + exposure_ev * math.log10(2.0)
+
+    # Normalization both inverts the negative and restores dynamic range.
+    img = np.clip(normalize_density(d_true, d_min, d_max), 0.0, 1.0)
+
+    # ── dust removal (after inversion, before downstream sampling) ──────────
+    if dust is not None and dust_rois:
+        h_img, w_img = img.shape[:2]
+        grain_level, dust_size = dust
+        regions = []
+        for rx in dust_rois:
+            if area_basis_w and area_basis_h:
+                mx1, my1, mx2, my2 = resolve_wp_roi_to_actual(
+                    rx,
+                    (int(area_basis_w), int(area_basis_h)),
+                    rotate_clockwise,
+                    (w_img, h_img),
+                )
+            else:
+                mx1, my1, mx2, my2 = rx
+            regions.append({"shape": "rect", "x1": mx1, "y1": my1, "x2": mx2, "y2": my2})
+        img = remove_defects(
+            img, regions, {"grain_level": grain_level, "dust_size": dust_size}
+        )
+
+    # ── gamma, then mid-tone alignment (decision 2: after normalization) ────
+    if preset_gamma != 1.0:
+        img = np.power(img, 1.0 / preset_gamma)
+    mode_cfg = COLOR_MODES.get(color_mode, COLOR_MODES["skin_protect"])
+    img = apply_gamma_alignment(
+        img,
+        roi=roi,
+        user_ev_bias=0.0,  # shooting intent is not plumbed here (same as v1)
+        protect_latitude=True,
+        strength=mode_cfg["gamma_strength"],
+        skin_protection=mode_cfg["skin_protection"],
+    )
+
+    # ── post-gamma colour: manual WB (x, y) -> temperature/tint ─────────────
+    temperature, tint = 0.0, 0.0
+    if isinstance(white_balance, (list, tuple)) and len(white_balance) == 2:
+        temperature = float(white_balance[0]) / 50.0  # x: -50..50 -> -1..1
+        tint = float(white_balance[1]) / 50.0          # y: -50..50 -> -1..1
+    # "auto"/"none" get no explicit shift: per-channel normalization plus the
+    # mid-tone alignment above already serve auto white balance.
+    img = apply_post_gamma_adjustments(
+        img,
+        saturation=max(-1.0, min(1.0, saturation - 1.0)),
+        temperature=temperature,
+        tint=tint,
+    )
+
+    # ── tone mapping (latitude curve), same semantics as v1 ─────────────────
+    pivot_is_auto = tone_pivot == "auto"
+    curve_is_auto = isinstance(tone_curve, str) and tone_curve.startswith("auto")
+    if pivot_is_auto or curve_is_auto:
+        strength = mode_cfg["tone_strength"]
+        if isinstance(tone_curve, str) and tone_curve.startswith("auto:"):
+            strength = float(tone_curve.split(":", 1)[1])
+        pivot_override = None if pivot_is_auto else float(tone_pivot)
+        auto_p, _ = auto_pk(img, roi=roi, strength=strength, pivot=pivot_override)
+        eff_pivot = auto_p
+        if curve_is_auto:
+            # v2 has no downstream linear auto-levels, so the latitude
+            # predictor is told the stretch is neutral.
+            eff_curve = auto_latitude_curve(
+                img, eff_pivot, roi=roi, contrast=1.0, strength=strength
+            )
+        else:
+            eff_curve = float(tone_curve)
+    else:
+        eff_pivot, eff_curve = tone_pivot, tone_curve
+    img = power_curve_raw(img, p=eff_pivot, k=eff_curve).astype(np.float32)
+
+    # ── encode (same codecs as v1) ──────────────────────────────────────────
+    if rotate_clockwise == 90:
+        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    elif rotate_clockwise == 180:
+        img = cv2.rotate(img, cv2.ROTATE_180)
+    elif rotate_clockwise == 270:
+        img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    img_bgr = cv2.cvtColor(np.clip(img, 0.0, 1.0), cv2.COLOR_RGB2BGR)
+    if is_16bit_target:
+        success, encoded_img = cv2.imencode(".tif", (img_bgr * 65535.0).astype(np.uint16))
+    else:
+        success, encoded_img = cv2.imencode(".png", (img_bgr * 255.0).astype(np.uint8))
+    return encoded_img.tobytes() if success else None
+
+
 def process_film_with_params(
     input_path,
     output_path,
@@ -500,6 +749,8 @@ def process_film_with_params(
     color_mode="skin_protect",
     dust=None,
     dust_rois=None,
+    algo="v1",
+    saturation=1.0,
 ):
     # 1. Read input file as byte stream
     try:
@@ -539,6 +790,8 @@ def process_film_with_params(
         color_mode=color_mode,
         dust=dust,
         dust_rois=dust_rois,
+        algo=algo,
+        saturation=saturation,
     )
 
     # 3. Write output byte stream to file
