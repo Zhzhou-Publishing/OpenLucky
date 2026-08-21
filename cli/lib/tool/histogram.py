@@ -91,14 +91,23 @@ def apply_gamma(channel, gamma, max_val):
 
 
 def compute_channel_histogram(channel, native_bins, downsampling):
-    """Histogram a single channel at native_bins; collapse with max() to downsampling if smaller."""
+    """Histogram a single channel at native_bins; collapse with sum() to downsampling if smaller.
+
+    Summing (not max-pooling) keeps each downsampled bin the true pixel count of
+    its value range. Max-pooling preserves a clipped pile concentrated in a
+    single native bin at full strength while real content spread across many
+    native bins stays tiny, so any black/white-point clipping on the output
+    (which the pipeline always applies) reads as a spike hundreds of times
+    taller than the actual tonal content. Summing makes such end piles
+    proportional to their real pixel share.
+    """
     hist, _ = np.histogram(channel, bins=native_bins, range=(0, native_bins))
 
     if downsampling is None or downsampling >= native_bins:
         return _smooth_histogram(hist)
 
     reshaped = hist.reshape(downsampling, -1)
-    hist = np.max(reshaped, axis=1)
+    hist = np.sum(reshaped, axis=1)
     return _smooth_histogram(hist)
 
 
